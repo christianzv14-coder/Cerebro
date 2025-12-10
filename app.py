@@ -1,9 +1,9 @@
 # app.py
-# Cerebro de Patio – Flask + OpenAI + WhatsApp Cloud API (Meta)
+# Cerebro de Patio – Flask + OpenAI + WhatsApp Cloud API (Meta) con memoria por usuario
 
 import os
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -26,6 +26,34 @@ if not WHATSAPP_PHONE_ID:
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 app = Flask(__name__)
+
+# =========================================================
+# MEMORIA EN RAM POR NÚMERO DE WHATSAPP
+# =========================================================
+# Diccionario: { "numero_whatsapp": [ {role: "...", content: "..."}, ... ] }
+CONVERSATIONS = {}
+# Número máximo de mensajes de historial por usuario (user+assistant mezclados)
+MAX_HISTORY_MESSAGES = 20  # aprox. 10 turnos completos
+
+
+def get_user_history(from_number: str):
+    """Obtiene el historial del usuario desde memoria."""
+    return CONVERSATIONS.get(from_number, [])
+
+
+def save_user_history(from_number: str, history):
+    """Guarda (y recorta) el historial del usuario en memoria."""
+    # Recorta si supera el máximo permitido
+    if len(history) > MAX_HISTORY_MESSAGES:
+        history = history[-MAX_HISTORY_MESSAGES:]
+    CONVERSATIONS[from_number] = history
+
+
+def reset_user_history(from_number: str):
+    """Elimina el historial del usuario."""
+    if from_number in CONVERSATIONS:
+        del CONVERSATIONS[from_number]
+
 
 # =========================================================
 # WEBHOOK – VERIFICACIÓN (GET)
@@ -86,7 +114,7 @@ def receive_message():
 
         message = messages[0]
         from_number = message["from"]          # Número del usuario
-        text_body = message["text"]["body"]    # Texto que escribió
+        text_body = message.get("text", {}).get("body", "").strip()  # Texto que escribió
 
         print(f"Mensaje desde {from_number}: {text_body}")
 
@@ -94,30 +122,71 @@ def receive_message():
         print("Error parseando estructura de WhatsApp:", e)
         return "ok", 200
 
-    # 2) Llamar a OpenAI
+    # 1.1) Comando para resetear memoria por usuario
+    lower_text = text_body.lower()
+    if lower_text in ["reset", "reinicia", "reiniciar", "borrar memoria", "resetear memoria"]:
+        reset_user_history(from_number)
+        reply_reset = (
+            "Listo Christian, reseteé la memoria para este chat. "
+            "Partimos de cero en el patio."
+        )
+        send_whatsapp_message(from_number, reply_reset)
+        return "ok", 200
+
+    # 2) Construir contexto con memoria
+    user_history = get_user_history(from_number)
+
+    # Siempre partimos el mensaje a OpenAI con un system fijo
+    system_message = {
+        "role": "system",
+        "content": (
+            "Eres 'Cerebro de Patio', un supervisor experto de patio en centros de "
+            "distribución y crossdock de e-commerce en Chile. "
+            "Respondes directo, sin rodeos, con foco operativo. "
+            "Conoces conceptos como bloques de salida, andenes, flota tercerizada, "
+            "conductores, rutas, SLAs, atrasos, mermas y seguridad en el patio. "
+            "Recuerda que hablas con Christian, subgerente de operaciones, y tus "
+            "respuestas deben ser accionables en el piso: qué hacer, en qué orden y con quién."
+        ),
+    }
+
+    # Historial + nuevo mensaje del usuario
+    messages_for_openai = [system_message] + user_history + [
+        {"role": "user", "content": text_body}
+    ]
+
+    # 3) Llamar a OpenAI
     try:
         completion = client.chat.completions.create(
             model="gpt-4.1-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "Eres 'Cerebro de Patio', un supervisor experto de patio "
-                        "en centros de distribución y crossdock de e-commerce en Chile. "
-                        "Respondes directo, sin rodeos, con foco operativo."
-                    ),
-                },
-                {"role": "user", "content": text_body},
-            ],
+            messages=messages_for_openai,
         )
         reply = completion.choices[0].message.content
         print("Respuesta de OpenAI:", reply)
 
+        # 3.1) Actualizar memoria: agregamos user y assistant
+        user_history.append({"role": "user", "content": text_body})
+        user_history.append({"role": "assistant", "content": reply})
+        save_user_history(from_number, user_history)
+
     except Exception as e:
         print("Error llamando a OpenAI:", e)
-        reply = "Christian, tuve un problema hablando con el modelo. Intenta de nuevo en un momento."
+        reply = (
+            "Christian, tuve un problema hablando con el modelo. "
+            "Intenta de nuevo en un momento o revisa el servidor."
+        )
 
-    # 3) Enviar respuesta a WhatsApp
+    # 4) Enviar respuesta a WhatsApp
+    send_whatsapp_message(from_number, reply)
+
+    return "ok", 200
+
+
+# =========================================================
+# FUNCIÓN AUXILIAR PARA ENVIAR MENSAJES A WHATSAPP
+# =========================================================
+def send_whatsapp_message(to_number: str, text: str):
+    """Envía un mensaje de texto a WhatsApp usando la Cloud API."""
     url = f"https://graph.facebook.com/v21.0/{WHATSAPP_PHONE_ID}/messages"
     headers = {
         "Authorization": f"Bearer {WHATSAPP_TOKEN}",
@@ -125,9 +194,9 @@ def receive_message():
     }
     payload = {
         "messaging_product": "whatsapp",
-        "to": from_number,
+        "to": to_number,
         "type": "text",
-        "text": {"body": reply},
+        "text": {"body": text},
     }
 
     print("=== REQUEST HACIA WHATSAPP ===")
@@ -140,12 +209,10 @@ def receive_message():
     print("Status:", resp.status_code)
     print("Body:", resp.text)
 
-    return "ok", 200
-
-
 
 # =========================================================
 # MAIN
 # =========================================================
 if __name__ == "__main__":
+    # En dev, Flask corre con debug=True; en prod ponlo en False
     app.run(host="0.0.0.0", port=5000, debug=True)
