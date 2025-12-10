@@ -1,118 +1,151 @@
 # app.py
-# Cerebro de Patio – Backend Flask + OpenAI + Twilio (WhatsApp)
+# Cerebro de Patio – Flask + OpenAI + WhatsApp Cloud API (Meta)
 
 import os
-from flask import Flask, request
-from twilio.twiml.messaging_response import MessagingResponse
-from openai import OpenAI, RateLimitError
+import requests
+from flask import Flask, request, jsonify
+from dotenv import load_dotenv
+from openai import OpenAI
 
 # =========================================================
-# CONFIGURACIÓN OPENAI
+# CARGA VARIABLES DE ENTORNO
 # =========================================================
+load_dotenv()
 
-# Opción simple para pruebas: pegar tu API key aquí
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
+WHATSAPP_PHONE_ID = os.getenv("WHATSAPP_PHONE_ID")
+WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "cerebro_token_123")
 
-# Si prefieres variable de entorno:
-# OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    raise RuntimeError("Falta OPENAI_API_KEY en el .env")
+if not WHATSAPP_TOKEN:
+    raise RuntimeError("Falta WHATSAPP_TOKEN en el .env")
+if not WHATSAPP_PHONE_ID:
+    raise RuntimeError("Falta WHATSAPP_PHONE_ID en el .env")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
-
-# =========================================================
-# CEREBRO DEL SUPERVISOR DE PATIO (SYSTEM PROMPT)
-# =========================================================
-
-SYSTEM_PROMPT = """
-Eres el 'Cerebro de Patio', un supervisor experto de patio y coordinador de flota
-en centros de distribución y crossdock de e-commerce y retail en Chile.
-
-Tu forma de trabajar:
-- Respondes directo, sin relleno, con foco operativo.
-- Siempre propones acciones concretas (qué hacer ahora, qué medir, a quién llamar).
-- Piensas como jefe de turno que cuida SLA, seguridad, orden y costos.
-
-Contexto de tu rol:
-- Gestionas llegada y salida de flotas: última milla, primera milla, troncales y cargas regionales.
-- Aseguras uso eficiente de cortinas/andenes y orden del patio.
-- Reaccionas ante atrasos, ausencias, quiebres de flota y problemas de documentación.
-- Te preocupan KPIs como: cumplimiento de ETA/ETD, % ocupación de cortinas, puntualidad de salidas,
-  uso de backup, y tiempos muertos de camiones y personas.
-
-Estilo de respuesta:
-- Explica siempre en pasos: 1), 2), 3)…
-- Si falta información, parte aclarando qué asumirás.
-- Puedes pedir más datos, pero igual propones un plan base con lo que tienes.
-- Da opciones tipo plan A / plan B cuando haga sentido.
-
-Nunca respondas como modelo genérico de chat. Siempre responde como
-un supervisor senior hablando con otro supervisor/jefe que está en el patio.
-"""
-
-# =========================================================
-# APP FLASK
-# =========================================================
-
 app = Flask(__name__)
 
+# =========================================================
+# WEBHOOK – VERIFICACIÓN (GET)
+# =========================================================
+@app.route("/webhook", methods=["GET"])
+def verify():
+    mode = request.args.get("hub.mode")
+    token = request.args.get("hub.verify_token")
+    challenge = request.args.get("hub.challenge")
 
-@app.route("/", methods=["GET"])
-def health():
-    """Endpoint simple para verificar que el servidor está vivo."""
-    return {"status": "online", "service": "cerebro-patio"}
+    print("=== VERIFICACIÓN WEBHOOK ===")
+    print("mode:", mode)
+    print("token:", token)
+    print("challenge:", challenge)
+
+    if mode == "subscribe" and token == WHATSAPP_VERIFY_TOKEN:
+        return challenge, 200
+
+    return "Token de verificación inválido", 403
 
 
-@app.route("/whatsapp", methods=["POST"])
-def whatsapp_reply():
-    """
-    Endpoint que Twilio llama cuando llega un mensaje de WhatsApp.
-    Espera un parámetro 'Body' con el texto del usuario.
-    Devuelve una respuesta en formato TwiML.
-    """
-    user_message = request.values.get("Body", "").strip()
+# =========================================================
+# WEBHOOK – MENSAJES (POST)
+# =========================================================
+@app.route("/webhook", methods=["POST"])
+def receive_message():
+    # LOG BRUTO PARA DEBUG
+    print("\n\n======================")
+    print(">>> LLEGÓ UN POST A /webhook")
+    print("Headers:", dict(request.headers))
+    print("Raw body:", request.data)
+    print("======================\n")
 
-    # Si no vino mensaje
-    if not user_message:
-        resp = MessagingResponse()
-        resp.message("No recibí mensaje. Intenta de nuevo enviando texto.")
-        return str(resp)
+    # Intentar parsear JSON
+    try:
+        data = request.get_json()
+        print("=== JSON PARSEADO ===")
+        print(data)
+    except Exception as e:
+        print("ERROR parseando JSON:", e)
+        return "ok", 200
 
-    # Llamada al modelo de OpenAI con manejo de errores
+    # Si no hay JSON, salimos
+    if not data:
+        print("No vino JSON en el body")
+        return "ok", 200
+
+    # 1) Extraer mensaje y número
+    try:
+        entry = data["entry"][0]
+        change = entry["changes"][0]
+        value = change["value"]
+
+        messages = value.get("messages")
+        if not messages:
+            print("No hay 'messages' en el payload (probablemente es un status).")
+            return "ok", 200
+
+        message = messages[0]
+        from_number = message["from"]          # Número del usuario
+        text_body = message["text"]["body"]    # Texto que escribió
+
+        print(f"Mensaje desde {from_number}: {text_body}")
+
+    except Exception as e:
+        print("Error parseando estructura de WhatsApp:", e)
+        return "ok", 200
+
+    # 2) Llamar a OpenAI
     try:
         completion = client.chat.completions.create(
-            model="gpt-4.1-mini",  # puedes cambiar a gpt-4.1, gpt-4o-mini, etc.
+            model="gpt-4.1-mini",
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_message},
+                {
+                    "role": "system",
+                    "content": (
+                        "Eres 'Cerebro de Patio', un supervisor experto de patio "
+                        "en centros de distribución y crossdock de e-commerce en Chile. "
+                        "Respondes directo, sin rodeos, con foco operativo."
+                    ),
+                },
+                {"role": "user", "content": text_body},
             ],
-            temperature=0.3,
         )
+        reply = completion.choices[0].message.content
+        print("Respuesta de OpenAI:", reply)
 
-        reply_text = completion.choices[0].message.content
-
-    except RateLimitError:
-        # Sin saldo / límite de uso alcanzado
-        reply_text = (
-            "No puedo responder ahora porque la cuenta de API no tiene saldo o llegó al "
-            "límite de uso. Pide al administrador revisar el billing de OpenAI."
-        )
     except Exception as e:
-        # Error genérico inesperado
-        reply_text = (
-            "Tuve un error técnico procesando la consulta del patio. "
-            "Revisa el servidor o vuelve a intentar en unos minutos.\n\n"
-            f"(Detalle técnico: {type(e).__name__})"
-        )
+        print("Error llamando a OpenAI:", e)
+        reply = "Christian, tuve un problema hablando con el modelo. Intenta de nuevo en un momento."
 
-    # Construir respuesta para WhatsApp (Twilio)
-    resp = MessagingResponse()
-    resp.message(reply_text)
-    return str(resp)
+    # 3) Enviar respuesta a WhatsApp
+    url = f"https://graph.facebook.com/v21.0/{WHATSAPP_PHONE_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": from_number,
+        "type": "text",
+        "text": {"body": reply},
+    }
+
+    print("=== REQUEST HACIA WHATSAPP ===")
+    print("URL:", url)
+    print("Payload:", payload)
+
+    resp = requests.post(url, headers=headers, json=payload)
+
+    print("=== RESPUESTA DE WHATSAPP ===")
+    print("Status:", resp.status_code)
+    print("Body:", resp.text)
+
+    return "ok", 200
+
 
 
 # =========================================================
-# MAIN – Solo para correr localmente
+# MAIN
 # =========================================================
-
 if __name__ == "__main__":
-    # debug=True solo en desarrollo; en producción debe ir en False
     app.run(host="0.0.0.0", port=5000, debug=True)
