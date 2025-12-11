@@ -13,7 +13,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("📊 Predictivo de Consumo MB por Patente (Límite 30 MB)")
+st.title("📊 Predictivo MB por Patente (Límite 30 MB)")
 st.markdown("---")
 
 UMBRAL_MB = 30  # límite por patente
@@ -31,7 +31,7 @@ def load_data():
 df = load_data()
 
 # ============================
-# WIDGETS DE FILTROS (SIEMPRE SOBRE DF COMPLETO)
+# WIDGETS DE FILTROS (SIDEBAR)
 # ============================
 st.sidebar.header("Filtros")
 
@@ -89,7 +89,7 @@ for col in df.columns:
             filtros_extra[col] = seleccion
 
 # ============================
-# APLICAR TODOS LOS FILTROS A DF_FILTRADO
+# APLICAR FILTROS (SIN PATENTE)
 # ============================
 df_filtrado = df.copy()
 
@@ -113,30 +113,161 @@ if cuentas_sel and "Cuenta" in df_filtrado.columns:
 for col, valores in filtros_extra.items():
     df_filtrado = df_filtrado[df_filtrado[col].isin(valores)]
 
-# ============================
-# SELECTOR ÚNICO DE PATENTE (DESPUÉS DE FILTRAR)
-# ============================
-patente_sel = None
-if "Patente" in df_filtrado.columns:
-    patentes_disponibles = df_filtrado["Patente"].dropna().unique().tolist()
+# Guardamos copia base (para opciones de patente)
+df_base_para_patente = df_filtrado.copy()
 
-    if not patentes_disponibles:
-        st.info("No hay patentes disponibles con los filtros actuales.")
+# ---- 4) PATENTE EN SIDEBAR ----
+patente_sel = None
+if "Patente" in df_base_para_patente.columns:
+    patentes_disponibles = sorted(
+        df_base_para_patente["Patente"].dropna().unique().tolist()
+    )
+    opciones_patente = ["(Todas)"] + patentes_disponibles
+    patente_elegida = st.sidebar.selectbox(
+        "Patente",
+        opciones_patente,
+        key="f_patente"
+    )
+    if patente_elegida != "(Todas)":
+        patente_sel = patente_elegida
+        df_filtrado = df_filtrado[df_filtrado["Patente"] == patente_sel]
+
+# ============================
+# 1) RESUMEN POR CUENTA
+# ============================
+st.subheader("📊 Resumen por Cuenta: Patentes sobre 30 MB")
+
+# Inicializo por si no se puede calcular
+resumen_patentes = pd.DataFrame()
+resumen_cuenta = pd.DataFrame()
+
+if {"Cuenta", "Patente", "Fecha", "MB"}.issubset(df_filtrado.columns):
+
+    base = df_filtrado[["Cuenta", "Patente", "Fecha", "MB"]].copy()
+    base["MB"] = pd.to_numeric(base["MB"], errors="coerce").fillna(0)
+    base = base.dropna(subset=["Cuenta", "Patente", "Fecha"])
+
+    if base.empty:
+        st.info("No hay datos para calcular el resumen con los filtros actuales.")
     else:
-        st.subheader("🚗 Patente")
-        patente_sel = st.selectbox(
-            "Selecciona una Patente para analizar:",
-            patentes_disponibles,
-            key="f_patente"
+
+        def resumen_patente(gr):
+            gr = gr.sort_values("Fecha")
+            mb = gr["MB"]
+            consumo_total = mb.sum()
+            dias = gr["Fecha"].dt.date.nunique()
+
+            if dias == 0:
+                consumo_prom = 0
+            else:
+                consumo_prom = consumo_total / dias
+
+            hoy_local = gr["Fecha"].max()
+
+            # Fin de mes de esa patente
+            if hoy_local.month == 12:
+                fin_mes_local = datetime(hoy_local.year, 12, 31)
+            else:
+                fin_mes_local = datetime(hoy_local.year, hoy_local.month + 1, 1) - timedelta(days=1)
+
+            dias_rest = max(0, (fin_mes_local.date() - hoy_local.date()).days)
+            proy = consumo_total + consumo_prom * dias_rest
+
+            ya_pasada = consumo_total >= UMBRAL_MB
+            pasara = (proy > UMBRAL_MB) & (consumo_total < UMBRAL_MB)
+
+            # Día estimado de sobreconsumo
+            dia_exceso_local = pd.NaT
+            if consumo_prom > 0:
+                if consumo_total >= UMBRAL_MB:
+                    dia_exceso_local = hoy_local
+                elif proy > UMBRAL_MB:
+                    mb_faltante = UMBRAL_MB - consumo_total
+                    dias_hasta_exceso = mb_faltante / consumo_prom
+                    dia_exceso_local = hoy_local + timedelta(days=dias_hasta_exceso)
+
+            return pd.Series({
+                "consumo_total": consumo_total,
+                "proy_final": proy,
+                "ya_pasada": ya_pasada,
+                "pasara": pasara,
+                "dia_exceso": dia_exceso_local
+            })
+
+        # Resumen por Cuenta–Patente
+        resumen_patentes = (
+            base
+            .groupby(["Cuenta", "Patente"], as_index=False)
+            .apply(resumen_patente)
+        )
+
+        # Agregado por Cuenta
+        resumen_cuenta = (
+            resumen_patentes
+            .groupby("Cuenta", as_index=False)
+            .agg(
+                patentes_total=("Patente", "nunique"),
+                patentes_sobre_30_actual=("ya_pasada", "sum"),
+                patentes_sobre_30_proyectado=("pasara", "sum"),
+            )
+        )
+
+        resumen_cuenta = resumen_cuenta.sort_values(
+            ["patentes_sobre_30_actual", "patentes_sobre_30_proyectado"],
+            ascending=False
+        )
+
+        st.dataframe(resumen_cuenta, use_container_width=True)
+
+        st.caption(
+            "• **patentes_sobre_30_actual**: ya superaron los 30 MB en el período filtrado.  \n"
+            "• **patentes_sobre_30_proyectado**: aún no pasan los 30 MB, pero se proyecta que los superen antes de fin de mes."
         )
 else:
-    st.warning("No existe la columna 'Patente' en el archivo.")
-    patentes_disponibles = []
+    st.warning("No se encontraron las columnas 'Cuenta', 'Patente', 'Fecha' y 'MB' necesarias para el resumen por cuenta.")
+
+# ============================
+# 2) TABLAS DETALLADAS: PATENTES EN RIESGO
+# ============================
+st.markdown("## 🔍 Detalle de Patentes en Riesgo")
+
+if not resumen_patentes.empty:
+
+    # Patentes que YA pasaron los 30 MB
+    st.subheader("🚨 Patentes que YA pasaron los 30 MB")
+
+    df_ya_pasadas = resumen_patentes[resumen_patentes["ya_pasada"] == True][
+        ["Cuenta", "Patente", "consumo_total"]
+    ].sort_values(["Cuenta", "consumo_total"], ascending=[True, False])
+
+    if df_ya_pasadas.empty:
+        st.success("Ninguna patente ha superado los 30 MB.")
+    else:
+        st.dataframe(df_ya_pasadas, use_container_width=True)
+
+    # Patentes que POR PREDICCIÓN pasarán los 30 MB
+    st.subheader("⚠️ Patentes que POR PREDICCIÓN pasarán los 30 MB este mes")
+
+    df_proyectadas = resumen_patentes[resumen_patentes["pasara"] == True].copy()
+
+    if df_proyectadas.empty:
+        st.success("Ninguna patente se proyecta que supere los 30 MB.")
+    else:
+        df_proyectadas["Día_exceso_mes"] = df_proyectadas["dia_exceso"].dt.day
+
+        df_proyectadas_v = df_proyectadas[
+            ["Cuenta", "Patente", "consumo_total", "proy_final", "Día_exceso_mes"]
+        ].sort_values(["Cuenta", "proy_final"], ascending=[True, False])
+
+        st.dataframe(df_proyectadas_v, use_container_width=True)
+        st.caption("Columna **Día_exceso_mes**: día del mes estimado en que la patente superará los 30 MB.")
+else:
+    st.info("No se pudo generar el detalle porque el resumen está vacío.")
 
 st.markdown("---")
 
 # ============================
-# GRÁFICO 1: MB ACUM + RESTANTE PARA ESA PATENTE
+# 3) MB ACUM + RESTANTE PARA ESA PATENTE
 # ============================
 st.subheader("📊 MB Acum y MB Restante por Patente (límite 30 MB)")
 
@@ -168,14 +299,14 @@ if {"Patente", "MB"}.issubset(df_filtrado.columns) and patente_sel is not None:
     st.plotly_chart(fig_stack, use_container_width=True)
 else:
     if patente_sel is None:
-        st.info("Selecciona una patente para ver el gráfico de acumulado.")
+        st.info("Selecciona una patente en el filtro lateral para ver el gráfico de acumulado.")
     else:
         st.warning("No se encontraron las columnas necesarias 'Patente' y 'MB' para el gráfico de acumulado.")
 
 st.markdown("---")
 
 # ============================
-# GRÁFICO 2: PREDICTIVO PARA LA MISMA PATENTE
+# 4) PREDICTIVO PARA LA MISMA PATENTE
 # ============================
 st.subheader("🔮 Predictivo de Consumo por Patente")
 
@@ -238,8 +369,8 @@ if patente_sel is not None and {"Patente", "Fecha", "MB"}.issubset(df_filtrado.c
         # Proyección
         if consumo_prom > 0 and dias_restantes > 0:
             fechas_proy = pd.date_range(hoy, fin_mes, freq="D")
-            base = df_p["Acum_real"].iloc[-1]
-            valores_proy = base + consumo_prom * (fechas_proy - hoy).days
+            base_acum = df_p["Acum_real"].iloc[-1]
+            valores_proy = base_acum + consumo_prom * (fechas_proy - hoy).days
 
             fig_pred.add_trace(go.Scatter(
                 x=fechas_proy,
@@ -265,7 +396,9 @@ if patente_sel is not None and {"Patente", "Fecha", "MB"}.issubset(df_filtrado.c
 
         st.plotly_chart(fig_pred, use_container_width=True)
 
-        # ---------- Resumen ejecutivo ----------
+        # ============================
+        # 5) RESUMEN DEL MODELO PREDICTIVO
+        # ============================
         st.markdown("### 📌 Resumen del Modelo Predictivo")
 
         st.write(f"**Consumo total actual:** {consumo_total:.2f} MB")
@@ -276,131 +409,18 @@ if patente_sel is not None and {"Patente", "Fecha", "MB"}.issubset(df_filtrado.c
             st.info("No hay suficiente variación de consumo para proyectar tendencia.")
         else:
             if proyeccion_total > UMBRAL_MB:
-                st.error("⚠️ Se proyecta que la patente superará el límite de 30 MB este mes.")
                 if dia_exceso is not None:
-                    st.write(f"   • Día aproximado de sobreconsumo: **{dia_exceso.date()}**")
+                    st.error(
+                        f"⚠️ Se proyecta que la patente superará los 30 MB este mes. "
+                        f"Día estimado de sobreconsumo: **{dia_exceso.date()}** "
+                        f"(día {dia_exceso.day} del mes)."
+                    )
+                else:
+                    st.error("⚠️ Se proyecta que la patente superará los 30 MB este mes.")
             else:
                 st.success("✅ No se proyecta que la patente supere el límite de 30 MB este mes.")
 else:
     if patente_sel is None:
-        st.info("Selecciona una patente para ver el análisis predictivo.")
+        st.info("Selecciona una patente en el filtro lateral para ver el análisis predictivo.")
     else:
         st.warning("No se encontraron las columnas 'Patente', 'Fecha' y 'MB' necesarias para el predictivo.")
-
-# ============================
-# RESUMEN POR CUENTA: PATENTES SOBRE 30 MB
-# ============================
-st.markdown("---")
-st.subheader("📊 Resumen por Cuenta: Patentes sobre 30 MB")
-
-# Inicializo por si no se puede calcular
-resumen_patentes = pd.DataFrame()
-resumen_cuenta = pd.DataFrame()
-
-if {"Cuenta", "Patente", "Fecha", "MB"}.issubset(df_filtrado.columns):
-
-    base = df_filtrado[["Cuenta", "Patente", "Fecha", "MB"]].copy()
-    base["MB"] = pd.to_numeric(base["MB"], errors="coerce").fillna(0)
-    base = base.dropna(subset=["Cuenta", "Patente", "Fecha"])
-
-    if base.empty:
-        st.info("No hay datos para calcular el resumen con los filtros actuales.")
-    else:
-
-        def resumen_patente(gr):
-            gr = gr.sort_values("Fecha")
-            mb = gr["MB"]
-            consumo_total = mb.sum()
-            dias = gr["Fecha"].dt.date.nunique()
-
-            if dias == 0:
-                consumo_prom = 0
-            else:
-                consumo_prom = consumo_total / dias
-
-            hoy_local = gr["Fecha"].max()
-
-            if hoy_local.month == 12:
-                fin_mes_local = datetime(hoy_local.year, 12, 31)
-            else:
-                fin_mes_local = datetime(hoy_local.year, hoy_local.month + 1, 1) - timedelta(days=1)
-
-            dias_rest = max(0, (fin_mes_local.date() - hoy_local.date()).days)
-            proy = consumo_total + consumo_prom * dias_rest
-
-            ya_pasada = consumo_total >= UMBRAL_MB
-            # solo proyectada si AÚN no pasa pero se va a pasar
-            pasara = (proy > UMBRAL_MB) & (consumo_total < UMBRAL_MB)
-
-            return pd.Series({
-                "consumo_total": consumo_total,
-                "proy_final": proy,
-                "ya_pasada": ya_pasada,
-                "pasara": pasara
-            })
-
-        # Resumen por Cuenta–Patente
-        resumen_patentes = (
-            base
-            .groupby(["Cuenta", "Patente"], as_index=False)
-            .apply(resumen_patente)
-        )
-
-        # Agregado por Cuenta
-        resumen_cuenta = (
-            resumen_patentes
-            .groupby("Cuenta", as_index=False)
-            .agg(
-                patentes_total=("Patente", "nunique"),
-                patentes_sobre_30_actual=("ya_pasada", "sum"),
-                patentes_sobre_30_proyectado=("pasara", "sum"),
-            )
-        )
-
-        resumen_cuenta = resumen_cuenta.sort_values(
-            ["patentes_sobre_30_actual", "patentes_sobre_30_proyectado"],
-            ascending=False
-        )
-
-        st.dataframe(resumen_cuenta, use_container_width=True)
-
-        st.caption(
-            "• **patentes_sobre_30_actual**: ya superaron los 30 MB en el período filtrado.  \n"
-            "• **patentes_sobre_30_proyectado**: aún no pasan los 30 MB, pero se proyecta que los superen antes de fin de mes."
-        )
-else:
-    st.warning("No se encontraron las columnas 'Cuenta', 'Patente', 'Fecha' y 'MB' necesarias para el resumen por cuenta.")
-
-# ============================
-# TABLAS DETALLADAS: PATENTES QUE PASARON Y QUE PASARÁN LOS 30 MB
-# ============================
-st.markdown("## 🔍 Detalle de Patentes en Riesgo")
-
-if not resumen_patentes.empty:
-
-    # Patentes que YA pasaron los 30 MB
-    st.subheader("🚨 Patentes que YA pasaron los 30 MB")
-
-    df_ya_pasadas = resumen_patentes[resumen_patentes["ya_pasada"] == True][
-        ["Cuenta", "Patente", "consumo_total"]
-    ].sort_values(["Cuenta", "consumo_total"], ascending=[True, False])
-
-    if df_ya_pasadas.empty:
-        st.success("Ninguna patente ha superado los 30 MB.")
-    else:
-        st.dataframe(df_ya_pasadas, use_container_width=True)
-
-    # Patentes que por proyección pasarán los 30 MB
-    st.subheader("⚠️ Patentes que POR PREDICCIÓN pasarán los 30 MB este mes")
-
-    df_proyectadas = resumen_patentes[resumen_patentes["pasara"] == True][
-        ["Cuenta", "Patente", "consumo_total", "proy_final"]
-    ].sort_values(["Cuenta", "proy_final"], ascending=[True, False])
-
-    if df_proyectadas.empty:
-        st.success("Ninguna patente se proyecta que supere los 30 MB.")
-    else:
-        st.dataframe(df_proyectadas, use_container_width=True)
-
-else:
-    st.info("No se pudo generar el detalle porque el resumen está vacío.")
