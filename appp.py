@@ -29,57 +29,77 @@ def load_data():
 df = load_data()
 
 # ============================
-# FILTROS LATERALES
+# WIDGETS DE FILTROS (SIEMPRE SOBRE DF COMPLETO)
 # ============================
 st.sidebar.header("Filtros")
 
-df_filtrado = df.copy()
-
 # ---- 1) RANGO DE FECHA ----
-if "Fecha" in df_filtrado.columns:
-    min_date = df_filtrado["Fecha"].min()
-    max_date = df_filtrado["Fecha"].max()
+if "Fecha" in df.columns:
+    min_date = df["Fecha"].min()
+    max_date = df["Fecha"].max()
 
     if pd.notna(min_date) and pd.notna(max_date):
         fecha_ini, fecha_fin = st.sidebar.date_input(
             "Rango de Fecha",
-            (min_date.date(), max_date.date())
+            (min_date.date(), max_date.date()),
+            key="f_fecha"
         )
+    else:
+        fecha_ini, fecha_fin = None, None
+else:
+    fecha_ini, fecha_fin = None, None
 
-        mask_fecha = (
-            (df_filtrado["Fecha"].dt.date >= fecha_ini) &
-            (df_filtrado["Fecha"].dt.date <= fecha_fin)
-        )
-        df_filtrado = df_filtrado[mask_fecha]
-
-# ---- 2) FILTRO DE CUENTA (PADRE DE PATENTE) ----
-cuentas_disponibles = (
-    df_filtrado["Cuenta"].dropna().unique().tolist()
-    if "Cuenta" in df_filtrado.columns else []
-)
-
-cuentas_sel = []
-if cuentas_disponibles:
-    cuentas_sel = st.sidebar.multiselect("Cuenta", cuentas_disponibles)
-
-    if cuentas_sel:
-        df_filtrado = df_filtrado[df_filtrado["Cuenta"].isin(cuentas_sel)]
+# ---- 2) CUENTA ----
+if "Cuenta" in df.columns:
+    opciones_cuenta = df["Cuenta"].dropna().unique().tolist()
+    cuentas_sel = st.sidebar.multiselect(
+        "Cuenta",
+        opciones_cuenta,
+        key="f_cuenta"
+    )
+else:
+    cuentas_sel = []
 
 # ---- 3) OTROS FILTROS CATEGÓRICOS (EXCEPTO Fecha, Cuenta, Patente) ----
+filtros_extra = {}
 for col in df.columns:
     if col in ["Fecha", "Cuenta", "Patente"]:
         continue
-
     if df[col].dtype == "object":
-        opciones = df_filtrado[col].dropna().unique().tolist()
+        opciones = df[col].dropna().unique().tolist()
         if not opciones:
             continue
-        seleccion = st.sidebar.multiselect(col, opciones)
+        seleccion = st.sidebar.multiselect(
+            col,
+            opciones,
+            key=f"f_{col}"
+        )
         if seleccion:
-            df_filtrado = df_filtrado[df_filtrado[col].isin(seleccion)]
+            filtros_extra[col] = seleccion
 
 # ============================
-# SELECTOR ÚNICO DE PATENTE (MANDA EN AMBOS GRÁFICOS)
+# APLICAR TODOS LOS FILTROS A DF_FILTRADO
+# ============================
+df_filtrado = df.copy()
+
+# Fecha
+if fecha_ini is not None and fecha_fin is not None and "Fecha" in df_filtrado.columns:
+    mask_fecha = (
+        (df_filtrado["Fecha"].dt.date >= fecha_ini) &
+        (df_filtrado["Fecha"].dt.date <= fecha_fin)
+    )
+    df_filtrado = df_filtrado[mask_fecha]
+
+# Cuenta
+if cuentas_sel and "Cuenta" in df_filtrado.columns:
+    df_filtrado = df_filtrado[df_filtrado["Cuenta"].isin(cuentas_sel)]
+
+# Otros filtros
+for col, valores in filtros_extra.items():
+    df_filtrado = df_filtrado[df_filtrado[col].isin(valores)]
+
+# ============================
+# SELECTOR ÚNICO DE PATENTE (DESPUÉS DE FILTRAR)
 # ============================
 patente_sel = None
 if "Patente" in df_filtrado.columns:
@@ -91,13 +111,17 @@ if "Patente" in df_filtrado.columns:
         st.subheader("🚗 Patente")
         patente_sel = st.selectbox(
             "Selecciona una Patente para analizar:",
-            patentes_disponibles
+            patentes_disponibles,
+            key="f_patente"
         )
+else:
+    st.warning("No existe la columna 'Patente' en el archivo.")
+    patentes_disponibles = []
 
 st.markdown("---")
 
 # ============================
-# GRÁFICO 1: MB ACUM + RESTANTE POR PATENTE
+# GRÁFICO 1: MB ACUM + RESTANTE PARA ESA PATENTE
 # ============================
 st.subheader("📊 MB Acum y MB Restante por Patente (límite 30 MB)")
 
@@ -107,12 +131,10 @@ if {"Patente", "MB"}.issubset(df_filtrado.columns) and patente_sel is not None:
 
     df_filtrado["MB"] = pd.to_numeric(df_filtrado["MB"], errors="coerce").fillna(0)
 
-    # Agrupamos por patente dentro del filtro actual
     df_pat = df_filtrado.groupby("Patente", as_index=False)["MB"].sum()
     df_pat["MB Acum"] = df_pat["MB"]
     df_pat["MB Restante"] = (UMBRAL_MB - df_pat["MB Acum"]).clip(lower=0)
 
-    # 👉 Filtrar SOLO a la patente seleccionada
     df_pat_sel = df_pat[df_pat["Patente"] == patente_sel]
 
     fig_stack = px.bar(
@@ -132,12 +154,15 @@ if {"Patente", "MB"}.issubset(df_filtrado.columns) and patente_sel is not None:
 
     st.plotly_chart(fig_stack, use_container_width=True)
 else:
-    st.warning("No se encontraron las columnas necesarias 'Patente' y 'MB' o no hay patente seleccionada.")
+    if patente_sel is None:
+        st.info("Selecciona una patente para ver el gráfico de acumulado.")
+    else:
+        st.warning("No se encontraron las columnas necesarias 'Patente' y 'MB' para el gráfico de acumulado.")
 
 st.markdown("---")
 
 # ============================
-# GRÁFICO 2: PREDICTIVO POR LA MISMA PATENTE
+# GRÁFICO 2: PREDICTIVO PARA LA MISMA PATENTE
 # ============================
 st.subheader("🔮 Predictivo de Consumo por Patente")
 
