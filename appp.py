@@ -7,13 +7,13 @@ from io import BytesIO
 # CONFIGURACIÓN GENERAL
 # ============================
 st.set_page_config(
-    page_title="REPORTE EXCESO REG - ACUMULADO V2",
+    page_title="REPORTE EXCESO REG - MB por Patente",
     page_icon="📊",
     layout="wide"
 )
 
-st.title("📊 REPORTE EXCESO REG - ACUMULADO V2")
-st.markdown("Esta versión SOLO tiene el gráfico **acumulado por Cuenta**.")
+st.title("📊 REPORTE EXCESO REG - MB por Patente")
+st.markdown("Dash para ver **MB usada vs capacidad 30.720 MB por Patente**.")
 st.markdown("---")
 
 # ============================
@@ -52,60 +52,59 @@ st.dataframe(df_filtrado, use_container_width=True)
 st.markdown("---")
 
 # ============================
-# GRÁFICO ACUMULADO POR CUENTA (Tam Log)
+# GRÁFICO: MB ACUM y MB RESTANTE POR PATENTE (USANDO COLUMNA MB)
 # ============================
-st.subheader("📈 Acumulado de Tam Log por Cuenta hasta 30.720")
+st.subheader("📊 MB Acum y MB Restante por Patente (desde columna MB)")
 
-UMBRAL = 30720
+UMBRAL_MB = 30  # capacidad objetivo
 
-if "Cuenta" in df_filtrado.columns and "Tam Log" in df_filtrado.columns:
-    # 1) Agrupar por cuenta y sumar Tam Log (respetando filtros)
-    df_cuentas = (
+# Validar que existan las columnas necesarias
+if "Patente" in df_filtrado.columns and "MB" in df_filtrado.columns:
+    # 1) Agrupar por Patente y sumar MB
+    df_pat = (
         df_filtrado
-        .groupby("Cuenta", as_index=False)["Tam Log"]
+        .groupby("Patente", as_index=False)["MB"]
         .sum()
     )
 
-    # 2) Ordenar de mayor a menor Tam Log
-    df_cuentas = df_cuentas.sort_values("Tam Log", ascending=False)
+    # 2) Renombrar MB como MB Acum y calcular MB Restante
+    df_pat["MB Acum"] = df_pat["MB"]
+    df_pat["MB Restante"] = (UMBRAL_MB - df_pat["MB Acum"]).clip(lower=0)
 
-    # 3) Calcular acumulado
-    df_cuentas["Acumulado"] = df_cuentas["Tam Log"].cumsum()
+    # 3) Ordenar por MB Acum (de mayor a menor)
+    df_pat = df_pat.sort_values("MB Acum", ascending=False)
 
-    # 4) Quedarnos con las cuentas necesarias hasta llegar al umbral
-    df_sel = df_cuentas[df_cuentas["Acumulado"] <= UMBRAL]
+    # 4) Pasar a formato largo para gráfico apilado
+    df_long = df_pat.melt(
+        id_vars="Patente",
+        value_vars=["MB Acum", "MB Restante"],
+        var_name="Tipo",
+        value_name="MB"
+    )
 
-    # Si el último acumulado es menor al umbral, sumamos la primera cuenta que lo sobrepasa
-    if not df_cuentas[df_cuentas["Acumulado"] > UMBRAL].empty:
-        primera_sobre = df_cuentas[df_cuentas["Acumulado"] > UMBRAL].head(1)
-        df_sel = pd.concat([df_sel, primera_sobre]).drop_duplicates(subset=["Cuenta"])
+    # 5) Gráfico de barras apiladas
+    fig_stack = px.bar(
+        df_long,
+        x="Patente",
+        y="MB",
+        color="Tipo",
+        barmode="stack",
+        title=f"MB Acum y MB Restante por Patente (capacidad {UMBRAL_MB} MB)",
+    )
 
-    if df_sel.empty:
-        st.info("Con los filtros actuales no se alcanza el acumulado de 30.720 Tam Log.")
-    else:
-        fig_acum = px.line(
-            df_sel,
-            x="Cuenta",
-            y="Acumulado",
-            markers=True,
-            title="Acumulado de Tam Log por Cuenta (corte en 30.720)",
-        )
+    fig_stack.update_layout(
+        xaxis_title="Patente",
+        yaxis_title="MB Acum y MB Restante",
+        xaxis_tickangle=45
+    )
 
-        fig_acum.add_hline(
-            y=UMBRAL,
-            line_dash="dash",
-            annotation_text="Objetivo 30.720",
-            annotation_position="top left"
-        )
+    st.plotly_chart(fig_stack, use_container_width=True)
 
-        fig_acum.update_layout(xaxis_tickangle=45)
+    st.subheader("📋 Tabla resumen por Patente")
+    st.dataframe(df_pat[["Patente", "MB Acum", "MB Restante"]], use_container_width=True)
 
-        st.plotly_chart(fig_acum, use_container_width=True)
-
-        st.subheader("📋 Tabla usada en el acumulado")
-        st.dataframe(df_sel, use_container_width=True)
 else:
-    st.warning("No se encontraron las columnas 'Cuenta' y 'Tam Log' en el dataset.")
+    st.warning("No se encontraron las columnas 'Patente' y 'MB' en el dataset.")
 
 st.markdown("---")
 
