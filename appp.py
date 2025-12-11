@@ -119,9 +119,16 @@ df_base_para_patente = df_filtrado.copy()
 # ---- 4) PATENTE EN SIDEBAR ----
 patente_sel = None
 if "Patente" in df_base_para_patente.columns:
-    patentes_disponibles = sorted(
-        df_base_para_patente["Patente"].dropna().unique().tolist()
+    # CAST A STRING PARA EVITAR ERROR int vs str
+    patentes_disponibles = (
+        df_base_para_patente["Patente"]
+        .dropna()
+        .astype(str)         # <--- CLAVE
+        .unique()
+        .tolist()
     )
+    patentes_disponibles = sorted(patentes_disponibles)
+
     opciones_patente = ["(Todas)"] + patentes_disponibles
     patente_elegida = st.sidebar.selectbox(
         "Patente",
@@ -130,6 +137,8 @@ if "Patente" in df_base_para_patente.columns:
     )
     if patente_elegida != "(Todas)":
         patente_sel = patente_elegida
+        # también casteamos a str para comparar
+        df_filtrado["Patente"] = df_filtrado["Patente"].astype(str)
         df_filtrado = df_filtrado[df_filtrado["Patente"] == patente_sel]
 
 # ============================
