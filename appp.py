@@ -13,10 +13,39 @@ st.set_page_config(
     layout="wide"
 )
 
+# ============================
+# SISTEMA DE LOGIN
+# ============================
+USUARIO_CORRECTO = "Position"
+CLAVE_CORRECTA = "101004"
+
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if not st.session_state.logged_in:
+    st.title("🔐 Acceso Restricto - Panel MB Position GPS")
+
+    usuario = st.text_input("Usuario")
+    clave = st.text_input("Contraseña", type="password")
+
+    if st.button("Ingresar"):
+        if usuario == USUARIO_CORRECTO and clave == CLAVE_CORRECTA:
+            st.session_state.logged_in = True
+            st.success("Acceso concedido.")
+            st.rerun()  # 🔥 CORRECTO
+        else:
+            st.error("Usuario o contraseña incorrectos.")
+
+
+    st.stop()  # No avanza a la app si no está logueado
+
+# ============================
+# PARÁMETROS GENERALES
+# ============================
+UMBRAL_MB = 30  # límite por patente
+
 st.title("📊 Predictivo MB por Patente (Límite 30 MB)")
 st.markdown("---")
-
-UMBRAL_MB = 30  # límite por patente
 
 # ============================
 # CARGA DEL ARCHIVO
@@ -49,7 +78,6 @@ if "Fecha" in df.columns:
             key="f_fecha"
         )
 
-        # Puede devolver tupla (rango) o un solo date
         if isinstance(rango_fecha, tuple):
             if len(rango_fecha) == 2:
                 fecha_ini, fecha_fin = rango_fecha
@@ -119,11 +147,10 @@ df_base_para_patente = df_filtrado.copy()
 # ---- 4) PATENTE EN SIDEBAR ----
 patente_sel = None
 if "Patente" in df_base_para_patente.columns:
-    # CAST A STRING PARA EVITAR ERROR int vs str
     patentes_disponibles = (
         df_base_para_patente["Patente"]
         .dropna()
-        .astype(str)         # <--- CLAVE
+        .astype(str)
         .unique()
         .tolist()
     )
@@ -137,7 +164,6 @@ if "Patente" in df_base_para_patente.columns:
     )
     if patente_elegida != "(Todas)":
         patente_sel = patente_elegida
-        # también casteamos a str para comparar
         df_filtrado["Patente"] = df_filtrado["Patente"].astype(str)
         df_filtrado = df_filtrado[df_filtrado["Patente"] == patente_sel]
 
@@ -146,7 +172,6 @@ if "Patente" in df_base_para_patente.columns:
 # ============================
 st.subheader("📊 Resumen por Cuenta: Patentes sobre 30 MB")
 
-# Inicializo por si no se puede calcular
 resumen_patentes = pd.DataFrame()
 resumen_cuenta = pd.DataFrame()
 
@@ -160,7 +185,7 @@ if {"Cuenta", "Patente", "Fecha", "MB"}.issubset(df_filtrado.columns):
         st.info("No hay datos para calcular el resumen con los filtros actuales.")
     else:
 
-        def resumen_patente(gr):
+        def resumen_por_patente(gr):
             gr = gr.sort_values("Fecha")
             mb = gr["MB"]
             consumo_total = mb.sum()
@@ -173,7 +198,6 @@ if {"Cuenta", "Patente", "Fecha", "MB"}.issubset(df_filtrado.columns):
 
             hoy_local = gr["Fecha"].max()
 
-            # Fin de mes de esa patente
             if hoy_local.month == 12:
                 fin_mes_local = datetime(hoy_local.year, 12, 31)
             else:
@@ -185,7 +209,6 @@ if {"Cuenta", "Patente", "Fecha", "MB"}.issubset(df_filtrado.columns):
             ya_pasada = consumo_total >= UMBRAL_MB
             pasara = (proy > UMBRAL_MB) & (consumo_total < UMBRAL_MB)
 
-            # Día estimado de sobreconsumo
             dia_exceso_local = pd.NaT
             if consumo_prom > 0:
                 if consumo_total >= UMBRAL_MB:
@@ -203,14 +226,12 @@ if {"Cuenta", "Patente", "Fecha", "MB"}.issubset(df_filtrado.columns):
                 "dia_exceso": dia_exceso_local
             })
 
-        # Resumen por Cuenta–Patente
         resumen_patentes = (
             base
             .groupby(["Cuenta", "Patente"], as_index=False)
-            .apply(resumen_patente)
+            .apply(resumen_por_patente)
         )
 
-        # Agregado por Cuenta
         resumen_cuenta = (
             resumen_patentes
             .groupby("Cuenta", as_index=False)
@@ -359,7 +380,7 @@ if patente_sel is not None and {"Patente", "Fecha", "MB"}.issubset(df_filtrado.c
         if consumo_prom > 0:
             mb_faltante = UMBRAL_MB - consumo_total
             if mb_faltante <= 0:
-                dia_exceso = hoy  # ya está pasado
+                dia_exceso = hoy
             else:
                 dias_hasta_exceso = mb_faltante / consumo_prom
                 dia_exceso = hoy + timedelta(days=dias_hasta_exceso)
@@ -367,7 +388,6 @@ if patente_sel is not None and {"Patente", "Fecha", "MB"}.issubset(df_filtrado.c
         # ---------- Gráfico ----------
         fig_pred = go.Figure()
 
-        # Real
         fig_pred.add_trace(go.Scatter(
             x=df_p["Fecha"],
             y=df_p["Acum_real"],
@@ -375,7 +395,6 @@ if patente_sel is not None and {"Patente", "Fecha", "MB"}.issubset(df_filtrado.c
             name="Acumulado Real"
         ))
 
-        # Proyección
         if consumo_prom > 0 and dias_restantes > 0:
             fechas_proy = pd.date_range(hoy, fin_mes, freq="D")
             base_acum = df_p["Acum_real"].iloc[-1]
@@ -389,7 +408,6 @@ if patente_sel is not None and {"Patente", "Fecha", "MB"}.issubset(df_filtrado.c
                 line=dict(dash="dash")
             ))
 
-        # Línea límite
         fig_pred.add_hline(
             y=UMBRAL_MB,
             line=dict(color="red", dash="dot"),
