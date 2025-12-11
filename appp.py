@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 # ============================
 # CONFIGURACIÓN GENERAL
@@ -34,20 +34,29 @@ df = load_data()
 st.sidebar.header("Filtros")
 
 # ---- 1) RANGO DE FECHA ----
+fecha_ini, fecha_fin = None, None
+
 if "Fecha" in df.columns:
     min_date = df["Fecha"].min()
     max_date = df["Fecha"].max()
 
     if pd.notna(min_date) and pd.notna(max_date):
-        fecha_ini, fecha_fin = st.sidebar.date_input(
+        rango_fecha = st.sidebar.date_input(
             "Rango de Fecha",
             (min_date.date(), max_date.date()),
             key="f_fecha"
         )
-    else:
-        fecha_ini, fecha_fin = None, None
+
+        # Manejar: rango (tupla) o un solo día
+        if isinstance(rango_fecha, tuple):
+            if len(rango_fecha) == 2:
+                fecha_ini, fecha_fin = rango_fecha
+            elif len(rango_fecha) == 1:
+                fecha_ini = fecha_fin = rango_fecha[0]
+        elif isinstance(rango_fecha, date):
+            fecha_ini = fecha_fin = rango_fecha
 else:
-    fecha_ini, fecha_fin = None, None
+    rango_fecha = None
 
 # ---- 2) CUENTA ----
 if "Cuenta" in df.columns:
@@ -83,10 +92,14 @@ for col in df.columns:
 df_filtrado = df.copy()
 
 # Fecha
-if fecha_ini is not None and fecha_fin is not None and "Fecha" in df_filtrado.columns:
+if (
+    fecha_ini is not None
+    and fecha_fin is not None
+    and "Fecha" in df_filtrado.columns
+):
     mask_fecha = (
-        (df_filtrado["Fecha"].dt.date >= fecha_ini) &
-        (df_filtrado["Fecha"].dt.date <= fecha_fin)
+        (df_filtrado["Fecha"].dt.date >= fecha_ini)
+        & (df_filtrado["Fecha"].dt.date <= fecha_fin)
     )
     df_filtrado = df_filtrado[mask_fecha]
 
