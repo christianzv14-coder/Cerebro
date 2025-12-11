@@ -1,121 +1,165 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 from io import BytesIO
+from datetime import datetime
 
 # ============================
-# CONFIGURACIÓN GENERAL
+# CONFIGURACIÓN
 # ============================
-st.set_page_config(
-    page_title="REPORTE EXCESO REG - MB por Patente",
-    page_icon="📊",
-    layout="wide"
-)
-
-st.title("📊 REPORTE EXCESO REG - MB por Patente")
-st.markdown("MB usada vs capacidad **30 MB** por Patente (columna MB).")
+st.set_page_config(page_title="Predictivo MB por Patente", page_icon="📊", layout="wide")
+st.title("📊 Predictivo de Consumo MB por Patente (Límite 30 MB)")
 st.markdown("---")
 
 # ============================
-# CARGA DEL ARCHIVO
+# CARGAR DATA
 # ============================
 @st.cache_data
 def load_data():
-    ruta = "Reporte_exceso_reg.xlsx"  # Debe estar en la misma carpeta del appp.py
-    df = pd.read_excel(ruta)
+    df = pd.read_excel("Reporte_exceso_reg.xlsx")
+    if "Fecha" in df.columns:
+        df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
     return df
 
 df = load_data()
 
 # ============================
-# FILTROS LATERALES
+# FILTRO: RANGO DE FECHAS
 # ============================
 st.sidebar.header("Filtros")
 
-filtros = {}
+df_filtrado = df.copy()
 
+if "Fecha" in df_filtrado.columns:
+    min_date = df_filtrado["Fecha"].min()
+    max_date = df_filtrado["Fecha"].max()
+
+    fecha_ini, fecha_fin = st.sidebar.date_input(
+        "Rango de Fecha",
+        (min_date.date(), max_date.date())
+    )
+
+    mask = (df_filtrado["Fecha"].dt.date >= fecha_ini) & (df_filtrado["Fecha"].dt.date <= fecha_fin)
+    df_filtrado = df_filtrado[mask]
+
+# ============================
+# FILTROS CATEGÓRICOS
+# ============================
 for col in df.columns:
-    if df[col].dtype == "object":
+    if col in ["Fecha"]:
+        continue
+
+    if df[col].dtype == object:
         opciones = df[col].dropna().unique().tolist()
         seleccion = st.sidebar.multiselect(col, opciones)
         if seleccion:
-            filtros[col] = seleccion
-
-# Aplicar filtros
-df_filtrado = df.copy()
-for col, valores in filtros.items():
-    df_filtrado = df_filtrado[df_filtrado[col].isin(valores)]
-
-st.subheader("📁 Data filtrada")
-st.dataframe(df_filtrado, use_container_width=True)
-
-st.markdown("---")
+            df_filtrado = df_filtrado[df_filtrado[col].isin(seleccion)]
 
 # ============================
-# GRÁFICO: MB ACUM y MB RESTANTE POR PATENTE (MB, límite 30 MB)
+# GRÁFICO 1: MB ACUM + RESTANTE
 # ============================
-st.subheader("📊 MB Acum y MB Restante por Patente (límite 30 MB)")
-
-UMBRAL_MB = 30  # capacidad objetivo por patente
-
 if "Patente" in df_filtrado.columns and "MB" in df_filtrado.columns:
-    # Asegurar que MB sea numérico
+
     df_filtrado["MB"] = pd.to_numeric(df_filtrado["MB"], errors="coerce").fillna(0)
 
-    # 1) Agrupar por Patente y sumar MB
-    df_pat = (
-        df_filtrado
-        .groupby("Patente", as_index=False)["MB"]
-        .sum()
-    )
-
-    # 2) Calcular MB Acum y MB Restante
+    df_pat = df_filtrado.groupby("Patente", as_index=False)["MB"].sum()
     df_pat["MB Acum"] = df_pat["MB"]
-    df_pat["MB Restante"] = (UMBRAL_MB - df_pat["MB Acum"]).clip(lower=0)
-
-    # 3) Ordenar por MB Acum (de mayor a menor)
+    df_pat["MB Restante"] = (30 - df_pat["MB Acum"]).clip(lower=0)
     df_pat = df_pat.sort_values("MB Acum", ascending=False)
 
-    # 4) Gráfico de barras apiladas SIN melt
-    fig_stack = px.bar(
+    fig = px.bar(
         df_pat,
         x="Patente",
-        y=["MB Acum", "MB Restante"],   # columnas en ancho
-        barmode="stack",
-        title=f"MB Acum y MB Restante por Patente (capacidad {UMBRAL_MB} MB)",
+        y=["MB Acum", "MB Restante"],
+        title="MB Acumulado vs MB Restante (Límite 30 MB)",
+        barmode="stack"
     )
-
-    fig_stack.update_layout(
-        xaxis_title="Patente",
-        yaxis_title="MB",
-        xaxis_tickangle=45,
-        legend_title_text=""
-    )
-
-    st.plotly_chart(fig_stack, use_container_width=True)
-
-    st.subheader("📋 Tabla resumen por Patente")
-    st.dataframe(df_pat[["Patente", "MB Acum", "MB Restante"]], use_container_width=True)
-
-else:
-    st.warning("No se encontraron las columnas 'Patente' y 'MB' en el dataset.")
-
-st.markdown("---")
+    fig.update_layout(xaxis_tickangle=45)
+    st.plotly_chart(fig, use_container_width=True)
 
 # ============================
-# DESCARGA DEL DATASET FILTRADO
+# GRÁFICO 2: PREDICTIVO
 # ============================
-st.subheader("⬇️ Descargar datos filtrados")
+st.subheader("🔮 Predictivo de Consumo por Patente")
 
-def convertir_excel(df_in):
-    buffer = BytesIO()
-    df_in.to_excel(buffer, index=False, sheet_name="Filtrado")
-    buffer.seek(0)
-    return buffer
+if "Patente" in df_filtrado.columns:
 
-st.download_button(
-    label="Descargar Excel filtrado",
-    data=convertir_excel(df_filtrado),
-    file_name="data_filtrada.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+    patentes = df_filtrado["Patente"].unique()
+    patente_sel = st.selectbox("Selecciona una Patente para analizar:", patentes)
+
+    df_p = df_filtrado[df_filtrado["Patente"] == patente_sel].copy()
+
+    # Ordenar por fecha
+    df_p = df_p.sort_values("Fecha")
+
+    # Acumulado real
+    df_p["Acum_real"] = df_p["MB"].cumsum()
+
+    # Promedio diario
+    dias_distintos = df_p["Fecha"].dt.date.nunique()
+    consumo_prom = df_p["MB"].sum() / dias_distintos
+
+    # Proyección lineal hasta fin de mes
+    hoy = df_p["Fecha"].max()
+    fin_mes = datetime(hoy.year, hoy.month + 1, 1) - pd.Timedelta(days=1)
+    dias_restantes = (fin_mes.date() - hoy.date()).days
+
+    proyeccion_total = df_p["MB"].sum() + consumo_prom * dias_restantes
+
+    # Día estimado de sobreconsumo
+    if consumo_prom > 0:
+        dias_hasta_exceso = max(0, (30 - df_p["MB"].sum()) / consumo_prom)
+        dia_exceso = hoy + pd.Timedelta(days=dias_hasta_exceso)
+    else:
+        dia_exceso = None
+
+    # Graficar tendencia real + proyección
+    fig2 = go.Figure()
+
+    # Real
+    fig2.add_trace(go.Scatter(
+        x=df_p["Fecha"],
+        y=df_p["Acum_real"],
+        mode="lines+markers",
+        name="Acumulado Real"
+    ))
+
+    # Proyección (solo si tiene promedio > 0)
+    if consumo_prom > 0:
+        fechas_proy = pd.date_range(hoy, fin_mes, freq="D")
+        valores_proy = df_p["Acum_real"].iloc[-1] + consumo_prom * (fechas_proy - hoy).days
+
+        fig2.add_trace(go.Scatter(
+            x=fechas_proy,
+            y=valores_proy,
+            mode="lines",
+            name="Proyección",
+            line=dict(dash="dash")
+        ))
+
+    # Línea límite
+    fig2.add_hline(y=30, line=dict(color="red", dash="dot"), annotation_text="Límite 30 MB")
+
+    fig2.update_layout(title=f"Predictivo de Consumo para Patente {patente_sel}",
+                       xaxis_title="Fecha",
+                       yaxis_title="MB Acumulado")
+
+    st.plotly_chart(fig2, use_container_width=True)
+
+    # ============================
+    # RESULTADOS CLAVE
+    # ============================
+    st.markdown("### 📌 Resultados del Modelo Predictivo")
+
+    st.write(f"**Consumo diario promedio:** {consumo_prom:.2f} MB/día")
+    st.write(f"**MB actual:** {df_p['MB'].sum():.2f} MB")
+    st.write(f"**MB proyectado al fin de mes:** {proyeccion_total:.2f} MB")
+
+    if dia_exceso:
+        if proyeccion_total > 30:
+            st.error(f"⚠️ Se proyecta que la patente **superará los 30 MB** alrededor del **{dia_exceso.date()}**.")
+        else:
+            st.success("No se proyecta que supere los 30 MB este mes.")
+    else:
+        st.info("No hay suficiente información para proyectar sobreconsumo.")
