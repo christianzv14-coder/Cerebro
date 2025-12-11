@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 st.title("📊 REPORTE EXCESO REG - MB por Patente")
-st.markdown("Dash para ver **MB usada vs capacidad 30.720 MB por Patente**.")
+st.markdown("MB usada vs capacidad **30 MB** por Patente (columna MB).")
 st.markdown("---")
 
 # ============================
@@ -52,14 +52,16 @@ st.dataframe(df_filtrado, use_container_width=True)
 st.markdown("---")
 
 # ============================
-# GRÁFICO: MB ACUM y MB RESTANTE POR PATENTE (USANDO COLUMNA MB)
+# GRÁFICO: MB ACUM y MB RESTANTE POR PATENTE (MB, límite 30 MB)
 # ============================
-st.subheader("📊 MB Acum y MB Restante por Patente (desde columna MB)")
+st.subheader("📊 MB Acum y MB Restante por Patente (límite 30 MB)")
 
-UMBRAL_MB = 30  # capacidad objetivo
+UMBRAL_MB = 30  # capacidad objetivo por patente
 
-# Validar que existan las columnas necesarias
 if "Patente" in df_filtrado.columns and "MB" in df_filtrado.columns:
+    # Asegurar que MB sea numérico
+    df_filtrado["MB"] = pd.to_numeric(df_filtrado["MB"], errors="coerce").fillna(0)
+
     # 1) Agrupar por Patente y sumar MB
     df_pat = (
         df_filtrado
@@ -67,35 +69,27 @@ if "Patente" in df_filtrado.columns and "MB" in df_filtrado.columns:
         .sum()
     )
 
-    # 2) Renombrar MB como MB Acum y calcular MB Restante
+    # 2) Calcular MB Acum y MB Restante
     df_pat["MB Acum"] = df_pat["MB"]
     df_pat["MB Restante"] = (UMBRAL_MB - df_pat["MB Acum"]).clip(lower=0)
 
     # 3) Ordenar por MB Acum (de mayor a menor)
     df_pat = df_pat.sort_values("MB Acum", ascending=False)
 
-    # 4) Pasar a formato largo para gráfico apilado
-    df_long = df_pat.melt(
-        id_vars="Patente",
-        value_vars=["MB Acum", "MB Restante"],
-        var_name="Tipo",
-        value_name="MB"
-    )
-
-    # 5) Gráfico de barras apiladas
+    # 4) Gráfico de barras apiladas SIN melt
     fig_stack = px.bar(
-        df_long,
+        df_pat,
         x="Patente",
-        y="MB",
-        color="Tipo",
+        y=["MB Acum", "MB Restante"],   # columnas en ancho
         barmode="stack",
         title=f"MB Acum y MB Restante por Patente (capacidad {UMBRAL_MB} MB)",
     )
 
     fig_stack.update_layout(
         xaxis_title="Patente",
-        yaxis_title="MB Acum y MB Restante",
-        xaxis_tickangle=45
+        yaxis_title="MB",
+        xaxis_tickangle=45,
+        legend_title_text=""
     )
 
     st.plotly_chart(fig_stack, use_container_width=True)
