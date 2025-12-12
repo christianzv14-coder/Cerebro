@@ -66,7 +66,14 @@ app = Flask(__name__)
 # =========================================================
 # CONFIGURACIÓN SQLALCHEMY
 # =========================================================
-engine = create_engine(DATABASE_URL, echo=False, future=True)
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,
+    future=True,
+    pool_pre_ping=True,   # verifica si la conexión sigue viva antes de usarla
+    pool_recycle=300,     # recicla conexiones del pool cada 5 minutos
+)
+
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 Base = declarative_base()
 
@@ -260,8 +267,13 @@ def receive_message():
         send_whatsapp_message(from_number, reply_reset)
         return "ok", 200
 
-    # Obtener historial desde BD
-    user_history = get_user_history(from_number)
+    # Obtener historial desde BD (sin romper si la BD falla)
+    try:
+        user_history = get_user_history(from_number)
+    except Exception as e:
+        print("ERROR en get_user_history, sigo sin historial (BD caída):", repr(e))
+        user_history = []
+
 
     # System prompt maestro
     system_message = {
