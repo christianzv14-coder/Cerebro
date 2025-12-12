@@ -1,21 +1,32 @@
 # app.py
 # Cerebro de Patio – Flask + OpenAI + WhatsApp Cloud API (Meta)
-# - Memoria por usuario en RAM
-# - Filtro de tipo de mensaje
-# - Deduplicación de mensajes
-# - Listo para correr en local y en la nube (Render/Railway/etc.)
+# - Memoria persistente en base de datos (SQLite / Postgres)
+# - Memoria por usuario basada en tablas users + messages
+# - Filtro de tipo de mensaje y deduplicación de mensajes
+# - Listo para local y nube (Render/Railway/etc.)
 
 import os
+from datetime import datetime
+
 import requests
 from flask import Flask, request
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from sqlalchemy import (
+    create_engine,
+    Column,
+    Integer,
+    String,
+    Text,
+    DateTime,
+    ForeignKey,
+)
+from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+
 # =========================================================
 # CARGA DE VARIABLES DE ENTORNO
 # =========================================================
-# En local puedes usar un archivo .env
-# En la nube, la plataforma inyecta las variables al entorno.
 load_dotenv()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -30,6 +41,11 @@ if not WHATSAPP_TOKEN:
 if not WHATSAPP_PHONE_ID:
     raise RuntimeError("Falta WHATSAPP_PHONE_ID en las variables de entorno")
 
+# Base de datos:
+# - En local: usa SQLite (cerebro.db)
+# - En nube: define DATABASE_URL (ej: Postgres)
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///cerebro.db")
+
 # Cliente OpenAI (SDK nuevo)
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -37,32 +53,103 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 app = Flask(__name__)
 
 # =========================================================
-# MEMORIA EN RAM POR NÚMERO DE WHATSAPP
+# CONFIGURACIÓN SQLALCHEMY
 # =========================================================
-# Diccionario: { "numero_whatsapp": [ {role: "...", content: "..."}, ... ] }
-CONVERSATIONS = {}
-MAX_HISTORY_MESSAGES = 20  # Aprox. 10 turnos (user+assistant)
+engine = create_engine(DATABASE_URL, echo=False, future=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+Base = declarative_base()
 
-# Set para evitar procesar el mismo mensaje varias veces
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    phone = Column(String(32), unique=True, index=True)
+    name = Column(String(255), nullable=True)  # reservado para futuro
+    # futuro: empresa_id, rol, etc.
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    role = Column(String(16))  # 'user' / 'assistant'
+    content = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", backref="messages")
+
+
+# Crear tablas si no existen
+Base.metadata.create_all(bind=engine)
+
+# Historial máximo por usuario (en mensajes, user+assistant)
+MAX_HISTORY_MESSAGES = 20
+
+# Set en RAM para deduplicar message_id de WhatsApp
 PROCESSED_MESSAGE_IDS = set()
 
 
-def get_user_history(from_number: str):
-    """Obtiene el historial del usuario desde memoria (RAM)."""
-    return CONVERSATIONS.get(from_number, [])
+# =========================================================
+# FUNCIONES AUXILIARES DE BASE DE DATOS
+# =========================================================
+def get_db_session():
+    """Crea un nuevo Session; usar con with para cerrar automáticamente."""
+    return SessionLocal()
 
 
-def save_user_history(from_number: str, history):
-    """Guarda (y recorta) el historial del usuario en memoria."""
-    if len(history) > MAX_HISTORY_MESSAGES:
-        history = history[-MAX_HISTORY_MESSAGES:]
-    CONVERSATIONS[from_number] = history
+def get_or_create_user_by_phone(db, phone: str) -> User:
+    """Obtiene el usuario por teléfono; si no existe, lo crea."""
+    user = db.query(User).filter(User.phone == phone).first()
+    if not user:
+        user = User(phone=phone)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    return user
 
 
-def reset_user_history(from_number: str):
-    """Elimina el historial del usuario en memoria."""
-    if from_number in CONVERSATIONS:
-        del CONVERSATIONS[from_number]
+def get_user_history(phone: str):
+    """
+    Devuelve el historial de conversación de un usuario como
+    lista de {role, content}, limitado a MAX_HISTORY_MESSAGES.
+    """
+    with get_db_session() as db:
+        user = db.query(User).filter(User.phone == phone).first()
+        if not user:
+            return []
+
+        msgs = (
+            db.query(Message)
+            .filter(Message.user_id == user.id)
+            .order_by(Message.created_at.asc())
+            .all()
+        )
+
+        history = [{"role": m.role, "content": m.content} for m in msgs]
+        if len(history) > MAX_HISTORY_MESSAGES:
+            history = history[-MAX_HISTORY_MESSAGES:]
+        return history
+
+
+def append_message(phone: str, role: str, content: str):
+    """Guarda un mensaje en la BD asociado al teléfono del usuario."""
+    with get_db_session() as db:
+        user = get_or_create_user_by_phone(db, phone)
+        msg = Message(user_id=user.id, role=role, content=content)
+        db.add(msg)
+        db.commit()
+
+
+def reset_user_history(phone: str):
+    """Borra todos los mensajes asociados a un teléfono."""
+    with get_db_session() as db:
+        user = db.query(User).filter(User.phone == phone).first()
+        if not user:
+            return
+        db.query(Message).filter(Message.user_id == user.id).delete()
+        db.commit()
 
 
 # =========================================================
@@ -70,11 +157,7 @@ def reset_user_history(from_number: str):
 # =========================================================
 @app.route("/", methods=["GET"])
 def healthcheck():
-    """
-    Endpoint simple para comprobar que el servicio está vivo.
-    Útil para pruebas en la nube (Render/Railway/etc.).
-    """
-    return "Cerebro de Patio está corriendo.", 200
+    return "Cerebro de Patio está corriendo con memoria en BD.", 200
 
 
 # =========================================================
@@ -82,10 +165,6 @@ def healthcheck():
 # =========================================================
 @app.route("/webhook", methods=["GET"])
 def verify():
-    """
-    Endpoint que Meta (WhatsApp Cloud) usa una sola vez
-    para verificar que el webhook es tuyo.
-    """
     mode = request.args.get("hub.mode")
     token = request.args.get("hub.verify_token")
     challenge = request.args.get("hub.challenge")
@@ -95,9 +174,7 @@ def verify():
     print("token:", token)
     print("challenge:", challenge)
 
-    # Meta envía mode=subscribe y el verify_token que tú configuraste
     if mode == "subscribe" and token == WHATSAPP_VERIFY_TOKEN:
-        # Debes devolver el challenge tal cual, con status 200
         return challenge, 200
 
     return "Token de verificación inválido", 403
@@ -108,17 +185,12 @@ def verify():
 # =========================================================
 @app.route("/webhook", methods=["POST"])
 def receive_message():
-    """
-    Endpoint que recibe los mensajes de WhatsApp.
-    Aquí parseamos el JSON, filtramos, usamos OpenAI y respondemos.
-    """
     print("\n\n======================")
     print(">>> LLEGÓ UN POST A /webhook")
     print("Headers:", dict(request.headers))
     print("Raw body:", request.data)
     print("======================\n")
 
-    # 1) Intentar parsear JSON
     try:
         data = request.get_json()
         print("=== JSON PARSEADO ===")
@@ -131,7 +203,7 @@ def receive_message():
         print("No vino JSON en el body")
         return "ok", 200
 
-    # 2) Extraer mensaje y número (solo si viene 'messages')
+    # Extraer mensaje y número
     try:
         entry = data["entry"][0]
         change = entry["changes"][0]
@@ -144,7 +216,7 @@ def receive_message():
 
         message = messages[0]
 
-        # 2.1) Deduplicación por message_id
+        # Deduplicación por message_id
         message_id = message.get("id")
         if message_id:
             if message_id in PROCESSED_MESSAGE_IDS:
@@ -152,13 +224,12 @@ def receive_message():
                 return "ok", 200
             PROCESSED_MESSAGE_IDS.add(message_id)
 
-        # 2.2) Solo aceptamos mensajes de texto
         message_type = message.get("type")
         if message_type != "text":
             print(f"Mensaje ignorado: tipo '{message_type}' no soportado.")
             return "ok", 200
 
-        from_number = message["from"]  # Número del usuario (incluye código país)
+        from_number = message["from"]
         text_body = message.get("text", {}).get("body", "").strip()
 
         print(f"Mensaje desde {from_number}: {text_body}")
@@ -167,7 +238,7 @@ def receive_message():
         print("Error parseando estructura de WhatsApp:", e)
         return "ok", 200
 
-    # 3) Comando para resetear memoria por usuario
+    # Comando para resetear memoria
     lower_text = text_body.lower()
     if lower_text in ["reset", "reinicia", "reiniciar", "borrar memoria", "resetear memoria"]:
         reset_user_history(from_number)
@@ -178,10 +249,10 @@ def receive_message():
         send_whatsapp_message(from_number, reply_reset)
         return "ok", 200
 
-    # 4) Construir contexto con memoria
+    # Obtener historial desde BD
     user_history = get_user_history(from_number)
 
-    # Mensaje de sistema (rol del asistente)
+    # System prompt maestro
     system_message = {
         "role": "system",
         "content": (
@@ -191,16 +262,15 @@ def receive_message():
             "Conoces conceptos como bloques de salida, andenes, flota tercerizada, "
             "conductores, rutas, SLAs, atrasos, mermas y seguridad en el patio. "
             "Hablas con Christian, subgerente de operaciones, y tus respuestas deben ser "
-            "accionables en el piso: qué hacer, en qué orden y con quién."
+            'accionables en el piso: qué hacer, en qué orden y con quién. '
+            "Si no tienes información suficiente, acláralo y pide datos adicionales."
         ),
     }
 
-    # Historial + nuevo mensaje del usuario
     messages_for_openai = [system_message] + user_history + [
         {"role": "user", "content": text_body}
     ]
 
-    # 5) Llamar a OpenAI
     try:
         completion = client.chat.completions.create(
             model="gpt-4.1-mini",
@@ -209,10 +279,9 @@ def receive_message():
         reply = completion.choices[0].message.content
         print("Respuesta de OpenAI:", reply)
 
-        # Actualizar memoria: agregamos user y assistant
-        user_history.append({"role": "user", "content": text_body})
-        user_history.append({"role": "assistant", "content": reply})
-        save_user_history(from_number, user_history)
+        # Guardar en BD el mensaje del usuario y la respuesta
+        append_message(from_number, "user", text_body)
+        append_message(from_number, "assistant", reply)
 
     except Exception as e:
         print("Error llamando a OpenAI:", e)
@@ -221,9 +290,7 @@ def receive_message():
             "Intenta de nuevo en un momento o revisa el servidor."
         )
 
-    # 6) Enviar respuesta a WhatsApp
     send_whatsapp_message(from_number, reply)
-
     return "ok", 200
 
 
@@ -231,7 +298,6 @@ def receive_message():
 # FUNCIÓN AUXILIAR PARA ENVIAR MENSAJES A WHATSAPP
 # =========================================================
 def send_whatsapp_message(to_number: str, text: str):
-    """Envía un mensaje de texto a WhatsApp usando la Cloud API."""
     url = f"https://graph.facebook.com/v21.0/{WHATSAPP_PHONE_ID}/messages"
     headers = {
         "Authorization": f"Bearer {WHATSAPP_TOKEN}",
@@ -258,11 +324,9 @@ def send_whatsapp_message(to_number: str, text: str):
 
 
 # =========================================================
-# MAIN (solo para entorno local)
-# En la nube se usará: gunicorn app:app
+# MAIN (solo local)
 # =========================================================
 if __name__ == "__main__":
-    # En local puedes usar FLASK_DEBUG=true para ver más logs
     debug_mode = os.getenv("FLASK_DEBUG", "true").lower() == "true"
     port = int(os.getenv("PORT", "5000"))
     app.run(host="0.0.0.0", port=port, debug=debug_mode)
