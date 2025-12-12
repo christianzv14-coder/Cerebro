@@ -335,14 +335,10 @@ def send_whatsapp_message(to_number: str, text: str):
 
 
 # =========================================================
-# MAIN (local o Railway)
+# MAIN (solo local)
 # =========================================================
 if __name__ == "__main__":
-    # Railway asigna el puerto automáticamente en la variable PORT
-    debug_mode = False
-    
-    # Default cambiado a 8000 por compatibilidad
-    port = int(os.getenv("PORT", "8000"))
+    # Este bloque SOLO se ejecuta cuando corres: python app.py
+    app.run(host="0.0.0.0", port=8000, debug=True)
 
-    app.run(host="0.0.0.0", port=port, debug=debug_mode)
 
