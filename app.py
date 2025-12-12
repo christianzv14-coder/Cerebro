@@ -7,6 +7,7 @@
 
 import os
 from datetime import datetime
+from pathlib import Path  # NUEVO: para mostrar ruta real de la BD
 
 import requests
 from flask import Flask, request
@@ -45,6 +46,16 @@ if not WHATSAPP_PHONE_ID:
 # - En local: usa SQLite (cerebro.db)
 # - En nube: define DATABASE_URL (ej: Postgres)
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///cerebro.db")
+
+# Loguear qué BD se está usando y dónde está el archivo si es SQLite
+if DATABASE_URL.startswith("sqlite:///"):
+    db_file = DATABASE_URL.replace("sqlite:///", "", 1)
+    db_abs_path = Path(db_file).resolve()
+    print(">>> BASE DE DATOS USADA: SQLite")
+    print(f">>> ARCHIVO BD: {db_abs_path}")
+else:
+    print(">>> BASE DE DATOS USADA por DATABASE_URL:")
+    print(f">>> {DATABASE_URL}")
 
 # Cliente OpenAI (SDK nuevo)
 client = OpenAI(api_key=OPENAI_API_KEY)
@@ -262,7 +273,7 @@ def receive_message():
             "Conoces conceptos como bloques de salida, andenes, flota tercerizada, "
             "conductores, rutas, SLAs, atrasos, mermas y seguridad en el patio. "
             "Hablas con Christian, subgerente de operaciones, y tus respuestas deben ser "
-            'accionables en el piso: qué hacer, en qué orden y con quién. '
+            "accionables en el piso: qué hacer, en qué orden y con quién. "
             "Si no tienes información suficiente, acláralo y pide datos adicionales."
         ),
     }
@@ -327,6 +338,7 @@ def send_whatsapp_message(to_number: str, text: str):
 # MAIN (solo local)
 # =========================================================
 if __name__ == "__main__":
-    debug_mode = os.getenv("FLASK_DEBUG", "true").lower() == "true"
+    # Para evitar el carrusel de "Detected change", lo dejamos en False.
+    debug_mode = False
     port = int(os.getenv("PORT", "5000"))
     app.run(host="0.0.0.0", port=port, debug=debug_mode)
