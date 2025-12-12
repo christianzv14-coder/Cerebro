@@ -335,10 +335,14 @@ def send_whatsapp_message(to_number: str, text: str):
 
 
 # =========================================================
-# MAIN (solo local)
+# MAIN (local o Railway)
 # =========================================================
 if __name__ == "__main__":
-    # Para evitar el carrusel de "Detected change", lo dejamos en False.
+    # Railway asigna el puerto automáticamente en la variable PORT
     debug_mode = False
-    port = int(os.getenv("PORT", "5000"))
+    
+    # Default cambiado a 8000 por compatibilidad
+    port = int(os.getenv("PORT", "8000"))
+
     app.run(host="0.0.0.0", port=port, debug=debug_mode)
+
