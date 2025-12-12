@@ -44,8 +44,6 @@ COSTO_ILIMITADO = 5874          # 1 vez por mes
 COSTO_BASE_ENTEL = 1000         # 1 vez por mes (solo NO ilimitados)
 COSTO_MB_ADICIONAL_ENTEL = 347  # por MB sobre 30 (solo NO ilimitados)
 UMBRAL_RECOMENDAR_ILIMITADO = 45
-
-# Si tus textos vienen distintos, agrega aquí
 ENTEL_SET = {"ENTEL", "ENTEL GLOBAL", "ENTEL MANAGER"}
 
 st.title("📊 Predictivo MB por Patente (Límite 30 MB)")
@@ -161,14 +159,21 @@ for col, valores in filtros_cat.items():
     else:
         df_filtrado = df_filtrado[df_filtrado[col].astype(str).isin([str(v) for v in valores])]
 
-# Base para opciones de patente
+# Guardamos copia base (para opciones de patente)
 df_base_para_patente = df_filtrado.copy()
 
 # ---- 4) PATENTE EN SIDEBAR ----
 patente_sel = None
 if "Patente" in df_base_para_patente.columns:
-    patentes_disponibles = df_base_para_patente["Patente"].dropna().astype(str).unique().tolist()
+    patentes_disponibles = (
+        df_base_para_patente["Patente"]
+        .dropna()
+        .astype(str)
+        .unique()
+        .tolist()
+    )
     patentes_disponibles = sorted(patentes_disponibles)
+
     opciones_patente = ["(Todas)"] + patentes_disponibles
     patente_elegida = st.sidebar.selectbox("Patente", opciones_patente, key="f_patente")
 
@@ -183,8 +188,10 @@ if "Patente" in df_base_para_patente.columns:
 st.subheader("📊 Resumen por Cuenta: Patentes sobre 30 MB")
 
 resumen_patentes = pd.DataFrame()
+resumen_cuenta = pd.DataFrame()
 
 if {"Cuenta", "Patente", "Fecha", "MB"}.issubset(df_filtrado.columns):
+
     base = df_filtrado[["Cuenta", "Patente", "Fecha", "MB"]].copy()
     base["MB"] = pd.to_numeric(base["MB"], errors="coerce").fillna(0)
     base = base.dropna(subset=["Cuenta", "Patente", "Fecha"])
@@ -195,13 +202,16 @@ if {"Cuenta", "Patente", "Fecha", "MB"}.issubset(df_filtrado.columns):
 
         def resumen_por_patente(gr):
             gr = gr.sort_values("Fecha")
-            consumo_total = gr["MB"].sum()
+            mb = gr["MB"]
+            consumo_total = mb.sum()
             dias = gr["Fecha"].dt.date.nunique()
             consumo_prom = (consumo_total / dias) if dias > 0 else 0
 
             hoy_local = gr["Fecha"].max()
-            fin_mes_local = (datetime(hoy_local.year, 12, 31) if hoy_local.month == 12
-                             else datetime(hoy_local.year, hoy_local.month + 1, 1) - timedelta(days=1))
+            if hoy_local.month == 12:
+                fin_mes_local = datetime(hoy_local.year, 12, 31)
+            else:
+                fin_mes_local = datetime(hoy_local.year, hoy_local.month + 1, 1) - timedelta(days=1)
 
             dias_rest = max(0, (fin_mes_local.date() - hoy_local.date()).days)
             proy = consumo_total + consumo_prom * dias_rest
@@ -226,32 +236,139 @@ if {"Cuenta", "Patente", "Fecha", "MB"}.issubset(df_filtrado.columns):
                 "dia_exceso": dia_exceso_local
             })
 
-        resumen_patentes = base.groupby(["Cuenta", "Patente"], as_index=False).apply(resumen_por_patente)
+        resumen_patentes = (
+            base
+            .groupby(["Cuenta", "Patente"], as_index=False)
+            .apply(resumen_por_patente)
+        )
         if isinstance(resumen_patentes.index, pd.MultiIndex):
             resumen_patentes = resumen_patentes.reset_index(drop=True)
 
         resumen_cuenta = (
-            resumen_patentes.groupby("Cuenta", as_index=False)
+            resumen_patentes
+            .groupby("Cuenta", as_index=False)
             .agg(
                 patentes_total=("Patente", "nunique"),
                 patentes_sobre_30_actual=("ya_pasada", "sum"),
                 patentes_sobre_30_proyectado=("pasara", "sum"),
             )
-            .sort_values(["patentes_sobre_30_actual", "patentes_sobre_30_proyectado"], ascending=False)
+        )
+
+        resumen_cuenta = resumen_cuenta.sort_values(
+            ["patentes_sobre_30_actual", "patentes_sobre_30_proyectado"],
+            ascending=False
         )
 
         st.dataframe(resumen_cuenta, use_container_width=True)
+
+        st.caption(
+            "• **patentes_sobre_30_actual**: ya superaron los 30 MB en el período filtrado.  \n"
+            "• **patentes_sobre_30_proyectado**: aún no pasan los 30 MB, pero se proyecta que los superen antes de fin de mes."
+        )
 else:
     st.warning("No se encontraron las columnas 'Cuenta', 'Patente', 'Fecha' y 'MB' necesarias para el resumen por cuenta.")
+
+# ============================
+# 1.1) DETALLE DE PATENTES (BAJO RESUMEN POR CUENTA)
+# ============================
+st.markdown("### 📌 Detalle de Patentes (según filtros)")
+
+if not resumen_patentes.empty:
+    detalle_patentes = resumen_patentes.copy()
+    detalle_patentes = detalle_patentes.sort_values(["Cuenta", "consumo_total"], ascending=[True, False])
+    st.dataframe(
+        detalle_patentes[["Cuenta", "Patente", "consumo_total", "proy_final", "ya_pasada", "pasara", "dia_exceso"]],
+        use_container_width=True
+    )
+else:
+    st.info("No hay patentes para detallar con los filtros actuales.")
 
 st.markdown("---")
 
 # ============================
-# 3) MB ACUM + RESTANTE PARA ESA PATENTE
+# 2) TABLAS DETALLADAS: PATENTES EN RIESGO (ORIGINALES)
+# ============================
+st.markdown("## 🔍 Detalle de Patentes en Riesgo")
+
+if not resumen_patentes.empty:
+
+    # Patentes que YA pasaron los 30 MB
+    st.subheader("🚨 Patentes que YA pasaron los 30 MB")
+
+    df_ya_pasadas = resumen_patentes[resumen_patentes["ya_pasada"] == True][
+        ["Cuenta", "Patente", "consumo_total"]
+    ].sort_values(["Cuenta", "consumo_total"], ascending=[True, False])
+
+    if df_ya_pasadas.empty:
+        st.success("Ninguna patente ha superado los 30 MB.")
+    else:
+        st.dataframe(df_ya_pasadas, use_container_width=True)
+
+    # Patentes que POR PREDICCIÓN pasarán los 30 MB
+    st.subheader("⚠️ Patentes que POR PREDICCIÓN pasarán los 30 MB este mes")
+
+    df_proyectadas = resumen_patentes[resumen_patentes["pasara"] == True].copy()
+
+    if df_proyectadas.empty:
+        st.success("Ninguna patente se proyecta que supere los 30 MB.")
+    else:
+        df_proyectadas["Día_exceso_mes"] = pd.to_datetime(df_proyectadas["dia_exceso"], errors="coerce").dt.day
+
+        df_proyectadas_v = df_proyectadas[
+            ["Cuenta", "Patente", "consumo_total", "proy_final", "Día_exceso_mes"]
+        ].sort_values(["Cuenta", "proy_final"], ascending=[True, False])
+
+        st.dataframe(df_proyectadas_v, use_container_width=True)
+        st.caption("Columna **Día_exceso_mes**: día del mes estimado en que la patente superará los 30 MB.")
+else:
+    st.info("No se pudo generar el detalle porque el resumen está vacío.")
+
+# ============================
+# 2.1) NUEVAS 2 TABLAS: PREDICCIÓN > 45MB (MISMA LÓGICA EN FORMATO TABLA)
+# ============================
+st.markdown("---")
+st.markdown(f"## 🚀 Predicción: Patentes con consumo proyectado > {UMBRAL_RECOMENDAR_ILIMITADO} MB")
+
+if not resumen_patentes.empty:
+
+    st.subheader(f"🚨 Patentes con consumo ACTUAL > {UMBRAL_RECOMENDAR_ILIMITADO} MB")
+    df_ya_45 = resumen_patentes[resumen_patentes["consumo_total"] > UMBRAL_RECOMENDAR_ILIMITADO][
+        ["Cuenta", "Patente", "consumo_total", "proy_final"]
+    ].sort_values(["consumo_total"], ascending=False)
+
+    if df_ya_45.empty:
+        st.success("Ninguna patente supera 45 MB actualmente.")
+    else:
+        df_ya_45["Recomendación"] = "RECOMENDADO SUBIR A PLAN ILIMITADO"
+        st.dataframe(df_ya_45, use_container_width=True)
+
+    st.subheader(f"⚠️ Patentes con consumo PROYECTADO > {UMBRAL_RECOMENDAR_ILIMITADO} MB")
+    df_proy_45 = resumen_patentes[resumen_patentes["proy_final"] > UMBRAL_RECOMENDAR_ILIMITADO][
+        ["Cuenta", "Patente", "consumo_total", "proy_final", "dia_exceso"]
+    ].copy()
+
+    if df_proy_45.empty:
+        st.success("Ninguna patente supera 45 MB en proyección (según filtros).")
+    else:
+        df_proy_45["Recomendación"] = "RECOMENDADO SUBIR A PLAN ILIMITADO"
+        df_proy_45["Día_exceso_mes"] = pd.to_datetime(df_proy_45["dia_exceso"], errors="coerce").dt.day
+        df_proy_45 = df_proy_45.sort_values(["proy_final"], ascending=False)
+        st.dataframe(
+            df_proy_45[["Cuenta", "Patente", "consumo_total", "proy_final", "Día_exceso_mes", "Recomendación"]],
+            use_container_width=True
+        )
+else:
+    st.info("No hay datos para calcular predicción > 45 MB.")
+
+st.markdown("---")
+
+# ============================
+# 3) MB ACUM + RESTANTE PARA ESA PATENTE (ORIGINAL)
 # ============================
 st.subheader("📊 MB Acum y MB Restante por Patente (límite 30 MB)")
 
 if {"Patente", "MB"}.issubset(df_filtrado.columns) and patente_sel is not None:
+
     df_filtrado["MB"] = pd.to_numeric(df_filtrado["MB"], errors="coerce").fillna(0)
 
     df_pat = df_filtrado.groupby("Patente", as_index=False)["MB"].sum()
@@ -267,7 +384,14 @@ if {"Patente", "MB"}.issubset(df_filtrado.columns) and patente_sel is not None:
         barmode="stack",
         title=f"MB Acumulado vs MB Restante para Patente {patente_sel} (capacidad {UMBRAL_MB} MB)",
     )
-    fig_stack.update_layout(xaxis_title="Patente", yaxis_title="MB", xaxis_tickangle=0, legend_title_text="")
+
+    fig_stack.update_layout(
+        xaxis_title="Patente",
+        yaxis_title="MB",
+        xaxis_tickangle=0,
+        legend_title_text=""
+    )
+
     st.plotly_chart(fig_stack, use_container_width=True)
 else:
     if patente_sel is None:
@@ -278,18 +402,21 @@ else:
 st.markdown("---")
 
 # ============================
-# 4) PREDICTIVO PARA LA MISMA PATENTE
+# 4) PREDICTIVO PARA LA MISMA PATENTE (ORIGINAL)
 # ============================
 st.subheader("🔮 Predictivo de Consumo por Patente")
 
 if patente_sel is not None and {"Patente", "Fecha", "MB"}.issubset(df_filtrado.columns):
+
     df_p = df_filtrado[df_filtrado["Patente"] == patente_sel].copy()
 
     if df_p.empty:
         st.info("No hay datos para la patente seleccionada con los filtros actuales.")
     else:
         df_p["MB"] = pd.to_numeric(df_p["MB"], errors="coerce").fillna(0)
-        df_p = df_p.dropna(subset=["Fecha"]).sort_values("Fecha")
+        df_p = df_p.dropna(subset=["Fecha"])
+        df_p = df_p.sort_values("Fecha")
+
         df_p["Acum_real"] = df_p["MB"].cumsum()
 
         dias_distintos = df_p["Fecha"].dt.date.nunique()
@@ -297,9 +424,14 @@ if patente_sel is not None and {"Patente", "Fecha", "MB"}.issubset(df_filtrado.c
         consumo_prom = (consumo_total / dias_distintos) if dias_distintos > 0 else 0
 
         hoy = df_p["Fecha"].max()
-        fin_mes = (datetime(hoy.year, 12, 31) if hoy.month == 12
-                   else datetime(hoy.year, hoy.month + 1, 1) - timedelta(days=1))
+
+        if hoy.month == 12:
+            fin_mes = datetime(hoy.year, 12, 31)
+        else:
+            fin_mes = datetime(hoy.year, hoy.month + 1, 1) - timedelta(days=1)
+
         dias_restantes = max(0, (fin_mes.date() - hoy.date()).days)
+
         proyeccion_total = consumo_total + consumo_prom * dias_restantes
 
         dia_exceso = None
@@ -312,13 +444,26 @@ if patente_sel is not None and {"Patente", "Fecha", "MB"}.issubset(df_filtrado.c
                 dia_exceso = hoy + timedelta(days=float(dias_hasta_exceso))
 
         fig_pred = go.Figure()
-        fig_pred.add_trace(go.Scatter(x=df_p["Fecha"], y=df_p["Acum_real"], mode="lines+markers", name="Acumulado Real"))
+
+        fig_pred.add_trace(go.Scatter(
+            x=df_p["Fecha"],
+            y=df_p["Acum_real"],
+            mode="lines+markers",
+            name="Acumulado Real"
+        ))
 
         if consumo_prom > 0 and dias_restantes > 0:
             fechas_proy = pd.date_range(hoy, fin_mes, freq="D")
             base_acum = df_p["Acum_real"].iloc[-1]
             valores_proy = base_acum + consumo_prom * (fechas_proy - hoy).days
-            fig_pred.add_trace(go.Scatter(x=fechas_proy, y=valores_proy, mode="lines", name="Proyección", line=dict(dash="dash")))
+
+            fig_pred.add_trace(go.Scatter(
+                x=fechas_proy,
+                y=valores_proy,
+                mode="lines",
+                name="Proyección",
+                line=dict(dash="dash")
+            ))
 
         fig_pred.add_hline(
             y=UMBRAL_MB,
@@ -326,8 +471,35 @@ if patente_sel is not None and {"Patente", "Fecha", "MB"}.issubset(df_filtrado.c
             annotation_text=f"Límite {UMBRAL_MB} MB",
             annotation_position="top right"
         )
-        fig_pred.update_layout(title=f"Predictivo de Consumo para Patente {patente_sel}", xaxis_title="Fecha", yaxis_title="MB Acumulado")
+
+        fig_pred.update_layout(
+            title=f"Predictivo de Consumo para Patente {patente_sel}",
+            xaxis_title="Fecha",
+            yaxis_title="MB Acumulado"
+        )
+
         st.plotly_chart(fig_pred, use_container_width=True)
+
+        st.markdown("### 📌 Resumen del Modelo Predictivo")
+
+        st.write(f"**Consumo total actual:** {consumo_total:.2f} MB")
+        st.write(f"**Consumo diario promedio:** {consumo_prom:.2f} MB/día")
+        st.write(f"**MB proyectado al fin de mes:** {proyeccion_total:.2f} MB")
+
+        if consumo_prom == 0:
+            st.info("No hay suficiente variación de consumo para proyectar tendencia.")
+        else:
+            if proyeccion_total > UMBRAL_MB:
+                if dia_exceso is not None:
+                    st.error(
+                        f"⚠️ Se proyecta que la patente superará los 30 MB este mes. "
+                        f"Día estimado de sobreconsumo: **{dia_exceso.date()}** "
+                        f"(día {dia_exceso.day} del mes)."
+                    )
+                else:
+                    st.error("⚠️ Se proyecta que la patente superará los 30 MB este mes.")
+            else:
+                st.success("✅ No se proyecta que la patente supere el límite de 30 MB este mes.")
 else:
     if patente_sel is None:
         st.info("Selecciona una patente en el filtro lateral para ver el análisis predictivo.")
@@ -335,15 +507,11 @@ else:
         st.warning("No se encontraron las columnas 'Patente', 'Fecha' y 'MB' necesarias para el predictivo.")
 
 # ============================
-# 6) COSTOS (2 GRÁFICOS)
-# FIX 1 (tu foto 1): el problema era que se tomaba SIM (número) como "plan".
-#   Ahora forzamos prioridad: Dist GPS -> L2 -> SIM, y además dejamos selector manual.
-# FIX 2 (tu foto 2): ordenado por patente más costosa (costo_mes DESC).
+# 6) COSTOS (2 GRÁFICOS) - MANTENIENDO TODO LO DEMÁS IGUAL
 # ============================
 st.markdown("---")
-st.subheader("💰 Costos (fijo mensual + variable por MB sobre 30 para NO ilimitados)")
+st.subheader("💰 Costos estimados (Entel limitado vs Entel ilimitado)")
 
-# Detectar candidatos de columna "plan/compañía"
 plan_candidates_priority = [
     "Dist GPS", "Dist_GPS", "DIST GPS", "DIST_GPS",
     "L2", "l2",
@@ -353,13 +521,16 @@ plan_candidates_priority = [
     "Compañia", "Compañía", "COMPANIA", "COMPAÑÍA",
     "Carrier", "Proveedor", "Distribuidor"
 ]
-
 plan_candidates = [c for c in plan_candidates_priority if c in df_filtrado.columns]
+
+plan_col = None
 if plan_candidates:
-    plan_col_default = plan_candidates[0]
-    plan_col = st.sidebar.selectbox("Columna para PLAN/COMPAÑÍA (para costos)", plan_candidates, index=0, key="plan_col_picker")
-else:
-    plan_col = None
+    plan_col = st.sidebar.selectbox(
+        "Columna para PLAN/COMPAÑÍA (para costos)",
+        plan_candidates,
+        index=0,
+        key="plan_col_picker"
+    )
 
 if plan_col is None or not {"Patente", "MB", "Fecha"}.issubset(df_filtrado.columns):
     st.warning("Para costos necesito: 'Patente', 'MB', 'Fecha' y una columna tipo 'Dist GPS' o 'L2' (o similar).")
@@ -368,18 +539,14 @@ else:
     dfx["MB"] = pd.to_numeric(dfx["MB"], errors="coerce").fillna(0)
     dfx = dfx.dropna(subset=["Fecha"])
     dfx["Patente"] = dfx["Patente"].astype(str)
-
-    # Mes de cobro
     dfx["Mes"] = dfx["Fecha"].dt.to_period("M").astype(str)
 
-    # 1) MB mensual por patente
     mb_mensual = (
         dfx.groupby(["Mes", "Patente"], as_index=False)["MB"]
         .sum()
         .rename(columns={"MB": "MB_mes"})
     )
 
-    # 2) Plan mensual por patente: ÚLTIMA FECHA DEL MES (si cambió, se toma el último)
     dfx_sorted = dfx.sort_values("Fecha")
     plan_mensual = (
         dfx_sorted.dropna(subset=[plan_col])
@@ -389,14 +556,11 @@ else:
         .reset_index()
     )
 
-    # Consolidado mensual (1 fila = 1 patente x 1 mes)
     df_cost_m = mb_mensual.merge(plan_mensual, on=["Mes", "Patente"], how="left")
     df_cost_m["Plan_ultimo_mes"] = df_cost_m["Plan_ultimo_mes"].fillna("").astype(str)
     df_cost_m["Plan_UP"] = df_cost_m["Plan_ultimo_mes"].str.upper()
 
     df_cost_m["es_ilimitado"] = df_cost_m["Plan_UP"].str.contains("ILIMIT", na=False)
-
-    # “Entel” (limitado o ilimitado). Si tu dato viene como “ENTEL ILIMITADO” también lo captura.
     df_cost_m["es_entel"] = (
         df_cost_m["Plan_UP"].isin(ENTEL_SET)
         | df_cost_m["Plan_UP"].str.startswith("ENTEL ")
@@ -405,21 +569,14 @@ else:
 
     df_cost_m["MB_sobre_30"] = (df_cost_m["MB_mes"] - UMBRAL_MB).clip(lower=0)
 
-    # COSTO mensual por patente (tus reglas)
     df_cost_m["costo_mes"] = 0
-
-    # Ilimitado: 5874 1 vez/mes
     df_cost_m.loc[df_cost_m["es_ilimitado"], "costo_mes"] = COSTO_ILIMITADO
 
-    # Entel NO ilimitado: 1000 1 vez/mes + 347 por MB sobre 30
     mask_entel_limitado = (df_cost_m["es_entel"]) & (~df_cost_m["es_ilimitado"])
     df_cost_m.loc[mask_entel_limitado, "costo_mes"] = (
         COSTO_BASE_ENTEL + df_cost_m.loc[mask_entel_limitado, "MB_sobre_30"] * COSTO_MB_ADICIONAL_ENTEL
     )
 
-    # ============================
-    # GRÁFICO 1: COSTO TOTAL ENTEL LIMITADO vs ENTEL ILIMITADO (SUMADO)
-    # ============================
     total_entel_ilimitado = df_cost_m.loc[df_cost_m["es_entel"] & df_cost_m["es_ilimitado"], "costo_mes"].sum()
     total_entel_limitado = df_cost_m.loc[df_cost_m["es_entel"] & (~df_cost_m["es_ilimitado"]), "costo_mes"].sum()
 
@@ -430,7 +587,7 @@ else:
 
     if df_totales["Costo_total_CLP"].sum() == 0:
         st.warning(
-            f"No se está detectando Entel/Entel Ilimitado en la columna **{plan_col}** (o no hay consumo en el rango). "
+            f"No se está detectando Entel/Entel Ilimitado en la columna **{plan_col}**. "
             "Cambia la columna de PLAN/COMPAÑÍA en el sidebar (ideal: Dist GPS o L2)."
         )
     else:
@@ -443,9 +600,6 @@ else:
         fig_costos_entel.update_layout(xaxis_title="Tipo de plan", yaxis_title="Costo total (CLP)")
         st.plotly_chart(fig_costos_entel, use_container_width=True)
 
-    # ============================
-    # GRÁFICO 2: NO ILIMITADOS con MB_mes > 45 (ordenado por costo_mes DESC)
-    # ============================
     st.subheader(f"🚀 Patentes NO ilimitadas con consumo mensual > {UMBRAL_RECOMENDAR_ILIMITADO} MB (orden por costo)")
 
     df_over = df_cost_m[(~df_cost_m["es_ilimitado"]) & (df_cost_m["MB_mes"] > UMBRAL_RECOMENDAR_ILIMITADO)].copy()
@@ -454,10 +608,7 @@ else:
     if df_over.empty:
         st.success("No hay patentes NO ilimitadas sobre el umbral (con los filtros actuales).")
     else:
-        # Orden por costo (y luego MB) DESC
         df_over = df_over.sort_values(["costo_mes", "MB_mes"], ascending=[False, False])
-
-        # Eje X: etiqueta + orden fijo
         df_over["Patente (Mes)"] = df_over["Patente"] + " (" + df_over["Mes"] + ")"
         ordered_x = df_over["Patente (Mes)"].tolist()
 
@@ -474,10 +625,7 @@ else:
             annotation_text=f"Umbral {UMBRAL_RECOMENDAR_ILIMITADO} MB",
             annotation_position="top right"
         )
-        fig_over.update_layout(
-            xaxis_title="Patente (Mes)",
-            yaxis_title="MB mensual",
-        )
+        fig_over.update_layout(xaxis_title="Patente (Mes)", yaxis_title="MB mensual")
         fig_over.update_xaxes(categoryorder="array", categoryarray=ordered_x)
         st.plotly_chart(fig_over, use_container_width=True)
 
