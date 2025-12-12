@@ -96,22 +96,37 @@ if "Cuenta" in df.columns:
         key="f_cuenta"
     )
 
-# ---- 3) FILTROS DINÁMICOS (CATEGÓRICOS + NUMÉRICOS)
-#     - Incluye Dist GPS aunque sea numérico (slider)
 # ============================
-filtros_cat = {}
-filtros_num = {}
-
-# Columnas a excluir del set de filtros dinámicos
+# 3) FILTROS EXTRA SOLO CATEGÓRICOS (SIN RANGOS)
+#    - Se eliminan sliders/rangos para:
+#      L2, SIM, Cant. de Registros, Cant. de Alarmas, Tam Log, MB
+# ============================
 EXCLUDE_COLS = {"Fecha", "Cuenta", "Patente"}
+
+# Columnas donde NO queremos rangos (aunque sean numéricas)
+NO_RANGOS = {
+    "L2",
+    "SIM",
+    "CANT. DE REGISTROS",
+    "CANT. DE ALARMAS",
+    "TAM LOG",
+    "MB",
+    "Tam Log",
+    "Cant. de Registros",
+    "Cant. de Alarmas",
+    "Cant. de rewgisatros",  # por si viene con typo
+    "CANT. DE REWGISATROS",  # por si viene con typo
+    "CANT. DE REGISATROS",   # por si viene con typo
+}
+
+filtros_cat = {}
 
 for col in df.columns:
     if col in EXCLUDE_COLS:
         continue
 
+    # Solo categóricos (object/category/bool) -> multiselect
     s = df[col]
-
-    # --- CATEGÓRICOS (object / category / boolean) ---
     if pd.api.types.is_object_dtype(s) or pd.api.types.is_categorical_dtype(s) or pd.api.types.is_bool_dtype(s):
         opciones = s.dropna().astype(str).unique().tolist()
         if not opciones:
@@ -125,29 +140,22 @@ for col in df.columns:
         if seleccion:
             filtros_cat[col] = seleccion
 
-    # --- NUMÉRICOS (incluye Dist GPS, MB, etc.) ---
-    elif pd.api.types.is_numeric_dtype(s):
-        s_num = pd.to_numeric(s, errors="coerce").dropna()
-        if s_num.empty:
+    # Numéricos: NO se crean rangos/sliders (según tu instrucción)
+    # Si alguna de esas columnas numéricas la quieres como filtro categórico,
+    # lo hacemos convirtiéndola a categorías (valores exactos) SOLO para NO_RANGOS.
+    elif col in NO_RANGOS:
+        opciones = pd.to_numeric(s, errors="coerce").dropna().unique().tolist()
+        if not opciones:
             continue
+        opciones = sorted(opciones)
 
-        vmin = float(s_num.min())
-        vmax = float(s_num.max())
-
-        # Si no hay rango, no tiene sentido mostrar slider
-        if vmin == vmax:
-            continue
-
-        # Slider específico para Dist GPS (si existe) + sliders para el resto numérico
-        # Nota: no asumimos unidades. Si quieres km/metros, lo ajustamos después.
-        rango = st.sidebar.slider(
-            f"{col} (rango)",
-            min_value=vmin,
-            max_value=vmax,
-            value=(vmin, vmax),
-            key=f"f_num_{col}"
+        seleccion = st.sidebar.multiselect(
+            col,
+            opciones,
+            key=f"f_cat_num_{col}"
         )
-        filtros_num[col] = rango
+        if seleccion:
+            filtros_cat[col] = seleccion
 
 # ============================
 # APLICAR FILTROS (SIN PATENTE)
@@ -166,15 +174,15 @@ if fecha_ini is not None and fecha_fin is not None and "Fecha" in df_filtrado.co
 if cuentas_sel and "Cuenta" in df_filtrado.columns:
     df_filtrado = df_filtrado[df_filtrado["Cuenta"].isin(cuentas_sel)]
 
-# Categóricos
+# Categóricos (incluye los numéricos tratados como categorías en NO_RANGOS)
 for col, valores in filtros_cat.items():
-    # comparamos como string para consistencia
-    df_filtrado = df_filtrado[df_filtrado[col].astype(str).isin([str(v) for v in valores])]
-
-# Numéricos (incluye Dist GPS si es numérico)
-for col, (lo, hi) in filtros_num.items():
-    df_filtrado[col] = pd.to_numeric(df_filtrado[col], errors="coerce")
-    df_filtrado = df_filtrado[df_filtrado[col].between(lo, hi, inclusive="both")]
+    if col in df_filtrado.columns:
+        # si es numérico y viene de NO_RANGOS, comparamos numérico
+        if col in NO_RANGOS and pd.api.types.is_numeric_dtype(pd.to_numeric(df_filtrado[col], errors="coerce")):
+            df_filtrado[col] = pd.to_numeric(df_filtrado[col], errors="coerce")
+            df_filtrado = df_filtrado[df_filtrado[col].isin(valores)]
+        else:
+            df_filtrado = df_filtrado[df_filtrado[col].astype(str).isin([str(v) for v in valores])]
 
 # Base para opciones de patente (depende de TODOS los filtros previos)
 df_base_para_patente = df_filtrado.copy()
@@ -265,7 +273,6 @@ if {"Cuenta", "Patente", "Fecha", "MB"}.issubset(df_filtrado.columns):
             .apply(resumen_por_patente)
         )
 
-        # Compatibilidad: si groupby/apply deja índices raros, normalizamos
         if isinstance(resumen_patentes.index, pd.MultiIndex):
             resumen_patentes = resumen_patentes.reset_index(drop=True)
 
