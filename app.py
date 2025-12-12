@@ -7,7 +7,7 @@
 
 import os
 from datetime import datetime
-from pathlib import Path  # NUEVO: para mostrar ruta real de la BD
+from pathlib import Path
 
 import requests
 from flask import Flask, request
@@ -70,8 +70,8 @@ engine = create_engine(
     DATABASE_URL,
     echo=False,
     future=True,
-    pool_pre_ping=True,   # verifica si la conexión sigue viva antes de usarla
-    pool_recycle=300,     # recicla conexiones del pool cada 5 minutos
+    pool_pre_ping=True,
+    pool_recycle=300,
 )
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
@@ -84,7 +84,6 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     phone = Column(String(32), unique=True, index=True)
     name = Column(String(255), nullable=True)  # reservado para futuro
-    # futuro: empresa_id, rol, etc.
 
 
 class Message(Base):
@@ -171,6 +170,36 @@ def reset_user_history(phone: str):
 
 
 # =========================================================
+# FUNCIÓN AUXILIAR PARA ENVIAR MENSAJES A WHATSAPP
+# (Debe estar declarada antes de usarla en receive_message)
+# =========================================================
+def send_whatsapp_message(to_number: str, text: str):
+    url = f"https://graph.facebook.com/v21.0/{WHATSAPP_PHONE_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to_number,
+        "type": "text",
+        "text": {"body": text},
+    }
+
+    print("=== REQUEST HACIA WHATSAPP ===")
+    print("URL:", url)
+    print("Payload:", payload)
+
+    try:
+        resp = requests.post(url, headers=headers, json=payload, timeout=20)
+        print("=== RESPUESTA DE WHATSAPP ===")
+        print("Status:", resp.status_code)
+        print("Body:", resp.text)
+    except Exception as e:
+        print("Error enviando mensaje a WhatsApp:", e)
+
+
+# =========================================================
 # HEALTHCHECK / ROOT
 # =========================================================
 @app.route("/", methods=["GET"])
@@ -209,6 +238,7 @@ def receive_message():
     print("Raw body:", request.data)
     print("======================\n")
 
+    # 1) Parse JSON
     try:
         data = request.get_json()
         print("=== JSON PARSEADO ===")
@@ -221,7 +251,7 @@ def receive_message():
         print("No vino JSON en el body")
         return "ok", 200
 
-    # Extraer mensaje y número
+    # 2) Extraer mensaje y número
     try:
         entry = data["entry"][0]
         change = entry["changes"][0]
@@ -234,7 +264,7 @@ def receive_message():
 
         message = messages[0]
 
-        # Deduplicación por message_id
+        # Deduplicación por message_id (RAM)
         message_id = message.get("id")
         if message_id:
             if message_id in PROCESSED_MESSAGE_IDS:
@@ -256,28 +286,27 @@ def receive_message():
         print("Error parseando estructura de WhatsApp:", e)
         return "ok", 200
 
-    # Comando para resetear memoria
+    # 3) Reset de memoria (antes de OpenAI)
     lower_text = text_body.lower()
     if lower_text in ["reset", "reinicia", "reiniciar", "borrar memoria", "resetear memoria"]:
         reset_user_history(from_number)
-        reply_reset = (
-            "Listo Christian, reseteé la memoria para este chat. "
-            "Partimos de cero en el patio."
+        send_whatsapp_message(
+            from_number,
+            "Listo. Reseteé la memoria para este chat. Partimos de cero.",
         )
-        send_whatsapp_message(from_number, reply_reset)
         return "ok", 200
 
-    # Obtener historial desde BD (sin romper si la BD falla)
+    # 4) Historial desde BD
     try:
         user_history = get_user_history(from_number)
     except Exception as e:
-        print("ERROR en get_user_history, sigo sin historial (BD caída):", repr(e))
+        print("ERROR en get_user_history:", repr(e))
         user_history = []
 
-
-    # System prompt maestro
+    # 5) System prompt maestro
     system_message = {
         "role": "system",
+        ".land": "ignore",
         "content": (
             "Eres 'Cerebro de Patio', un supervisor experto de patio en centros de "
             "distribución y crossdock de e-commerce en Chile. "
@@ -290,10 +319,12 @@ def receive_message():
         ),
     }
 
-    messages_for_openai = [system_message] + user_history + [
-        {"role": "user", "content": text_body}
-    ]
+    messages_for_openai = [system_message] + user_history + [{"role": "user", "content": text_body}]
 
+    # 6) Guardar SIEMPRE el mensaje del usuario ANTES de OpenAI
+    append_message(from_number, "user", text_body)
+
+    # 7) Llamar OpenAI
     try:
         completion = client.chat.completions.create(
             model="gpt-4.1-mini",
@@ -302,55 +333,20 @@ def receive_message():
         reply = completion.choices[0].message.content
         print("Respuesta de OpenAI:", reply)
 
-        # Guardar en BD el mensaje del usuario y la respuesta
-        append_message(from_number, "user", text_body)
+        # Guardar SOLO la respuesta del assistant
         append_message(from_number, "assistant", reply)
 
     except Exception as e:
         print("Error llamando a OpenAI:", e)
-        reply = (
-            "Christian, tuve un problema hablando con el modelo. "
-            "Intenta de nuevo en un momento o revisa el servidor."
-        )
+        reply = "Tuve un problema hablando con el modelo. Intenta de nuevo en un momento."
 
+    # 8) Enviar respuesta a WhatsApp
     send_whatsapp_message(from_number, reply)
     return "ok", 200
-
-
-# =========================================================
-# FUNCIÓN AUXILIAR PARA ENVIAR MENSAJES A WHATSAPP
-# =========================================================
-def send_whatsapp_message(to_number: str, text: str):
-    url = f"https://graph.facebook.com/v21.0/{WHATSAPP_PHONE_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {WHATSAPP_TOKEN}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": to_number,
-        "type": "text",
-        "text": {"body": text},
-    }
-
-    print("=== REQUEST HACIA WHATSAPP ===")
-    print("URL:", url)
-    print("Payload:", payload)
-
-    try:
-        resp = requests.post(url, headers=headers, json=payload)
-        print("=== RESPUESTA DE WHATSAPP ===")
-        print("Status:", resp.status_code)
-        print("Body:", resp.text)
-    except Exception as e:
-        print("Error enviando mensaje a WhatsApp:", e)
 
 
 # =========================================================
 # MAIN (solo local)
 # =========================================================
 if __name__ == "__main__":
-    # Este bloque SOLO se ejecuta cuando corres: python app.py
     app.run(host="0.0.0.0", port=8000, debug=True)
-
-
