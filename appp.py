@@ -32,12 +32,11 @@ if not st.session_state.logged_in:
         if usuario == USUARIO_CORRECTO and clave == CLAVE_CORRECTA:
             st.session_state.logged_in = True
             st.success("Acceso concedido.")
-            st.rerun()  # 🔥 CORRECTO
+            st.rerun()
         else:
             st.error("Usuario o contraseña incorrectos.")
 
-
-    st.stop()  # No avanza a la app si no está logueado
+    st.stop()
 
 # ============================
 # PARÁMETROS GENERALES
@@ -52,10 +51,10 @@ st.markdown("---")
 # ============================
 @st.cache_data
 def load_data():
-    df = pd.read_excel("Reporte_exceso_reg.xlsx")
-    if "Fecha" in df.columns:
-        df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
-    return df
+    df0 = pd.read_excel("Reporte_exceso_reg.xlsx")
+    if "Fecha" in df0.columns:
+        df0["Fecha"] = pd.to_datetime(df0["Fecha"], errors="coerce")
+    return df0
 
 df = load_data()
 
@@ -66,7 +65,6 @@ st.sidebar.header("Filtros")
 
 # ---- 1) RANGO DE FECHA ----
 fecha_ini, fecha_fin = None, None
-
 if "Fecha" in df.columns:
     min_date = df["Fecha"].min()
     max_date = df["Fecha"].max()
@@ -89,6 +87,7 @@ else:
     rango_fecha = None
 
 # ---- 2) CUENTA ----
+cuentas_sel = []
 if "Cuenta" in df.columns:
     opciones_cuenta = df["Cuenta"].dropna().unique().tolist()
     cuentas_sel = st.sidebar.multiselect(
@@ -96,25 +95,59 @@ if "Cuenta" in df.columns:
         opciones_cuenta,
         key="f_cuenta"
     )
-else:
-    cuentas_sel = []
 
-# ---- 3) OTROS FILTROS CATEGÓRICOS (EXCEPTO Fecha, Cuenta, Patente) ----
-filtros_extra = {}
+# ---- 3) FILTROS DINÁMICOS (CATEGÓRICOS + NUMÉRICOS)
+#     - Incluye Dist GPS aunque sea numérico (slider)
+# ============================
+filtros_cat = {}
+filtros_num = {}
+
+# Columnas a excluir del set de filtros dinámicos
+EXCLUDE_COLS = {"Fecha", "Cuenta", "Patente"}
+
 for col in df.columns:
-    if col in ["Fecha", "Cuenta", "Patente"]:
+    if col in EXCLUDE_COLS:
         continue
-    if df[col].dtype == "object":
-        opciones = df[col].dropna().unique().tolist()
+
+    s = df[col]
+
+    # --- CATEGÓRICOS (object / category / boolean) ---
+    if pd.api.types.is_object_dtype(s) or pd.api.types.is_categorical_dtype(s) or pd.api.types.is_bool_dtype(s):
+        opciones = s.dropna().astype(str).unique().tolist()
         if not opciones:
             continue
+
         seleccion = st.sidebar.multiselect(
             col,
-            opciones,
-            key=f"f_{col}"
+            sorted(opciones),
+            key=f"f_cat_{col}"
         )
         if seleccion:
-            filtros_extra[col] = seleccion
+            filtros_cat[col] = seleccion
+
+    # --- NUMÉRICOS (incluye Dist GPS, MB, etc.) ---
+    elif pd.api.types.is_numeric_dtype(s):
+        s_num = pd.to_numeric(s, errors="coerce").dropna()
+        if s_num.empty:
+            continue
+
+        vmin = float(s_num.min())
+        vmax = float(s_num.max())
+
+        # Si no hay rango, no tiene sentido mostrar slider
+        if vmin == vmax:
+            continue
+
+        # Slider específico para Dist GPS (si existe) + sliders para el resto numérico
+        # Nota: no asumimos unidades. Si quieres km/metros, lo ajustamos después.
+        rango = st.sidebar.slider(
+            f"{col} (rango)",
+            min_value=vmin,
+            max_value=vmax,
+            value=(vmin, vmax),
+            key=f"f_num_{col}"
+        )
+        filtros_num[col] = rango
 
 # ============================
 # APLICAR FILTROS (SIN PATENTE)
@@ -122,14 +155,10 @@ for col in df.columns:
 df_filtrado = df.copy()
 
 # Fecha
-if (
-    fecha_ini is not None
-    and fecha_fin is not None
-    and "Fecha" in df_filtrado.columns
-):
+if fecha_ini is not None and fecha_fin is not None and "Fecha" in df_filtrado.columns:
     mask_fecha = (
-        (df_filtrado["Fecha"].dt.date >= fecha_ini)
-        & (df_filtrado["Fecha"].dt.date <= fecha_fin)
+        (df_filtrado["Fecha"].dt.date >= fecha_ini) &
+        (df_filtrado["Fecha"].dt.date <= fecha_fin)
     )
     df_filtrado = df_filtrado[mask_fecha]
 
@@ -137,11 +166,17 @@ if (
 if cuentas_sel and "Cuenta" in df_filtrado.columns:
     df_filtrado = df_filtrado[df_filtrado["Cuenta"].isin(cuentas_sel)]
 
-# Otros filtros
-for col, valores in filtros_extra.items():
-    df_filtrado = df_filtrado[df_filtrado[col].isin(valores)]
+# Categóricos
+for col, valores in filtros_cat.items():
+    # comparamos como string para consistencia
+    df_filtrado = df_filtrado[df_filtrado[col].astype(str).isin([str(v) for v in valores])]
 
-# Guardamos copia base (para opciones de patente)
+# Numéricos (incluye Dist GPS si es numérico)
+for col, (lo, hi) in filtros_num.items():
+    df_filtrado[col] = pd.to_numeric(df_filtrado[col], errors="coerce")
+    df_filtrado = df_filtrado[df_filtrado[col].between(lo, hi, inclusive="both")]
+
+# Base para opciones de patente (depende de TODOS los filtros previos)
 df_base_para_patente = df_filtrado.copy()
 
 # ---- 4) PATENTE EN SIDEBAR ----
@@ -162,6 +197,7 @@ if "Patente" in df_base_para_patente.columns:
         opciones_patente,
         key="f_patente"
     )
+
     if patente_elegida != "(Todas)":
         patente_sel = patente_elegida
         df_filtrado["Patente"] = df_filtrado["Patente"].astype(str)
@@ -191,10 +227,7 @@ if {"Cuenta", "Patente", "Fecha", "MB"}.issubset(df_filtrado.columns):
             consumo_total = mb.sum()
             dias = gr["Fecha"].dt.date.nunique()
 
-            if dias == 0:
-                consumo_prom = 0
-            else:
-                consumo_prom = consumo_total / dias
+            consumo_prom = (consumo_total / dias) if dias > 0 else 0
 
             hoy_local = gr["Fecha"].max()
 
@@ -207,7 +240,7 @@ if {"Cuenta", "Patente", "Fecha", "MB"}.issubset(df_filtrado.columns):
             proy = consumo_total + consumo_prom * dias_rest
 
             ya_pasada = consumo_total >= UMBRAL_MB
-            pasara = (proy > UMBRAL_MB) & (consumo_total < UMBRAL_MB)
+            pasara = (proy > UMBRAL_MB) and (consumo_total < UMBRAL_MB)
 
             dia_exceso_local = pd.NaT
             if consumo_prom > 0:
@@ -216,7 +249,7 @@ if {"Cuenta", "Patente", "Fecha", "MB"}.issubset(df_filtrado.columns):
                 elif proy > UMBRAL_MB:
                     mb_faltante = UMBRAL_MB - consumo_total
                     dias_hasta_exceso = mb_faltante / consumo_prom
-                    dia_exceso_local = hoy_local + timedelta(days=dias_hasta_exceso)
+                    dia_exceso_local = hoy_local + timedelta(days=float(dias_hasta_exceso))
 
             return pd.Series({
                 "consumo_total": consumo_total,
@@ -231,6 +264,10 @@ if {"Cuenta", "Patente", "Fecha", "MB"}.issubset(df_filtrado.columns):
             .groupby(["Cuenta", "Patente"], as_index=False)
             .apply(resumen_por_patente)
         )
+
+        # Compatibilidad: si groupby/apply deja índices raros, normalizamos
+        if isinstance(resumen_patentes.index, pd.MultiIndex):
+            resumen_patentes = resumen_patentes.reset_index(drop=True)
 
         resumen_cuenta = (
             resumen_patentes
@@ -263,7 +300,6 @@ st.markdown("## 🔍 Detalle de Patentes en Riesgo")
 
 if not resumen_patentes.empty:
 
-    # Patentes que YA pasaron los 30 MB
     st.subheader("🚨 Patentes que YA pasaron los 30 MB")
 
     df_ya_pasadas = resumen_patentes[resumen_patentes["ya_pasada"] == True][
@@ -275,7 +311,6 @@ if not resumen_patentes.empty:
     else:
         st.dataframe(df_ya_pasadas, use_container_width=True)
 
-    # Patentes que POR PREDICCIÓN pasarán los 30 MB
     st.subheader("⚠️ Patentes que POR PREDICCIÓN pasarán los 30 MB este mes")
 
     df_proyectadas = resumen_patentes[resumen_patentes["pasara"] == True].copy()
@@ -283,7 +318,7 @@ if not resumen_patentes.empty:
     if df_proyectadas.empty:
         st.success("Ninguna patente se proyecta que supere los 30 MB.")
     else:
-        df_proyectadas["Día_exceso_mes"] = df_proyectadas["dia_exceso"].dt.day
+        df_proyectadas["Día_exceso_mes"] = pd.to_datetime(df_proyectadas["dia_exceso"], errors="coerce").dt.day
 
         df_proyectadas_v = df_proyectadas[
             ["Cuenta", "Patente", "consumo_total", "proy_final", "Día_exceso_mes"]
@@ -357,22 +392,16 @@ if patente_sel is not None and {"Patente", "Fecha", "MB"}.issubset(df_filtrado.c
         # Promedio diario
         dias_distintos = df_p["Fecha"].dt.date.nunique()
         consumo_total = df_p["MB"].sum()
-
-        if dias_distintos == 0:
-            consumo_prom = 0
-        else:
-            consumo_prom = consumo_total / dias_distintos
+        consumo_prom = (consumo_total / dias_distintos) if dias_distintos > 0 else 0
 
         # Fechas para proyección
         hoy = df_p["Fecha"].max()
-
         if hoy.month == 12:
             fin_mes = datetime(hoy.year, 12, 31)
         else:
             fin_mes = datetime(hoy.year, hoy.month + 1, 1) - timedelta(days=1)
 
         dias_restantes = max(0, (fin_mes.date() - hoy.date()).days)
-
         proyeccion_total = consumo_total + consumo_prom * dias_restantes
 
         # Día estimado de sobreconsumo
@@ -383,7 +412,7 @@ if patente_sel is not None and {"Patente", "Fecha", "MB"}.issubset(df_filtrado.c
                 dia_exceso = hoy
             else:
                 dias_hasta_exceso = mb_faltante / consumo_prom
-                dia_exceso = hoy + timedelta(days=dias_hasta_exceso)
+                dia_exceso = hoy + timedelta(days=float(dias_hasta_exceso))
 
         # ---------- Gráfico ----------
         fig_pred = go.Figure()
