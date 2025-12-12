@@ -42,6 +42,10 @@ if not st.session_state.logged_in:
 # PARÁMETROS GENERALES
 # ============================
 UMBRAL_MB = 30  # límite por patente
+COSTO_ILIMITADO = 5874
+COSTO_BASE_ENTEL = 1000
+COSTO_MB_ADICIONAL_ENTEL = 347
+UMBRAL_RECOMENDAR_ILIMITADO = 45
 
 st.title("📊 Predictivo MB por Patente (Límite 30 MB)")
 st.markdown("---")
@@ -98,8 +102,8 @@ if "Cuenta" in df.columns:
 
 # ============================
 # 3) FILTROS EXTRA SOLO CATEGÓRICOS (SIN RANGOS)
-#    - Dist GPS queda como filtro normal (si viene como texto será categórico)
 #    - Se eliminan sliders/rangos para: L2, SIM, Cant. de Registros, Cant. de Alarmas, Tam Log, MB
+#    - Si esos numéricos igual quieres filtrarlos: multiselect por valor exacto
 # ============================
 EXCLUDE_COLS = {"Fecha", "Cuenta", "Patente"}
 
@@ -134,7 +138,7 @@ for col in df.columns:
         if seleccion:
             filtros_cat[col] = seleccion
 
-    # Numéricos que quieres SIN rangos: se filtran por selección exacta (multiselect)
+    # Numéricos sin rangos: multiselect por valor exacto SOLO para NO_RANGOS
     elif col in NO_RANGOS:
         opciones = pd.to_numeric(s, errors="coerce").dropna().unique().tolist()
         if not opciones:
@@ -166,7 +170,7 @@ if fecha_ini is not None and fecha_fin is not None and "Fecha" in df_filtrado.co
 if cuentas_sel and "Cuenta" in df_filtrado.columns:
     df_filtrado = df_filtrado[df_filtrado["Cuenta"].isin(cuentas_sel)]
 
-# Otros filtros categóricos / numéricos exactos
+# Otros filtros
 for col, valores in filtros_cat.items():
     if col not in df_filtrado.columns:
         continue
@@ -409,7 +413,6 @@ if patente_sel is not None and {"Patente", "Fecha", "MB"}.issubset(df_filtrado.c
                 dia_exceso = hoy + timedelta(days=float(dias_hasta_exceso))
 
         fig_pred = go.Figure()
-
         fig_pred.add_trace(go.Scatter(
             x=df_p["Fecha"],
             y=df_p["Acum_real"],
@@ -471,25 +474,32 @@ else:
         st.warning("No se encontraron las columnas 'Patente', 'Fecha' y 'MB' necesarias para el predictivo.")
 
 # ============================
-# 6) COSTOS (2 GRÁFICOS)
+# 6) COSTOS (2 GRÁFICOS) - USANDO COLUMNA "costo" SI EXISTE
 # ============================
 st.markdown("---")
 st.subheader("💰 Costos estimados por plan (según consumo MB)")
 
-# Detectar columna de plan/compañía (prioridad: SIM, luego L2)
+# Columna de plan/compañía (prioridad: SIM, luego L2)
 plan_col = None
 for c in ["SIM", "Sim", "sim", "L2", "l2", "Plan", "PLAN", "Operador", "OPERADOR", "Compañia", "Compañía", "Carrier", "Proveedor"]:
     if c in df_filtrado.columns:
         plan_col = c
         break
 
+# Columna costo (si existe)
+costo_col = None
+for c in ["costo", "Costo", "COSTO"]:
+    if c in df_filtrado.columns:
+        costo_col = c
+        break
+
 if plan_col is None or "Patente" not in df_filtrado.columns or "MB" not in df_filtrado.columns:
-    st.warning("No encuentro columnas suficientes para costos. Requiero al menos: 'Patente', 'MB' y una columna tipo 'SIM' o 'L2' para el plan/compañía.")
+    st.warning("No encuentro columnas suficientes para costos. Requiero al menos: 'Patente', 'MB' y una columna tipo 'SIM' o 'L2'.")
 else:
     df_cost_base = df_filtrado.copy()
     df_cost_base["MB"] = pd.to_numeric(df_cost_base["MB"], errors="coerce").fillna(0)
 
-    # Plan por patente: último registro por Fecha (si existe), si no: primero no nulo
+    # Plan por patente: último por fecha (si existe), si no primero
     if "Fecha" in df_cost_base.columns:
         df_cost_base = df_cost_base.sort_values("Fecha")
         plan_por_patente = (
@@ -505,28 +515,50 @@ else:
         )
 
     # MB total por patente
-    mb_por_patente = df_cost_base.groupby("Patente", as_index=False)["MB"].sum().rename(columns={"MB": "MB_total"})
+    mb_por_patente = (
+        df_cost_base.groupby("Patente", as_index=False)["MB"]
+        .sum()
+        .rename(columns={"MB": "MB_total"})
+    )
 
     df_cost = mb_por_patente.set_index("Patente").join(plan_por_patente.rename("Plan")).reset_index()
     df_cost["Plan"] = df_cost["Plan"].fillna("").astype(str)
     df_cost["Plan_UP"] = df_cost["Plan"].str.upper()
 
     ENTEL_SET = {"ENTEL", "ENTEL GLOBAL", "ENTEL MANAGER"}
-
     df_cost["es_ilimitado"] = df_cost["Plan_UP"].str.contains("ILIMIT", na=False)
     df_cost["es_entel"] = df_cost["Plan_UP"].isin(ENTEL_SET) | df_cost["Plan_UP"].str.startswith("ENTEL ")
 
-    df_cost["MB_sobre_30"] = (df_cost["MB_total"] - 30).clip(lower=0)
-    df_cost["costo"] = 0
+    # ---- COSTO POR PATENTE ----
+    if costo_col is not None:
+        # Tomamos el costo "representativo" por patente para no duplicar
+        # (si el costo viene repetido por fila, sumarlo duplica)
+        df_c = df_cost_base.copy()
+        df_c[costo_col] = pd.to_numeric(df_c[costo_col], errors="coerce").fillna(0)
 
-    # ILIMITADO: 5874
-    df_cost.loc[df_cost["es_ilimitado"], "costo"] = 5874
+        if "Fecha" in df_c.columns:
+            df_c = df_c.sort_values("Fecha")
+            costo_por_patente = df_c.groupby("Patente")[costo_col].last()
+        else:
+            # si no hay fecha, tomamos el máximo (robusto ante repetición)
+            costo_por_patente = df_c.groupby("Patente")[costo_col].max()
 
-    # ENTEL (NO ilimitado): 1000 + 347 por MB sobre 30
-    mask_entel_limitado = (df_cost["es_entel"]) & (~df_cost["es_ilimitado"])
-    df_cost.loc[mask_entel_limitado, "costo"] = 1000 + (df_cost.loc[mask_entel_limitado, "MB_sobre_30"] * 347)
+        df_cost = df_cost.set_index("Patente").join(costo_por_patente.rename("costo")).reset_index()
+        df_cost["costo"] = pd.to_numeric(df_cost["costo"], errors="coerce").fillna(0)
+    else:
+        # Si no existe la columna, calculamos con reglas originales
+        df_cost["MB_sobre_30"] = (df_cost["MB_total"] - UMBRAL_MB).clip(lower=0)
+        df_cost["costo"] = 0
 
+        df_cost.loc[df_cost["es_ilimitado"], "costo"] = COSTO_ILIMITADO
+        mask_entel_limitado = (df_cost["es_entel"]) & (~df_cost["es_ilimitado"])
+        df_cost.loc[mask_entel_limitado, "costo"] = (
+            COSTO_BASE_ENTEL + (df_cost.loc[mask_entel_limitado, "MB_sobre_30"] * COSTO_MB_ADICIONAL_ENTEL)
+        )
+
+    # ============================
     # GRÁFICO 1: COSTO TOTAL ENTEL LIMITADO vs ENTEL ILIMITADO
+    # ============================
     total_entel_ilimitado = df_cost.loc[df_cost["es_entel"] & df_cost["es_ilimitado"], "costo"].sum()
     total_entel_limitado = df_cost.loc[df_cost["es_entel"] & (~df_cost["es_ilimitado"]), "costo"].sum()
 
@@ -539,7 +571,7 @@ else:
         df_totales,
         x="Tipo",
         y="Costo_total_CLP",
-        title="Costo total estimado: Entel Limitado vs Entel Ilimitado (según filtros activos)"
+        title="Costo total: Entel Limitado vs Entel Ilimitado (según filtros activos)"
     )
     fig_costos_entel.update_layout(
         xaxis_title="Tipo de plan",
@@ -547,36 +579,38 @@ else:
     )
     st.plotly_chart(fig_costos_entel, use_container_width=True)
 
+    # ============================
     # GRÁFICO 2: PATENTES NO ILIMITADAS con MB > 45 + recomendación
-    st.subheader("🚀 Patentes NO ilimitadas con consumo > 45 MB")
-    df_over45 = df_cost[(~df_cost["es_ilimitado"]) & (df_cost["MB_total"] > 45)].copy()
-    df_over45["Recomendación"] = "RECOMENDADO SUBIR A PLAN ILIMITADO"
+    # ============================
+    st.subheader(f"🚀 Patentes NO ilimitadas con consumo > {UMBRAL_RECOMENDAR_ILIMITADO} MB")
+    df_over = df_cost[(~df_cost["es_ilimitado"]) & (df_cost["MB_total"] > UMBRAL_RECOMENDAR_ILIMITADO)].copy()
+    df_over["Recomendación"] = "RECOMENDADO SUBIR A PLAN ILIMITADO"
 
-    if df_over45.empty:
-        st.success("No hay patentes NO ilimitadas sobre 45 MB con los filtros actuales.")
+    if df_over.empty:
+        st.success("No hay patentes NO ilimitadas sobre el umbral con los filtros actuales.")
     else:
-        df_over45 = df_over45.sort_values("MB_total", ascending=False)
+        df_over = df_over.sort_values("MB_total", ascending=False)
 
-        fig_over45 = px.bar(
-            df_over45,
+        fig_over = px.bar(
+            df_over,
             x="Patente",
             y="MB_total",
             hover_data=["Plan", "costo", "Recomendación"],
-            title="Patentes NO ilimitadas con consumo > 45 MB (filtros activos)"
+            title=f"Patentes NO ilimitadas con consumo > {UMBRAL_RECOMENDAR_ILIMITADO} MB (filtros activos)"
         )
-        fig_over45.add_hline(
-            y=45,
+        fig_over.add_hline(
+            y=UMBRAL_RECOMENDAR_ILIMITADO,
             line_dash="dot",
-            annotation_text="Umbral 45 MB",
+            annotation_text=f"Umbral {UMBRAL_RECOMENDAR_ILIMITADO} MB",
             annotation_position="top right"
         )
-        fig_over45.update_layout(
+        fig_over.update_layout(
             xaxis_title="Patente",
             yaxis_title="MB total"
         )
-        st.plotly_chart(fig_over45, use_container_width=True)
+        st.plotly_chart(fig_over, use_container_width=True)
 
         st.dataframe(
-            df_over45[["Patente", "Plan", "MB_total", "costo", "Recomendación"]],
+            df_over[["Patente", "Plan", "MB_total", "costo", "Recomendación"]],
             use_container_width=True
         )
