@@ -45,6 +45,7 @@ COSTO_BASE_ENTEL = 1000         # 1 vez por mes (solo NO ilimitados)
 COSTO_MB_ADICIONAL_ENTEL = 347  # por MB sobre 30 (solo NO ilimitados)
 UMBRAL_RECOMENDAR_ILIMITADO = 45
 
+# Si tus textos vienen distintos, agrega aquí
 ENTEL_SET = {"ENTEL", "ENTEL GLOBAL", "ENTEL MANAGER"}
 
 st.title("📊 Predictivo MB por Patente (Límite 30 MB)")
@@ -113,6 +114,7 @@ filtros_cat = {}
 for col in df.columns:
     if col in EXCLUDE_COLS:
         continue
+
     s = df[col]
 
     if pd.api.types.is_object_dtype(s) or pd.api.types.is_categorical_dtype(s) or pd.api.types.is_bool_dtype(s):
@@ -165,13 +167,11 @@ df_base_para_patente = df_filtrado.copy()
 # ---- 4) PATENTE EN SIDEBAR ----
 patente_sel = None
 if "Patente" in df_base_para_patente.columns:
-    patentes_disponibles = (
-        df_base_para_patente["Patente"].dropna().astype(str).unique().tolist()
-    )
+    patentes_disponibles = df_base_para_patente["Patente"].dropna().astype(str).unique().tolist()
     patentes_disponibles = sorted(patentes_disponibles)
     opciones_patente = ["(Todas)"] + patentes_disponibles
-
     patente_elegida = st.sidebar.selectbox("Patente", opciones_patente, key="f_patente")
+
     if patente_elegida != "(Todas)":
         patente_sel = patente_elegida
         df_filtrado["Patente"] = df_filtrado["Patente"].astype(str)
@@ -183,7 +183,6 @@ if "Patente" in df_base_para_patente.columns:
 st.subheader("📊 Resumen por Cuenta: Patentes sobre 30 MB")
 
 resumen_patentes = pd.DataFrame()
-resumen_cuenta = pd.DataFrame()
 
 if {"Cuenta", "Patente", "Fecha", "MB"}.issubset(df_filtrado.columns):
     base = df_filtrado[["Cuenta", "Patente", "Fecha", "MB"]].copy()
@@ -227,9 +226,7 @@ if {"Cuenta", "Patente", "Fecha", "MB"}.issubset(df_filtrado.columns):
                 "dia_exceso": dia_exceso_local
             })
 
-        resumen_patentes = (
-            base.groupby(["Cuenta", "Patente"], as_index=False).apply(resumen_por_patente)
-        )
+        resumen_patentes = base.groupby(["Cuenta", "Patente"], as_index=False).apply(resumen_por_patente)
         if isinstance(resumen_patentes.index, pd.MultiIndex):
             resumen_patentes = resumen_patentes.reset_index(drop=True)
 
@@ -244,44 +241,8 @@ if {"Cuenta", "Patente", "Fecha", "MB"}.issubset(df_filtrado.columns):
         )
 
         st.dataframe(resumen_cuenta, use_container_width=True)
-        st.caption(
-            "• **patentes_sobre_30_actual**: ya superaron los 30 MB en el período filtrado.\n"
-            "• **patentes_sobre_30_proyectado**: aún no pasan los 30 MB, pero se proyecta que los superen antes de fin de mes."
-        )
 else:
     st.warning("No se encontraron las columnas 'Cuenta', 'Patente', 'Fecha' y 'MB' necesarias para el resumen por cuenta.")
-
-# ============================
-# 2) TABLAS DETALLADAS: PATENTES EN RIESGO
-# ============================
-st.markdown("## 🔍 Detalle de Patentes en Riesgo")
-
-if not resumen_patentes.empty:
-    st.subheader("🚨 Patentes que YA pasaron los 30 MB")
-    df_ya_pasadas = resumen_patentes[resumen_patentes["ya_pasada"] == True][
-        ["Cuenta", "Patente", "consumo_total"]
-    ].sort_values(["Cuenta", "consumo_total"], ascending=[True, False])
-
-    if df_ya_pasadas.empty:
-        st.success("Ninguna patente ha superado los 30 MB.")
-    else:
-        st.dataframe(df_ya_pasadas, use_container_width=True)
-
-    st.subheader("⚠️ Patentes que POR PREDICCIÓN pasarán los 30 MB este mes")
-    df_proyectadas = resumen_patentes[resumen_patentes["pasara"] == True].copy()
-
-    if df_proyectadas.empty:
-        st.success("Ninguna patente se proyecta que supere los 30 MB.")
-    else:
-        df_proyectadas["Día_exceso_mes"] = pd.to_datetime(df_proyectadas["dia_exceso"], errors="coerce").dt.day
-        df_proyectadas_v = df_proyectadas[
-            ["Cuenta", "Patente", "consumo_total", "proy_final", "Día_exceso_mes"]
-        ].sort_values(["Cuenta", "proy_final"], ascending=[True, False])
-
-        st.dataframe(df_proyectadas_v, use_container_width=True)
-        st.caption("Columna **Día_exceso_mes**: día del mes estimado en que la patente superará los 30 MB.")
-else:
-    st.info("No se pudo generar el detalle porque el resumen está vacío.")
 
 st.markdown("---")
 
@@ -367,25 +328,6 @@ if patente_sel is not None and {"Patente", "Fecha", "MB"}.issubset(df_filtrado.c
         )
         fig_pred.update_layout(title=f"Predictivo de Consumo para Patente {patente_sel}", xaxis_title="Fecha", yaxis_title="MB Acumulado")
         st.plotly_chart(fig_pred, use_container_width=True)
-
-        st.markdown("### 📌 Resumen del Modelo Predictivo")
-        st.write(f"**Consumo total actual:** {consumo_total:.2f} MB")
-        st.write(f"**Consumo diario promedio:** {consumo_prom:.2f} MB/día")
-        st.write(f"**MB proyectado al fin de mes:** {proyeccion_total:.2f} MB")
-
-        if consumo_prom == 0:
-            st.info("No hay suficiente variación de consumo para proyectar tendencia.")
-        else:
-            if proyeccion_total > UMBRAL_MB:
-                if dia_exceso is not None:
-                    st.error(
-                        f"⚠️ Se proyecta que la patente superará los 30 MB este mes. "
-                        f"Día estimado de sobreconsumo: **{dia_exceso.date()}** (día {dia_exceso.day} del mes)."
-                    )
-                else:
-                    st.error("⚠️ Se proyecta que la patente superará los 30 MB este mes.")
-            else:
-                st.success("✅ No se proyecta que la patente supere el límite de 30 MB este mes.")
 else:
     if patente_sel is None:
         st.info("Selecciona una patente en el filtro lateral para ver el análisis predictivo.")
@@ -393,32 +335,41 @@ else:
         st.warning("No se encontraron las columnas 'Patente', 'Fecha' y 'MB' necesarias para el predictivo.")
 
 # ============================
-# 6) COSTOS (2 GRÁFICOS) - CAMBIOS DE PLAN: SE USA EL ÚLTIMO PLAN DEL MES POR PATENTE
-# Reglas pedidas:
-# - Si una patente cambió de plan, se considera el plan de la ÚLTIMA FECHA (por mes).
-# - $1000 y $5874 se cobran 1 sola vez al mes.
-# - $347 por MB sobre 30 solo para NO ILIMITADOS (y solo para Entel/Entel Global/Entel Manager).
-# - El resto de compañías: $0.
+# 6) COSTOS (2 GRÁFICOS)
+# FIX 1 (tu foto 1): el problema era que se tomaba SIM (número) como "plan".
+#   Ahora forzamos prioridad: Dist GPS -> L2 -> SIM, y además dejamos selector manual.
+# FIX 2 (tu foto 2): ordenado por patente más costosa (costo_mes DESC).
 # ============================
 st.markdown("---")
-st.subheader("💰 Costos estimados (1 cargo fijo mensual + variable por MB sobre 30)")
+st.subheader("💰 Costos (fijo mensual + variable por MB sobre 30 para NO ilimitados)")
 
-# Detectar columna plan/compañía (prioridad SIM, luego L2)
-plan_col = None
-for c in ["SIM", "Sim", "sim", "L2", "l2", "Plan", "PLAN", "Operador", "OPERADOR", "Compañia", "Compañía", "Carrier", "Proveedor"]:
-    if c in df_filtrado.columns:
-        plan_col = c
-        break
+# Detectar candidatos de columna "plan/compañía"
+plan_candidates_priority = [
+    "Dist GPS", "Dist_GPS", "DIST GPS", "DIST_GPS",
+    "L2", "l2",
+    "SIM", "Sim", "sim",
+    "Plan", "PLAN",
+    "Operador", "OPERADOR",
+    "Compañia", "Compañía", "COMPANIA", "COMPAÑÍA",
+    "Carrier", "Proveedor", "Distribuidor"
+]
+
+plan_candidates = [c for c in plan_candidates_priority if c in df_filtrado.columns]
+if plan_candidates:
+    plan_col_default = plan_candidates[0]
+    plan_col = st.sidebar.selectbox("Columna para PLAN/COMPAÑÍA (para costos)", plan_candidates, index=0, key="plan_col_picker")
+else:
+    plan_col = None
 
 if plan_col is None or not {"Patente", "MB", "Fecha"}.issubset(df_filtrado.columns):
-    st.warning("Para costos necesito: 'Patente', 'MB', 'Fecha' y una columna de plan/compañía (SIM o L2).")
+    st.warning("Para costos necesito: 'Patente', 'MB', 'Fecha' y una columna tipo 'Dist GPS' o 'L2' (o similar).")
 else:
     dfx = df_filtrado.copy()
     dfx["MB"] = pd.to_numeric(dfx["MB"], errors="coerce").fillna(0)
     dfx = dfx.dropna(subset=["Fecha"])
     dfx["Patente"] = dfx["Patente"].astype(str)
 
-    # Mes de cobro (YYYY-MM)
+    # Mes de cobro
     dfx["Mes"] = dfx["Fecha"].dt.to_period("M").astype(str)
 
     # 1) MB mensual por patente
@@ -428,7 +379,7 @@ else:
         .rename(columns={"MB": "MB_mes"})
     )
 
-    # 2) Plan mensual por patente: ÚLTIMA FECHA DEL MES
+    # 2) Plan mensual por patente: ÚLTIMA FECHA DEL MES (si cambió, se toma el último)
     dfx_sorted = dfx.sort_values("Fecha")
     plan_mensual = (
         dfx_sorted.dropna(subset=[plan_col])
@@ -438,53 +389,64 @@ else:
         .reset_index()
     )
 
-    # 3) Consolidado mensual (una fila = 1 patente x 1 mes)
+    # Consolidado mensual (1 fila = 1 patente x 1 mes)
     df_cost_m = mb_mensual.merge(plan_mensual, on=["Mes", "Patente"], how="left")
     df_cost_m["Plan_ultimo_mes"] = df_cost_m["Plan_ultimo_mes"].fillna("").astype(str)
     df_cost_m["Plan_UP"] = df_cost_m["Plan_ultimo_mes"].str.upper()
 
     df_cost_m["es_ilimitado"] = df_cost_m["Plan_UP"].str.contains("ILIMIT", na=False)
-    df_cost_m["es_entel"] = df_cost_m["Plan_UP"].isin(ENTEL_SET) | df_cost_m["Plan_UP"].str.startswith("ENTEL ")
+
+    # “Entel” (limitado o ilimitado). Si tu dato viene como “ENTEL ILIMITADO” también lo captura.
+    df_cost_m["es_entel"] = (
+        df_cost_m["Plan_UP"].isin(ENTEL_SET)
+        | df_cost_m["Plan_UP"].str.startswith("ENTEL ")
+        | df_cost_m["Plan_UP"].str.contains("ENTEL", na=False)
+    )
 
     df_cost_m["MB_sobre_30"] = (df_cost_m["MB_mes"] - UMBRAL_MB).clip(lower=0)
 
-    # Costo mensual por patente (aplicando tus reglas)
+    # COSTO mensual por patente (tus reglas)
     df_cost_m["costo_mes"] = 0
 
-    # Ilimitado: fijo mensual
+    # Ilimitado: 5874 1 vez/mes
     df_cost_m.loc[df_cost_m["es_ilimitado"], "costo_mes"] = COSTO_ILIMITADO
 
-    # Entel NO ilimitado: fijo + variable por MB sobre 30
+    # Entel NO ilimitado: 1000 1 vez/mes + 347 por MB sobre 30
     mask_entel_limitado = (df_cost_m["es_entel"]) & (~df_cost_m["es_ilimitado"])
     df_cost_m.loc[mask_entel_limitado, "costo_mes"] = (
         COSTO_BASE_ENTEL + df_cost_m.loc[mask_entel_limitado, "MB_sobre_30"] * COSTO_MB_ADICIONAL_ENTEL
     )
 
     # ============================
-    # GRÁFICO 1: COSTO TOTAL ENTEL LIMITADO vs ENTEL ILIMITADO (SUMADO EN EL RANGO FILTRADO)
+    # GRÁFICO 1: COSTO TOTAL ENTEL LIMITADO vs ENTEL ILIMITADO (SUMADO)
     # ============================
     total_entel_ilimitado = df_cost_m.loc[df_cost_m["es_entel"] & df_cost_m["es_ilimitado"], "costo_mes"].sum()
     total_entel_limitado = df_cost_m.loc[df_cost_m["es_entel"] & (~df_cost_m["es_ilimitado"]), "costo_mes"].sum()
 
     df_totales = pd.DataFrame({
         "Tipo": ["ENTEL LIMITADO", "ENTEL ILIMITADO"],
-        "Costo_total_CLP": [total_entel_limitado, total_entel_ilimitado]
+        "Costo_total_CLP": [float(total_entel_limitado), float(total_entel_ilimitado)]
     })
 
-    fig_costos_entel = px.bar(
-        df_totales,
-        x="Tipo",
-        y="Costo_total_CLP",
-        title="Costo total (según filtros): Entel Limitado vs Entel Ilimitado"
-    )
-    fig_costos_entel.update_layout(xaxis_title="Tipo de plan", yaxis_title="Costo total (CLP)")
-    st.plotly_chart(fig_costos_entel, use_container_width=True)
+    if df_totales["Costo_total_CLP"].sum() == 0:
+        st.warning(
+            f"No se está detectando Entel/Entel Ilimitado en la columna **{plan_col}** (o no hay consumo en el rango). "
+            "Cambia la columna de PLAN/COMPAÑÍA en el sidebar (ideal: Dist GPS o L2)."
+        )
+    else:
+        fig_costos_entel = px.bar(
+            df_totales,
+            x="Tipo",
+            y="Costo_total_CLP",
+            title=f"Costo total (según filtros): Entel Limitado vs Entel Ilimitado  |  PlanCol={plan_col}"
+        )
+        fig_costos_entel.update_layout(xaxis_title="Tipo de plan", yaxis_title="Costo total (CLP)")
+        st.plotly_chart(fig_costos_entel, use_container_width=True)
 
     # ============================
-    # GRÁFICO 2: PATENTES NO ILIMITADAS con MB_mes > 45 (RECOMENDADO SUBIR)
-    #            (se muestra por Mes para que sea accionable)
+    # GRÁFICO 2: NO ILIMITADOS con MB_mes > 45 (ordenado por costo_mes DESC)
     # ============================
-    st.subheader(f"🚀 Patentes NO ilimitadas con consumo mensual > {UMBRAL_RECOMENDAR_ILIMITADO} MB")
+    st.subheader(f"🚀 Patentes NO ilimitadas con consumo mensual > {UMBRAL_RECOMENDAR_ILIMITADO} MB (orden por costo)")
 
     df_over = df_cost_m[(~df_cost_m["es_ilimitado"]) & (df_cost_m["MB_mes"] > UMBRAL_RECOMENDAR_ILIMITADO)].copy()
     df_over["Recomendación"] = "RECOMENDADO SUBIR A PLAN ILIMITADO"
@@ -492,16 +454,19 @@ else:
     if df_over.empty:
         st.success("No hay patentes NO ilimitadas sobre el umbral (con los filtros actuales).")
     else:
-        # Etiqueta para el eje: Patente (Mes)
+        # Orden por costo (y luego MB) DESC
+        df_over = df_over.sort_values(["costo_mes", "MB_mes"], ascending=[False, False])
+
+        # Eje X: etiqueta + orden fijo
         df_over["Patente (Mes)"] = df_over["Patente"] + " (" + df_over["Mes"] + ")"
-        df_over = df_over.sort_values(["Mes", "MB_mes"], ascending=[True, False])
+        ordered_x = df_over["Patente (Mes)"].tolist()
 
         fig_over = px.bar(
             df_over,
             x="Patente (Mes)",
             y="MB_mes",
-            hover_data=["Mes", "Patente", "Plan_ultimo_mes", "costo_mes", "Recomendación"],
-            title=f"Patentes NO ilimitadas con consumo mensual > {UMBRAL_RECOMENDAR_ILIMITADO} MB"
+            hover_data=["Mes", "Patente", "Plan_ultimo_mes", "MB_sobre_30", "costo_mes", "Recomendación"],
+            title=f"Patentes NO ilimitadas con consumo mensual > {UMBRAL_RECOMENDAR_ILIMITADO} MB (ordenadas por costo)"
         )
         fig_over.add_hline(
             y=UMBRAL_RECOMENDAR_ILIMITADO,
@@ -509,7 +474,11 @@ else:
             annotation_text=f"Umbral {UMBRAL_RECOMENDAR_ILIMITADO} MB",
             annotation_position="top right"
         )
-        fig_over.update_layout(xaxis_title="Patente (Mes)", yaxis_title="MB mensual")
+        fig_over.update_layout(
+            xaxis_title="Patente (Mes)",
+            yaxis_title="MB mensual",
+        )
+        fig_over.update_xaxes(categoryorder="array", categoryarray=ordered_x)
         st.plotly_chart(fig_over, use_container_width=True)
 
         st.dataframe(
