@@ -1,1 +1,10 @@
-python-3.11.9
+########## OPENAI ##########
+OPENAI_API_KEY=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
+
+########## META WHATSAPP ##########
+WHATSAPP_VERIFY_TOKEN=cerebro_token_123   # inventa uno, este es ejemplo
+WHATSAPP_TOKEN=EAAXLcZAX18PoBQCJ5X2Su0sf287LSJQsP19YZAyJ0lktyk4ZBCARDuX1rJMS0ZByZCdHgdjiKZA6LpUz2SIM9k5dymhCJCJrTzxMPhZC1QwUr5J8zga7ToeIEZA6lwZAMPBlamm2LLL5FLO7FgqVZBToVelGauxR9f58tEnd4YJzFZAQOEFeHK2lT9gextAHhZB7kF4fRwZDZD
+WHATSAPP_PHONE_ID=892102933993559
+DATABASE_URL=postgresql://neondb_owner:npg_ZbcEMTzOfS85@ep-mute-wave-a4rf1hds-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+OWNER_PHONE=56979967884
+
