@@ -107,6 +107,16 @@ MAX_HISTORY_MESSAGES = 20
 # Set en RAM para deduplicar message_id de WhatsApp
 PROCESSED_MESSAGE_IDS = set()
 
+# =========================================================
+# OWNER / SEGURIDAD DURA (NO NEGOCIABLE POR EL MODELO)
+# =========================================================
+OWNER_PHONE = (os.getenv("OWNER_PHONE") or "").strip()
+
+def normalize_phone(p: str) -> str:
+    return p.replace("+", "").replace(" ", "").strip()
+
+def is_owner(phone: str) -> bool:
+    return OWNER_PHONE != "" and normalize_phone(phone) == normalize_phone(OWNER_PHONE)
 
 # =========================================================
 # FUNCIONES AUXILIARES DE BASE DE DATOS
