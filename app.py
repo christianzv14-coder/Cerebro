@@ -1,9 +1,8 @@
 # app.py
 # Cerebro de Patio – Flask + OpenAI + WhatsApp Cloud API (Meta)
-# - Memoria persistente en base de datos (SQLite / Postgres)
-# - Memoria por usuario basada en tablas users + messages
-# - Filtro de tipo de mensaje y deduplicación de mensajes
-# - Listo para local y nube (Render/Railway/etc.)
+# - Memoria persistente en BD (SQLite / Postgres)
+# - Memoria por usuario (users + messages)
+# - Listo para Railway + Gunicorn
 
 import os
 from datetime import datetime
@@ -26,7 +25,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 
 # =========================================================
-# CARGA DE VARIABLES DE ENTORNO
+# VARIABLES DE ENTORNO
 # =========================================================
 load_dotenv()
 
@@ -36,98 +35,69 @@ WHATSAPP_PHONE_ID = os.getenv("WHATSAPP_PHONE_ID")
 WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "cerebro_token_123")
 
 if not OPENAI_API_KEY:
-    raise RuntimeError("Falta OPENAI_API_KEY en las variables de entorno")
+    raise RuntimeError("Falta OPENAI_API_KEY")
 if not WHATSAPP_TOKEN:
-    raise RuntimeError("Falta WHATSAPP_TOKEN en las variables de entorno")
+    raise RuntimeError("Falta WHATSAPP_TOKEN")
 if not WHATSAPP_PHONE_ID:
-    raise RuntimeError("Falta WHATSAPP_PHONE_ID en las variables de entorno")
+    raise RuntimeError("Falta WHATSAPP_PHONE_ID")
 
-# Base de datos:
-# - En local: usa SQLite (cerebro.db)
-# - En nube: define DATABASE_URL (ej: Postgres)
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///cerebro.db")
 
-# Loguear qué BD se está usando y dónde está el archivo si es SQLite
+# Log BD
 if DATABASE_URL.startswith("sqlite:///"):
     db_file = DATABASE_URL.replace("sqlite:///", "", 1)
-    db_abs_path = Path(db_file).resolve()
-    print(">>> BASE DE DATOS USADA: SQLite")
-    print(f">>> ARCHIVO BD: {db_abs_path}")
+    print(">>> BD SQLite:", Path(db_file).resolve())
 else:
-    print(">>> BASE DE DATOS USADA por DATABASE_URL:")
-    print(f">>> {DATABASE_URL}")
-
-# Cliente OpenAI (SDK nuevo)
-client = OpenAI(api_key=OPENAI_API_KEY)
-
-# Instancia Flask
-app = Flask(__name__)
+    print(">>> BD Postgres:", DATABASE_URL)
 
 # =========================================================
-# CONFIGURACIÓN SQLALCHEMY
+# APP + OPENAI
+# =========================================================
+app = Flask(__name__)
+client = OpenAI(api_key=OPENAI_API_KEY)
+
+# =========================================================
+# SQLALCHEMY
 # =========================================================
 engine = create_engine(
     DATABASE_URL,
-    echo=False,
-    future=True,
     pool_pre_ping=True,
     pool_recycle=300,
 )
-
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
 
 class User(Base):
     __tablename__ = "users"
-
     id = Column(Integer, primary_key=True)
     phone = Column(String(32), unique=True, index=True)
-    name = Column(String(255), nullable=True)  # reservado para futuro
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class Message(Base):
     __tablename__ = "messages"
-
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"))
-    role = Column(String(16))  # 'user' / 'assistant'
+    role = Column(String(16))  # user / assistant
     content = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
-
     user = relationship("User", backref="messages")
 
 
-# Crear tablas si no existen
 Base.metadata.create_all(bind=engine)
 
-# Historial máximo por usuario (en mensajes, user+assistant)
-MAX_HISTORY_MESSAGES = 20
-
-# Set en RAM para deduplicar message_id de WhatsApp
-PROCESSED_MESSAGE_IDS = set()
+MAX_HISTORY = 20
+PROCESSED_IDS = set()
 
 # =========================================================
-# OWNER / SEGURIDAD DURA (NO NEGOCIABLE POR EL MODELO)
+# HELPERS BD
 # =========================================================
-OWNER_PHONE = (os.getenv("OWNER_PHONE") or "").strip()
-
-def normalize_phone(p: str) -> str:
-    return p.replace("+", "").replace(" ", "").strip()
-
-def is_owner(phone: str) -> bool:
-    return OWNER_PHONE != "" and normalize_phone(phone) == normalize_phone(OWNER_PHONE)
-
-# =========================================================
-# FUNCIONES AUXILIARES DE BASE DE DATOS
-# =========================================================
-def get_db_session():
-    """Crea un nuevo Session; usar con with para cerrar automáticamente."""
+def get_session():
     return SessionLocal()
 
 
-def get_or_create_user_by_phone(db, phone: str) -> User:
-    """Obtiene el usuario por teléfono; si no existe, lo crea."""
+def get_or_create_user(db, phone):
     user = db.query(User).filter(User.phone == phone).first()
     if not user:
         user = User(phone=phone)
@@ -137,53 +107,40 @@ def get_or_create_user_by_phone(db, phone: str) -> User:
     return user
 
 
-def get_user_history(phone: str):
-    """
-    Devuelve el historial de conversación de un usuario como
-    lista de {role, content}, limitado a MAX_HISTORY_MESSAGES.
-    """
-    with get_db_session() as db:
+def save_message(phone, role, content):
+    with get_session() as db:
+        user = get_or_create_user(db, phone)
+        db.add(Message(user_id=user.id, role=role, content=content))
+        db.commit()
+
+
+def get_history(phone):
+    with get_session() as db:
         user = db.query(User).filter(User.phone == phone).first()
         if not user:
             return []
-
         msgs = (
             db.query(Message)
             .filter(Message.user_id == user.id)
             .order_by(Message.created_at.asc())
             .all()
         )
-
         history = [{"role": m.role, "content": m.content} for m in msgs]
-        if len(history) > MAX_HISTORY_MESSAGES:
-            history = history[-MAX_HISTORY_MESSAGES:]
-        return history
+        return history[-MAX_HISTORY:]
 
 
-def append_message(phone: str, role: str, content: str):
-    """Guarda un mensaje en la BD asociado al teléfono del usuario."""
-    with get_db_session() as db:
-        user = get_or_create_user_by_phone(db, phone)
-        msg = Message(user_id=user.id, role=role, content=content)
-        db.add(msg)
-        db.commit()
-
-
-def reset_user_history(phone: str):
-    """Borra todos los mensajes asociados a un teléfono."""
-    with get_db_session() as db:
+def reset_history(phone):
+    with get_session() as db:
         user = db.query(User).filter(User.phone == phone).first()
-        if not user:
-            return
-        db.query(Message).filter(Message.user_id == user.id).delete()
-        db.commit()
+        if user:
+            db.query(Message).filter(Message.user_id == user.id).delete()
+            db.commit()
 
 
 # =========================================================
-# FUNCIÓN AUXILIAR PARA ENVIAR MENSAJES A WHATSAPP
-# (Debe estar declarada antes de usarla en receive_message)
+# WHATSAPP SEND
 # =========================================================
-def send_whatsapp_message(to_number: str, text: str):
+def send_whatsapp(to, text):
     url = f"https://graph.facebook.com/v21.0/{WHATSAPP_PHONE_ID}/messages"
     headers = {
         "Authorization": f"Bearer {WHATSAPP_TOKEN}",
@@ -191,172 +148,90 @@ def send_whatsapp_message(to_number: str, text: str):
     }
     payload = {
         "messaging_product": "whatsapp",
-        "to": to_number,
+        "to": to,
         "type": "text",
         "text": {"body": text},
     }
-
-    print("=== REQUEST HACIA WHATSAPP ===")
-    print("URL:", url)
-    print("Payload:", payload)
-
-    try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=20)
-        print("=== RESPUESTA DE WHATSAPP ===")
-        print("Status:", resp.status_code)
-        print("Body:", resp.text)
-    except Exception as e:
-        print("Error enviando mensaje a WhatsApp:", e)
+    requests.post(url, headers=headers, json=payload)
 
 
 # =========================================================
-# HEALTHCHECK / ROOT
+# ROUTES
 # =========================================================
 @app.route("/", methods=["GET"])
-def healthcheck():
-    return "Cerebro de Patio está corriendo con memoria en BD.", 200
+def health():
+    return "Cerebro OK", 200
 
 
-# =========================================================
-# WEBHOOK – VERIFICACIÓN (GET)
-# =========================================================
 @app.route("/webhook", methods=["GET"])
 def verify():
-    mode = request.args.get("hub.mode")
-    token = request.args.get("hub.verify_token")
-    challenge = request.args.get("hub.challenge")
-
-    print("=== VERIFICACIÓN WEBHOOK ===")
-    print("mode:", mode)
-    print("token:", token)
-    print("challenge:", challenge)
-
-    if mode == "subscribe" and token == WHATSAPP_VERIFY_TOKEN:
-        return challenge, 200
-
-    return "Token de verificación inválido", 403
+    if (
+        request.args.get("hub.mode") == "subscribe"
+        and request.args.get("hub.verify_token") == WHATSAPP_VERIFY_TOKEN
+    ):
+        return request.args.get("hub.challenge"), 200
+    return "Forbidden", 403
 
 
-# =========================================================
-# WEBHOOK – MENSAJES (POST)
-# =========================================================
 @app.route("/webhook", methods=["POST"])
-def receive_message():
-    print("\n\n======================")
-    print(">>> LLEGÓ UN POST A /webhook")
-    print("Headers:", dict(request.headers))
-    print("Raw body:", request.data)
-    print("======================\n")
-
-    # 1) Parse JSON
-    try:
-        data = request.get_json()
-        print("=== JSON PARSEADO ===")
-        print(data)
-    except Exception as e:
-        print("ERROR parseando JSON:", e)
-        return "ok", 200
-
+def receive():
+    data = request.get_json()
     if not data:
-        print("No vino JSON en el body")
         return "ok", 200
 
-    # 2) Extraer mensaje y número
     try:
-        entry = data["entry"][0]
-        change = entry["changes"][0]
-        value = change["value"]
-
-        messages = value.get("messages")
-        if not messages:
-            print("No hay 'messages' en el payload (probablemente es un status).")
-            return "ok", 200
-
-        message = messages[0]
-
-        # Deduplicación por message_id (RAM)
-        message_id = message.get("id")
-        if message_id:
-            if message_id in PROCESSED_MESSAGE_IDS:
-                print(f"Mensaje {message_id} ya procesado. Ignorando.")
-                return "ok", 200
-            PROCESSED_MESSAGE_IDS.add(message_id)
-
-        message_type = message.get("type")
-        if message_type != "text":
-            print(f"Mensaje ignorado: tipo '{message_type}' no soportado.")
-            return "ok", 200
-
-        from_number = message["from"]
-        text_body = message.get("text", {}).get("body", "").strip()
-
-        print(f"Mensaje desde {from_number}: {text_body}")
-
-    except Exception as e:
-        print("Error parseando estructura de WhatsApp:", e)
+        message = data["entry"][0]["changes"][0]["value"]["messages"][0]
+    except Exception:
         return "ok", 200
 
-    # 3) Reset de memoria (antes de OpenAI)
-    lower_text = text_body.lower()
-    if lower_text in ["reset", "reinicia", "reiniciar", "borrar memoria", "resetear memoria"]:
-        reset_user_history(from_number)
-        send_whatsapp_message(
-            from_number,
-            "Listo. Reseteé la memoria para este chat. Partimos de cero.",
-        )
+    msg_id = message.get("id")
+    if msg_id and msg_id in PROCESSED_IDS:
+        return "ok", 200
+    if msg_id:
+        PROCESSED_IDS.add(msg_id)
+
+    if message.get("type") != "text":
         return "ok", 200
 
-    # 4) Historial desde BD
-    try:
-        user_history = get_user_history(from_number)
-    except Exception as e:
-        print("ERROR en get_user_history:", repr(e))
-        user_history = []
+    phone = message["from"]
+    text = message["text"]["body"].strip()
 
-    # 5) System prompt maestro
-    system_message = {
+    if text.lower() in ["reset", "reiniciar", "borrar memoria"]:
+        reset_history(phone)
+        send_whatsapp(phone, "Memoria reseteada. Partimos de cero.")
+        return "ok", 200
+
+    history = get_history(phone)
+
+    system = {
         "role": "system",
-        ".land": "ignore",
         "content": (
-            "Eres 'Cerebro de Patio', un supervisor experto de patio en centros de "
-            "distribución y crossdock de e-commerce en Chile. "
-            "Respondes directo, sin rodeos, con foco operativo. "
-            "Conoces conceptos como bloques de salida, andenes, flota tercerizada, "
-            "conductores, rutas, SLAs, atrasos, mermas y seguridad en el patio. "
-            "Hablas con Christian, subgerente de operaciones, y tus respuestas deben ser "
-            "accionables en el piso: qué hacer, en qué orden y con quién. "
-            "Si no tienes información suficiente, acláralo y pide datos adicionales."
+            "Eres Cerebro de Patio, supervisor experto de patios "
+            "logísticos y crossdock en Chile. Respondes directo, "
+            "operativo y accionable."
         ),
     }
 
-    messages_for_openai = [system_message] + user_history + [{"role": "user", "content": text_body}]
+    messages = [system] + history + [{"role": "user", "content": text}]
 
-    # 6) Guardar SIEMPRE el mensaje del usuario ANTES de OpenAI
-    append_message(from_number, "user", text_body)
-
-    # 7) Llamar OpenAI
     try:
         completion = client.chat.completions.create(
             model="gpt-4.1-mini",
-            messages=messages_for_openai,
+            messages=messages,
         )
         reply = completion.choices[0].message.content
-        print("Respuesta de OpenAI:", reply)
+    except Exception:
+        reply = "Error interno. Intenta nuevamente."
 
-        # Guardar SOLO la respuesta del assistant
-        append_message(from_number, "assistant", reply)
+    save_message(phone, "user", text)
+    save_message(phone, "assistant", reply)
 
-    except Exception as e:
-        print("Error llamando a OpenAI:", e)
-        reply = "Tuve un problema hablando con el modelo. Intenta de nuevo en un momento."
-
-    # 8) Enviar respuesta a WhatsApp
-    send_whatsapp_message(from_number, reply)
+    send_whatsapp(phone, reply)
     return "ok", 200
 
 
 # =========================================================
-# MAIN (solo local)
+# LOCAL
 # =========================================================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=True)
