@@ -1,12 +1,12 @@
 # app.py
 # Cerebro de Patio – Flask + WhatsApp Cloud API (Meta) + OpenAI (REST) + Postgres (Neon)
-# - NO hace create_all al importar (evita cuelgues en Railway)
-# - OpenAI via REST (evita errores httpx/proxies)
-# - Webhook GET/POST rápido + logs claros
-# - Memoria persistente por usuario en Postgres/SQLite
+# Diseño:
+# - /webhook GET ultra-liviano (solo verificación Meta)
+# - DB/OpenAI SOLO en POST (evita timeouts al validar)
+# - DB init lazy con timeout (Neon/pooler)
+# - Logs operativos
 
 import os
-import time
 from datetime import datetime
 from pathlib import Path
 
@@ -14,11 +14,8 @@ import requests
 from flask import Flask, request
 from dotenv import load_dotenv
 
-from sqlalchemy import (
-    create_engine, Column, Integer, String, Text, DateTime, ForeignKey
-)
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
-from sqlalchemy.exc import SQLAlchemyError
 
 # =========================================================
 # ENV
@@ -31,14 +28,15 @@ WHATSAPP_PHONE_ID = os.getenv("WHATSAPP_PHONE_ID")
 WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "cerebro_token_123")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///cerebro.db")
 
-if not OPENAI_API_KEY:
-    raise RuntimeError("Falta OPENAI_API_KEY en variables de entorno")
+# En prod: si faltan, mejor fallar fuerte (evitas “funciona a medias”)
 if not WHATSAPP_TOKEN:
     raise RuntimeError("Falta WHATSAPP_TOKEN en variables de entorno")
 if not WHATSAPP_PHONE_ID:
     raise RuntimeError("Falta WHATSAPP_PHONE_ID en variables de entorno")
+if not OPENAI_API_KEY:
+    raise RuntimeError("Falta OPENAI_API_KEY en variables de entorno")
 
-# Log BD
+# Log BD (solo informativo)
 if DATABASE_URL.startswith("sqlite:///"):
     db_file = DATABASE_URL.replace("sqlite:///", "", 1)
     db_abs_path = Path(db_file).resolve()
@@ -74,11 +72,13 @@ class Message(Base):
     role = Column(String(16))  # 'user' / 'assistant'
     content = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
-
     user = relationship("User", backref="messages")
 
 def init_db():
-    """Inicializa engine/session/tables UNA VEZ, con timeout para no colgar Railway."""
+    """
+    Inicializa engine/session/tables UNA VEZ.
+    Importante: NO se llama desde /webhook GET.
+    """
     global SessionLocal, _engine, _db_ready
 
     if _db_ready:
@@ -87,7 +87,6 @@ def init_db():
     try:
         connect_args = {}
         if DATABASE_URL.startswith("postgresql"):
-            # evita cuelgues en boot si Neon/pooler está lento
             connect_args = {"connect_timeout": 5}
 
         _engine = create_engine(
@@ -101,7 +100,7 @@ def init_db():
         )
         SessionLocal = sessionmaker(bind=_engine, autoflush=False, autocommit=False, future=True)
 
-        # crear tablas, pero controlado (y rápido)
+        # Crear tablas (rápido)
         Base.metadata.create_all(bind=_engine)
 
         _db_ready = True
@@ -209,6 +208,7 @@ def call_openai_chat(messages, model="gpt-4.1-mini"):
 def healthcheck():
     return "OK - Cerebro de Patio running", 200
 
+# --- CRÍTICO: ultra-liviano para verificación Meta ---
 @app.route("/webhook", methods=["GET"])
 def verify():
     mode = request.args.get("hub.mode")
@@ -220,17 +220,13 @@ def verify():
     if mode == "subscribe" and token == WHATSAPP_VERIFY_TOKEN and challenge:
         return challenge, 200
 
-    return "Token de verificación inválido", 403
+    return "Forbidden", 403
 
 @app.route("/webhook", methods=["POST"])
 def receive_message():
     print("\n=== POST /webhook ===")
-    try:
-        data = request.get_json(silent=True)
-    except Exception as e:
-        print("JSON parse ERROR:", repr(e))
-        return "ok", 200
 
+    data = request.get_json(silent=True)
     if not data:
         print("No JSON body")
         return "ok", 200
@@ -247,6 +243,7 @@ def receive_message():
 
         message = messages[0]
         message_id = message.get("id")
+
         if message_id and message_id in PROCESSED_MESSAGE_IDS:
             print("Dup message ignored:", message_id)
             return "ok", 200
@@ -275,23 +272,22 @@ def receive_message():
         send_whatsapp_message(from_number, "Listo. Reseteé la memoria para este chat. Partimos de cero.")
         return "ok", 200
 
-    # build prompt
+    # Prompt
     system_message = {
         "role": "system",
         "content": (
-            "Eres 'Cerebro de Patio', un supervisor experto de patio en centros de distribución "
-            "y crossdock de e-commerce en Chile. Respondes directo, accionable, con foco operativo. "
+            "Eres 'Cerebro de Patio', supervisor experto de patio en centros de distribución "
+            "y crossdock de e-commerce en Chile. Respondes directo, accionable, foco operativo. "
             "Si falta información, pide datos concretos."
         ),
     }
 
+    # DB/OpenAI SOLO aquí (POST)
     history = get_user_history(from_number)
     messages_for_openai = [system_message] + history + [{"role": "user", "content": text_body}]
 
-    # persist user msg
     append_message(from_number, "user", text_body)
 
-    # call model
     try:
         reply = call_openai_chat(messages_for_openai)
         append_message(from_number, "assistant", reply)
@@ -306,5 +302,3 @@ def receive_message():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port, debug=True)
-
-    
