@@ -223,7 +223,7 @@ def verify():
     token = request.args.get("hub.verify_token")
     challenge = request.args.get("hub.challenge")
 
-    print("=== VERIFICACIÓN WEBHOOK ===", mode, token)
+    print("=== VERIFICACIÓN WEBHOOK ===", mode, token, challenge)
 
     if mode == "subscribe" and token == WHATSAPP_VERIFY_TOKEN:
         return challenge, 200
