@@ -214,33 +214,43 @@ def healthcheck():
     return "Cerebro de Patio está corriendo (OpenAI via REST).", 200
 
 
+# from flask import Response
+
 # =========================================================
-# WEBHOOK – VERIFICACIÓN (GET)
+# WEBHOOK – VERIFICACIÓN (GET)  ✅ META COMPATIBLE
 # =========================================================
 @app.route("/webhook", methods=["GET"])
 def verify():
-    mode = request.args.get("hub.mode")
-    token = request.args.get("hub.verify_token")
-    challenge = request.args.get("hub.challenge")
+    mode = request.args.get("hub.mode", "")
+    token = request.args.get("hub.verify_token", "")
+    challenge = request.args.get("hub.challenge", "")
 
-    print("=== VERIFICACIÓN WEBHOOK ===", mode, token, challenge)
+    print("=== VERIFICACIÓN WEBHOOK ===")
+    print("mode:", mode)
+    print("token:", token)
+    print("challenge:", challenge)
 
-    if mode == "subscribe" and token == WHATSAPP_VERIFY_TOKEN:
-        return challenge, 200
+    if mode == "subscribe" and token == WHATSAPP_VERIFY_TOKEN and challenge:
+        return Response(challenge, status=200, mimetype="text/plain")
 
-    return "Token de verificación inválido", 403
+    return Response("Token de verificación inválido", status=403, mimetype="text/plain")
 
 
 # =========================================================
 # WEBHOOK – MENSAJES (POST)
 # =========================================================
+PROCESSED_MESSAGE_IDS = []
+PROCESSED_MESSAGE_IDS_SET = set()
+MAX_DEDUP = 2000
+
+
 @app.route("/webhook", methods=["POST"])
 def receive_message():
-    print("\n\n======================")
+    print("\n======================")
     print(">>> LLEGÓ UN POST A /webhook")
     print("Headers:", dict(request.headers))
     print("Raw body:", request.data)
-    print("======================\n")
+    print("======================")
 
     # 1) Parse JSON
     try:
@@ -250,10 +260,10 @@ def receive_message():
         return "ok", 200
 
     if not data:
-        print("No vino JSON en el body")
+        print("No vino JSON")
         return "ok", 200
 
-    # 2) Extraer mensaje y número
+    # 2) Extraer mensaje
     try:
         entry = data["entry"][0]
         change = entry["changes"][0]
@@ -261,89 +271,104 @@ def receive_message():
 
         messages = value.get("messages")
         if not messages:
-            print("No hay 'messages' en el payload (probablemente status).")
+            print("Evento sin messages (status update).")
             return "ok", 200
 
         message = messages[0]
 
-        # Deduplicación por message_id (RAM)
+        # Deduplicación
         message_id = message.get("id")
         if message_id:
-            if message_id in PROCESSED_MESSAGE_IDS:
-                print(f"Mensaje {message_id} ya procesado. Ignorando.")
+            if message_id in PROCESSED_MESSAGE_IDS_SET:
+                print(f"Mensaje duplicado {message_id}, ignorado.")
                 return "ok", 200
-            PROCESSED_MESSAGE_IDS.add(message_id)
 
-        message_type = message.get("type")
-        if message_type != "text":
-            print(f"Mensaje ignorado: tipo '{message_type}' no soportado.")
-            return "ok", 200
+            PROCESSED_MESSAGE_IDS_SET.add(message_id)
+            PROCESSED_MESSAGE_IDS.append(message_id)
+            if len(PROCESSED_MESSAGE_IDS) > MAX_DEDUP:
+                old = PROCESSED_MESSAGE_IDS.pop(0)
+                PROCESSED_MESSAGE_IDS_SET.discard(old)
 
         from_number = message["from"]
-        text_body = message.get("text", {}).get("body", "").strip()
+        message_type = message.get("type")
+
+        text_body = ""
+
+        if message_type == "text":
+            text_body = message.get("text", {}).get("body", "").strip()
+
+        elif message_type == "button":
+            text_body = message.get("button", {}).get("text", "").strip()
+
+        elif message_type == "interactive":
+            inter = message.get("interactive", {})
+            itype = inter.get("type")
+
+            if itype == "button_reply":
+                text_body = inter.get("button_reply", {}).get("title", "").strip()
+            elif itype == "list_reply":
+                text_body = inter.get("list_reply", {}).get("title", "").strip()
+
+        else:
+            print(f"Mensaje tipo '{message_type}' no soportado.")
+            return "ok", 200
+
+        if not text_body:
+            print("Mensaje vacío.")
+            return "ok", 200
 
         print(f"Mensaje desde {from_number}: {text_body}")
 
     except Exception as e:
-        print("Error parseando estructura de WhatsApp:", repr(e))
+        print("Error parseando estructura WhatsApp:", repr(e))
         return "ok", 200
 
-    if not text_body:
-        print("Mensaje vacío. Ignorando.")
-        return "ok", 200
-
-    # 3) Reset de memoria (antes de OpenAI)
-    lower_text = text_body.lower()
-    if lower_text in ["reset", "reinicia", "reiniciar", "borrar memoria", "resetear memoria"]:
+    # 3) Reset memoria
+    if text_body.lower() in ["reset", "reiniciar", "borrar memoria", "resetear memoria"]:
         reset_user_history(from_number)
-        send_whatsapp_message(from_number, "Listo. Reseteé la memoria para este chat. Partimos de cero.")
+        send_whatsapp_message(
+            from_number,
+            "Listo. Reseteé la memoria del chat. Partimos de cero."
+        )
         return "ok", 200
 
-    # 4) Historial desde BD
+    # 4) Historial
     try:
         user_history = get_user_history(from_number)
     except Exception as e:
-        print("ERROR en get_user_history:", repr(e))
+        print("ERROR get_user_history:", repr(e))
         user_history = []
 
-    # 5) System prompt maestro (ojo: removí el campo raro ".land")
+    # 5) Prompt sistema
     system_message = {
         "role": "system",
         "content": (
-            "Eres 'Cerebro de Patio', un supervisor experto de patio en centros de "
-            "distribución y crossdock de e-commerce en Chile. "
-            "Respondes directo, sin rodeos, con foco operativo. "
-            "Conoces conceptos como bloques de salida, andenes, flota tercerizada, "
-            "conductores, rutas, SLAs, atrasos, mermas y seguridad en el patio. "
-            "Hablas con Christian (subgerente de operaciones) y tus respuestas deben ser "
-            "accionables en el piso: qué hacer, en qué orden y con quién. "
-            "Si no tienes información suficiente, dilo y pide datos concretos."
+            "Eres 'Cerebro de Patio', un supervisor experto en patios de centros de "
+            "distribución y crossdock e-commerce en Chile. "
+            "Respondes directo, operativo y accionable. "
+            "Hablas con Christian, subgerente de operaciones."
         ),
     }
 
-    messages_for_openai = [system_message] + user_history + [{"role": "user", "content": text_body}]
+    messages_for_openai = (
+        [system_message] + user_history + [{"role": "user", "content": text_body}]
+    )
 
-    # 6) Guardar SIEMPRE el mensaje del usuario ANTES de OpenAI
+    # 6) Guardar mensaje usuario
     try:
         append_message(from_number, "user", text_body)
     except Exception as e:
         print("ERROR guardando mensaje user:", repr(e))
 
-    # 7) Llamar OpenAI (REST)
+    # 7) OpenAI (tu función REST o SDK)
     try:
         reply = call_openai_chat(messages_for_openai)
-        print("Respuesta OpenAI:", reply)
-
-        try:
-            append_message(from_number, "assistant", reply)
-        except Exception as e:
-            print("ERROR guardando mensaje assistant:", repr(e))
-
+        append_message(from_number, "assistant", reply)
     except Exception as e:
-        print("Error llamando a OpenAI:", repr(e))
-        reply = "Tuve un problema hablando con el modelo. Intenta de nuevo en un momento."
+        print("ERROR OpenAI:", repr(e))
+        reply = "Tuve un problema procesando el mensaje. Intenta nuevamente."
 
-    # 8) Enviar respuesta a WhatsApp
+    # 8) Responder WhatsApp
     send_whatsapp_message(from_number, reply)
     return "ok", 200
 
