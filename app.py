@@ -4,9 +4,12 @@
 # - /webhook GET ultra-liviano (solo verificación Meta)
 # - DB/OpenAI SOLO en POST (evita timeouts al validar)
 # - DB init lazy con timeout (Neon/pooler)
+# - Deduplicación PERSISTENTE por message_id (a prueba de reinicios/escala)
+# - POST responde 200 rápido (evita reintentos de Meta) y procesa en hilo
 # - Logs operativos
 
 import os
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -14,8 +17,11 @@ import requests
 from flask import Flask, request
 from dotenv import load_dotenv
 
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import (
+    create_engine, Column, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint
+)
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+from sqlalchemy.exc import IntegrityError
 
 # =========================================================
 # ENV
@@ -28,7 +34,6 @@ WHATSAPP_PHONE_ID = os.getenv("WHATSAPP_PHONE_ID")
 WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "cerebro_token_123")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///cerebro.db")
 
-# En prod: si faltan, mejor fallar fuerte (evitas “funciona a medias”)
 if not WHATSAPP_TOKEN:
     raise RuntimeError("Falta WHATSAPP_TOKEN en variables de entorno")
 if not WHATSAPP_PHONE_ID:
@@ -36,7 +41,6 @@ if not WHATSAPP_PHONE_ID:
 if not OPENAI_API_KEY:
     raise RuntimeError("Falta OPENAI_API_KEY en variables de entorno")
 
-# Log BD (solo informativo)
 if DATABASE_URL.startswith("sqlite:///"):
     db_file = DATABASE_URL.replace("sqlite:///", "", 1)
     db_abs_path = Path(db_file).resolve()
@@ -59,11 +63,13 @@ SessionLocal = None
 _engine = None
 _db_ready = False
 
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True)
     phone = Column(String(32), unique=True, index=True)
     name = Column(String(255), nullable=True)
+
 
 class Message(Base):
     __tablename__ = "messages"
@@ -74,13 +80,18 @@ class Message(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     user = relationship("User", backref="messages")
 
-def init_db():
-    """
-    Inicializa engine/session/tables UNA VEZ.
-    Importante: NO se llama desde /webhook GET.
-    """
-    global SessionLocal, _engine, _db_ready
 
+class ProcessedMessage(Base):
+    __tablename__ = "processed_messages"
+    id = Column(Integer, primary_key=True)
+    message_id = Column(String(128), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("message_id", name="uq_processed_message_id"),)
+
+
+def init_db():
+    global SessionLocal, _engine, _db_ready
     if _db_ready:
         return True
 
@@ -100,7 +111,6 @@ def init_db():
         )
         SessionLocal = sessionmaker(bind=_engine, autoflush=False, autocommit=False, future=True)
 
-        # Crear tablas (rápido)
         Base.metadata.create_all(bind=_engine)
 
         _db_ready = True
@@ -112,16 +122,18 @@ def init_db():
         _db_ready = False
         return False
 
+
 def get_db_session():
     if not init_db():
         return None
     return SessionLocal()
 
+
 # =========================================================
 # Memoria
 # =========================================================
 MAX_HISTORY_MESSAGES = 20
-PROCESSED_MESSAGE_IDS = set()
+
 
 def get_or_create_user_by_phone(db, phone: str) -> User:
     user = db.query(User).filter(User.phone == phone).first()
@@ -131,6 +143,7 @@ def get_or_create_user_by_phone(db, phone: str) -> User:
         db.commit()
         db.refresh(user)
     return user
+
 
 def get_user_history(phone: str):
     db = get_db_session()
@@ -151,6 +164,7 @@ def get_user_history(phone: str):
     finally:
         db.close()
 
+
 def append_message(phone: str, role: str, content: str):
     db = get_db_session()
     if db is None:
@@ -161,6 +175,7 @@ def append_message(phone: str, role: str, content: str):
         db.commit()
     finally:
         db.close()
+
 
 def reset_user_history(phone: str):
     db = get_db_session()
@@ -174,6 +189,35 @@ def reset_user_history(phone: str):
         db.commit()
     finally:
         db.close()
+
+
+def mark_message_processed(message_id: str) -> bool:
+    """
+    Devuelve True si este message_id es NUEVO (y lo marca).
+    Devuelve False si YA estaba procesado.
+    """
+    if not message_id:
+        # Si no viene id, no podemos deduplicar a prueba de todo.
+        # Igual procesamos, pero logueamos.
+        print("WARN: message_id vacío, no se puede deduplicar en DB.")
+        return True
+
+    db = get_db_session()
+    if db is None:
+        # Si no hay DB, mejor NO spamear: tratamos como duplicado
+        print("WARN: DB no disponible para dedupe. Se ignora para evitar spam.")
+        return False
+
+    try:
+        db.add(ProcessedMessage(message_id=message_id))
+        db.commit()
+        return True
+    except IntegrityError:
+        db.rollback()
+        return False
+    finally:
+        db.close()
+
 
 # =========================================================
 # WhatsApp send
@@ -189,6 +233,7 @@ def send_whatsapp_message(to_number: str, text: str):
     except Exception as e:
         print("WA send ERROR:", repr(e))
 
+
 # =========================================================
 # OpenAI REST
 # =========================================================
@@ -201,6 +246,41 @@ def call_openai_chat(messages, model="gpt-4.1-mini"):
     data = r.json()
     return data["choices"][0]["message"]["content"]
 
+
+# =========================================================
+# Core processing (async inside thread)
+# =========================================================
+def process_inbound_text(from_number: str, text_body: str):
+    # reset
+    if text_body.lower() in ["reset", "reinicia", "reiniciar", "borrar memoria", "resetear memoria"]:
+        reset_user_history(from_number)
+        send_whatsapp_message(from_number, "Listo. Reseteé la memoria para este chat. Partimos de cero.")
+        return
+
+    system_message = {
+        "role": "system",
+        "content": (
+            "Eres 'Cerebro de Patio', supervisor experto de patio en centros de distribución "
+            "y crossdock de e-commerce en Chile. Respondes directo, accionable, foco operativo. "
+            "Si falta información, pide datos concretos."
+        ),
+    }
+
+    history = get_user_history(from_number)
+    messages_for_openai = [system_message] + history + [{"role": "user", "content": text_body}]
+
+    append_message(from_number, "user", text_body)
+
+    try:
+        reply = call_openai_chat(messages_for_openai)
+        append_message(from_number, "assistant", reply)
+    except Exception as e:
+        print("OpenAI ERROR:", repr(e))
+        reply = "Tuve un problema hablando con el modelo. Intenta de nuevo en un momento."
+
+    send_whatsapp_message(from_number, reply)
+
+
 # =========================================================
 # Routes
 # =========================================================
@@ -208,7 +288,7 @@ def call_openai_chat(messages, model="gpt-4.1-mini"):
 def healthcheck():
     return "OK - Cerebro de Patio running", 200
 
-# --- CRÍTICO: ultra-liviano para verificación Meta ---
+
 @app.route("/webhook", methods=["GET"])
 def verify():
     mode = request.args.get("hub.mode")
@@ -221,6 +301,7 @@ def verify():
         return challenge, 200
 
     return "Forbidden", 403
+
 
 @app.route("/webhook", methods=["POST"])
 def receive_message():
@@ -244,11 +325,10 @@ def receive_message():
         message = messages[0]
         message_id = message.get("id")
 
-        if message_id and message_id in PROCESSED_MESSAGE_IDS:
-            print("Dup message ignored:", message_id)
+        # DEDUPE PERSISTENTE
+        if not mark_message_processed(message_id):
+            print("Dup message ignored (DB):", message_id)
             return "ok", 200
-        if message_id:
-            PROCESSED_MESSAGE_IDS.add(message_id)
 
         if message.get("type") != "text":
             print("Non-text ignored:", message.get("type"))
@@ -257,7 +337,7 @@ def receive_message():
         from_number = message["from"]
         text_body = (message.get("text", {}).get("body") or "").strip()
 
-        print("From:", from_number, "Text:", text_body)
+        print("From:", from_number, "MsgID:", message_id, "Text:", text_body)
 
     except Exception as e:
         print("WhatsApp payload parse ERROR:", repr(e))
@@ -266,39 +346,14 @@ def receive_message():
     if not text_body:
         return "ok", 200
 
-    # reset
-    if text_body.lower() in ["reset", "reinicia", "reiniciar", "borrar memoria", "resetear memoria"]:
-        reset_user_history(from_number)
-        send_whatsapp_message(from_number, "Listo. Reseteé la memoria para este chat. Partimos de cero.")
-        return "ok", 200
+    # RESPUESTA RÁPIDA A META + PROCESO EN HILO
+    t = threading.Thread(target=process_inbound_text, args=(from_number, text_body), daemon=True)
+    t.start()
 
-    # Prompt
-    system_message = {
-        "role": "system",
-        "content": (
-            "Eres 'Cerebro de Patio', supervisor experto de patio en centros de distribución "
-            "y crossdock de e-commerce en Chile. Respondes directo, accionable, foco operativo. "
-            "Si falta información, pide datos concretos."
-        ),
-    }
-
-    # DB/OpenAI SOLO aquí (POST)
-    history = get_user_history(from_number)
-    messages_for_openai = [system_message] + history + [{"role": "user", "content": text_body}]
-
-    append_message(from_number, "user", text_body)
-
-    try:
-        reply = call_openai_chat(messages_for_openai)
-        append_message(from_number, "assistant", reply)
-    except Exception as e:
-        print("OpenAI ERROR:", repr(e))
-        reply = "Tuve un problema hablando con el modelo. Intenta de nuevo en un momento."
-
-    send_whatsapp_message(from_number, reply)
     return "ok", 200
 
-# Local run only
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    # IMPORTANTE: en prod NO debug True
+    app.run(host="0.0.0.0", port=port, debug=False)
