@@ -6,8 +6,8 @@
 # - DB init lazy con timeout (Neon/pooler)
 # - Deduplicación PERSISTENTE por message_id (a prueba de reinicios/escala)
 # - POST responde 200 rápido (evita reintentos de Meta) y procesa en hilo
-# - Blindaje Opción 1: anti prompt-injection + memoria higiénica + sanitización de salida
-# (SIN rate limit por cantidad de mensajes)
+# - Blindaje: anti prompt-injection + memoria higiénica + sanitización de salida
+# - FIX: Split manual para WhatsApp (evita respuestas cortadas por límite del canal)
 
 import os
 import threading
@@ -55,7 +55,6 @@ else:
 # BLINDAJE – Prompt + Filtros (Opción 1)
 # =========================================================
 SYSTEM_PROMPT = """
-
 Eres CEREBRO DE PATIO.
 
 No eres un asistente conversacional.
@@ -183,43 +182,13 @@ IMPORTANTE:
 - Las etapas existen SOLO para decidir acciones.
 - NUNCA se imprimen, NUNCA se mencionan, NUNCA se muestran en la respuesta.
 
-ETAPA 1 — FUNDACIÓN ABSOLUTA  
-Corta presiones y ambigüedades.
-La salida final manda.
-
-ETAPA 2 — EJECUCIÓN BAJO PRESIÓN  
-Reloj encima.
-Decisiones en minutos.
-No se salvan todas las rutas: se salva la salida final.
-
-ETAPA 3 — ANTICIPACIÓN SILENCIOSA  
-Señales tempranas.
-Ajustes preventivos sin ruido.
-
-ETAPA 4 — REGLAS CLARAS  
-No existe “por hoy”.
-La regla se aplica igual siempre.
-
-ETAPA 5 — RESPUESTA AUTOMÁTICA  
-Estado claro.
-Regla clara.
-Acción clara.
-
-ETAPA 6 — PROBLEMA QUE SE REPITE  
-La falla es la forma de operar.
-Se cambia la forma de trabajar.
-
-ETAPA 7 — DECISIÓN EJECUTIVA  
-Impacto en margen, volumen o continuidad.
-Decisiones duras a 6–12 meses.
-
-Selector interno (NO visible):
-- Presión + reloj → ETAPA 2
-- Señales tempranas → ETAPA 3
-- Pedido de excepción → ETAPA 4
-- Respuesta por estado → ETAPA 5
-- Repetición → ETAPA 6
-- Margen / continuidad → ETAPA 7
+ETAPA 1 — FUNDACIÓN ABSOLUTA
+ETAPA 2 — EJECUCIÓN BAJO PRESIÓN
+ETAPA 3 — ANTICIPACIÓN SILENCIOSA
+ETAPA 4 — REGLAS CLARAS
+ETAPA 5 — RESPUESTA AUTOMÁTICA
+ETAPA 6 — PROBLEMA QUE SE REPITE
+ETAPA 7 — DECISIÓN EJECUTIVA
 
 ────────────────────────────────
 CONTINUIDAD OPERATIVA (OBLIGATORIA)
@@ -237,12 +206,6 @@ REGLA DE RESPUESTA COMPLETA
 - Si el contenido excede un mensaje:
   • continúas automáticamente en el siguiente
   • sin esperar confirmación del usuario
-- Todo plan debe cubrir:
-  • carga
-  • secuencia
-  • documentación
-  • despacho
-  • cierre de salida final
 
 ────────────────────────────────
 FORMATO DE RESPUESTA (OBLIGATORIO SIEMPRE)
@@ -266,8 +229,6 @@ F) Mensajes listos para copiar/pegar:
 
 RESPUESTAS GENÉRICAS ESTÁN PROHIBIDAS.
 Cada acción debe ser ejecutable en patio real.
-
-
 """
 
 # =========================================================
@@ -288,6 +249,10 @@ BLOCKED_OUTPUT = [
 ]
 
 def sanitize_output(text: str) -> str:
+    """
+    OJO: Ya NO truncamos duro a 1200 aquí, porque ahora hacemos split manual.
+    Solo bloqueamos filtraciones evidentes.
+    """
     t = (text or "").strip()
     low = t.lower()
     if any(b in low for b in BLOCKED_OUTPUT):
@@ -295,7 +260,7 @@ def sanitize_output(text: str) -> str:
             "No puedo ayudar con eso. "
             "Describe el escenario operativo del patio y te entrego un plan accionable."
         )
-    return t[:1200]
+    return t
 
 # =========================================================
 # Flask
@@ -438,16 +403,74 @@ def mark_message_processed(message_id: str) -> bool:
         db.close()
 
 # =========================================================
-# WhatsApp send
+# WhatsApp send (con split manual)
 # =========================================================
-def send_whatsapp_message(to_number: str, text: str):
-    url = f"https://graph.facebook.com/v21.0/{WHATSAPP_PHONE_ID}/messages"
-    headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}", "Content-Type": "application/json"}
-    payload = {"messaging_product": "whatsapp", "to": to_number, "type": "text", "text": {"body": text}}
+WA_API_URL = f"https://graph.facebook.com/v21.0/{WHATSAPP_PHONE_ID}/messages"
+WA_HEADERS = {"Authorization": f"Bearer {WHATSAPP_TOKEN}", "Content-Type": "application/json"}
 
+# Límite conservador para evitar truncamiento en WhatsApp
+WA_MAX_CHARS = int(os.getenv("WA_MAX_CHARS", "1200"))
+
+def _wa_send_one(to_number: str, text: str):
+    payload = {"messaging_product": "whatsapp", "to": to_number, "type": "text", "text": {"body": text}}
+    resp = requests.post(WA_API_URL, headers=WA_HEADERS, json=payload, timeout=20)
+    print("WA send status:", resp.status_code, resp.text[:200])
+
+def _split_text_smart(text: str, limit: int):
+    """
+    Split "inteligente": prioriza cortes en doble salto de línea, luego salto de línea,
+    luego espacio. Evita partir palabras.
+    """
+    t = (text or "").strip()
+    if not t:
+        return ["(sin contenido)"]
+
+    parts = []
+    while len(t) > limit:
+        chunk = t[:limit]
+
+        cut = chunk.rfind("\n\n")
+        if cut < int(limit * 0.6):
+            cut = chunk.rfind("\n")
+        if cut < int(limit * 0.6):
+            cut = chunk.rfind(" ")
+        if cut < int(limit * 0.6):
+            cut = limit  # corte duro, último recurso
+
+        parts.append(t[:cut].rstrip())
+        t = t[cut:].lstrip()
+
+    if t:
+        parts.append(t)
+
+    return parts
+
+def send_whatsapp_message(to_number: str, text: str):
+    """
+    Envío robusto: divide en N mensajes si excede WA_MAX_CHARS.
+    Agrega encabezado de parte cuando hay más de 1 segmento.
+    """
     try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=20)
-        print("WA send status:", resp.status_code, resp.text[:200])
+        parts = _split_text_smart(text, WA_MAX_CHARS)
+
+        if len(parts) == 1:
+            _wa_send_one(to_number, parts[0])
+            return
+
+        total = len(parts)
+        for i, part in enumerate(parts, start=1):
+            header = f"PARTE {i}/{total}\n"
+            # Asegura que header + body no exceda límite
+            body_limit = max(100, WA_MAX_CHARS - len(header))
+            if len(part) > body_limit:
+                # Re-split del part si por alguna razón se pasó
+                subparts = _split_text_smart(part, body_limit)
+                for j, sp in enumerate(subparts, start=1):
+                    subheader = f"PARTE {i}.{j}/{total}\n"
+                    _wa_send_one(to_number, subheader + sp)
+            else:
+                _wa_send_one(to_number, header + part)
+
     except Exception as e:
         print("WA send ERROR:", repr(e))
 
@@ -501,7 +524,7 @@ def process_inbound_text(from_number: str, text_body: str):
         print("OpenAI ERROR:", repr(e))
         reply = "Tuve un problema hablando con el modelo. Intenta de nuevo en un momento."
 
-    # 7) Envío WhatsApp
+    # 7) Envío WhatsApp (con split manual)
     send_whatsapp_message(from_number, reply)
 
 # =========================================================
