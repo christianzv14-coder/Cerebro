@@ -1,0 +1,13 @@
+﻿;Arica;Iquique;Antofagasta;Calama;Copiapó;La Serena;Santiago;Concepción;Temuco;Valdivia;Puerto Montt;Punta Arenas
+Arica;0,0;;;;;;204080;;;;;
+Iquique;;0,0;55710,0;;;;177405;;;;;
+Antofagasta;;55710,0;0,0;40871,0;;;141738;;;;;
+Calama;;;40871,0;0,0;;;154796;;;;;
+Copiapó;;;;;0,0;;94666;;;;;
+La Serena;;;;;;0,0;62742;;;;;
+Santiago;204080,0;177405,0;141738,0;154796,0;94666,0;62742,0;0;67203,0;88226,0;99795,0;120925,0;259856,0
+Concepción;;;;;;;67203;0,0;;;;
+Temuco;;;;;;;88226;;0,0;;;
+Valdivia;;;;;;;99795;;;0,0;;
+Puerto Montt;;;;;;;120925;;;;0,0;
+Punta Arenas;;;;;;;259856;;;;;0,0
