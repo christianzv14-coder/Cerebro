@@ -1,5 +1,7 @@
-# modelo_optimizacion_gps_chile_v2.py
-# Fase 1 (MILP warm start) + Fase 2 (mejora global heurística) – FIX UNIDADES + FIX INDENTACIÓN
+# modelo_optimizacion_gps_chile_v2_CORREGIDO_UNICO.py
+# Fase 1 (MILP warm start) + Fase 2 (mejora global heurística)
+# FIX 1: PXQ es POR GPS  -> se multiplica por GPS_TOTAL[ciudad]
+# FIX 2: TODO viene en UF -> NO se divide flete por UF (se usa directo)
 # Requiere: pandas, numpy, openpyxl, pyomo, pulp
 # Solver: CBC vía PuLP
 # Datos en carpeta ./data/
@@ -37,7 +39,6 @@ def time_to_hours(x):
         return 0.0
     if isinstance(x, dt_time):
         return x.hour + x.minute / 60.0 + x.second / 3600.0
-    # si viene como string "HH:MM:SS"
     if isinstance(x, str) and ":" in x:
         parts = x.strip().split(":")
         if len(parts) >= 2:
@@ -122,8 +123,10 @@ MODOS = ["terrestre", "avion"]
 # =========================
 param = param_df.set_index("parametro")["valor"].to_dict()
 
-UF = safe_float(param.get("valor_uf"), 39500.0)  # CLP/UF
-PRECIO_BENCINA_UF_KM = safe_float(param.get("precio_bencina"), 0.03)  # UF/km (NO CLP/km)
+# UF solo para referencia; NO se usa para convertir nada si tus inputs ya están en UF
+UF = safe_float(param.get("valor_uf"), 39500.0)
+
+PRECIO_BENCINA_UF_KM = safe_float(param.get("precio_bencina"), 0.03)  # UF/km
 ALOJ_UF = safe_float(param.get("alojamiento_uf_noche"), 1.1)
 ALMU_UF = safe_float(param.get("almuerzo_uf_dia"), 0.5)
 INCENTIVO_UF = safe_float(param.get("incentivo_por_gps"), 1.12)
@@ -135,7 +138,6 @@ DIAS_SEM = int(safe_float(param.get("dias_semana"), 6))
 SEMANAS = int(safe_float(param.get("semanas_proyecto"), 4))
 DIAS_MAX = DIAS_SEM * SEMANAS
 
-# Si no está en parámetros, usamos un estándar operativo
 HH_MES = safe_float(param.get("hh_mes"), 180.0)
 
 demanda["gps_total"] = demanda["vehiculos_1gps"] + 2 * demanda["vehiculos_2gps"]
@@ -153,9 +155,11 @@ KIT_COST = {
 pxq["ciudad"] = pxq["ciudad"].apply(norm_city)
 flete["ciudad"] = flete["ciudad"].apply(norm_city)
 
-PXQ_UF = dict(zip(pxq["ciudad"], pxq["pxq_externo"]))  # UF
-FLETE_CLP = dict(zip(flete["ciudad"], flete["costo_flete"]))  # CLP
-FLETE_UF = {c: safe_float(v, 0.0) / max(1e-9, UF) for c, v in FLETE_CLP.items()}  # UF
+# PXQ es UF POR GPS (confirmado por ti)
+PXQ_UF_POR_GPS = dict(zip(pxq["ciudad"], pxq["pxq_externo"]))  # UF/GPS
+
+# Flete YA viene en UF (confirmado por ti) -> usar directo
+FLETE_UF = dict(zip(flete["ciudad"], flete["costo_flete"]))  # UF (sin división)
 
 # =========================
 # 5. FUNCIONES
@@ -184,14 +188,12 @@ def costo_viaje_uf(ciudad_origen: str, ciudad_destino: str, modo: str) -> float:
     if ciudad_origen == ciudad_destino:
         return 0.0
 
-    # IMPORTANTÍSIMO: aquí todo queda en UF
     if modo == "terrestre":
         dist_km = safe_float(km.loc[ciudad_origen, ciudad_destino], 0.0)
-        peaje_uf = safe_float(peajes.loc[ciudad_origen, ciudad_destino], 0.0)  # ya está en UF
+        peaje_uf = safe_float(peajes.loc[ciudad_origen, ciudad_destino], 0.0)  # UF
         return dist_km * PRECIO_BENCINA_UF_KM + peaje_uf
 
-    # avión_cost ya viene en UF (por tu matriz)
-    return safe_float(avion_cost.loc[ciudad_origen, ciudad_destino], 0.0)
+    return safe_float(avion_cost.loc[ciudad_origen, ciudad_destino], 0.0)  # UF
 
 def dias_ciudad(ciudad: str, tecnico: str, modo: str, origen: str) -> int:
     tv = t_viaje(origen, ciudad, modo)
@@ -208,7 +210,11 @@ def costo_sueldo_proyecto_uf(tecnico: str) -> float:
     return sueldo_mes * (hh_proy / max(1e-9, HH_MES))
 
 def costo_externo_ciudad(ciudad: str) -> float:
-    return safe_float(PXQ_UF.get(ciudad, 0.0), 0.0) + safe_float(FLETE_UF.get(ciudad, 0.0), 0.0)
+    # FIX: PXQ es UF POR GPS
+    pxq_unit = safe_float(PXQ_UF_POR_GPS.get(ciudad, 0.0), 0.0)  # UF/GPS
+    pxq_total = pxq_unit * safe_float(GPS_TOTAL.get(ciudad, 0.0), 0.0)  # UF
+    flete_total = safe_float(FLETE_UF.get(ciudad, 0.0), 0.0)  # UF
+    return pxq_total + flete_total
 
 def costo_interno_base_a_ciudad(ciudad: str, tecnico: str, modo: str) -> float:
     base = base_tecnico(tecnico)
@@ -228,7 +234,7 @@ def costo_interno_base_a_ciudad(ciudad: str, tecnico: str, modo: str) -> float:
     costo += dias * ALMU_UF
 
     # incentivo (por GPS total de la ciudad)
-    costo += INCENTIVO_UF * GPS_TOTAL[ciudad]
+    costo += INCENTIVO_UF * safe_float(GPS_TOTAL.get(ciudad, 0.0), 0.0)
 
     # viaje base -> ciudad
     costo += costo_viaje_uf(base, ciudad, modo)
@@ -278,7 +284,6 @@ def solve_phase1():
         return sum(dias_ciudad(c, t, mo, origen=base) * mm.x[c, t, mo] for c in mm.C for mo in mm.M) <= DIAS_MAX
     m.CAP = pyo.Constraint(m.T, rule=capacidad)
 
-    # sanity solver
     if not CBC_EXE or not os.path.exists(CBC_EXE):
         raise RuntimeError("No se encontró cbc.exe vía PuLP. Reinstala pulp o revisa PULP_CBC_CMD().path")
 
@@ -308,7 +313,7 @@ def solve_phase1():
     return {"I": y_val, "assign": assign, "mode": mode}
 
 # =========================
-# 7. FASE 2 – SIMULACIÓN + MEJORA (2B)
+# 7. FASE 2 – SIMULACIÓN + MEJORA
 # =========================
 def build_initial_solution(ws):
     city_type = {}
@@ -348,18 +353,16 @@ def simulate_tech_schedule(tecnico, cities_list):
     pending_h = {c: H[c] for c in cities_list}
 
     def flete_aplica(ciudad, modo_llegada):
-        # regla: solo NO aplica si base Santiago y llega terrestre
         if base != SANTIAGO:
             return True
         if modo_llegada == "avion":
             return True
-        return False
+        return False  # Santiago + terrestre => no aplica
 
     for c in cities_list:
         if pending_h[c] <= 1e-9:
             continue
 
-        # elige modo más barato desde donde durmió
         road_cost = costo_viaje_uf(sleep_city, c, "terrestre")
         air_cost = costo_viaje_uf(sleep_city, c, "avion")
         modo_in = "avion" if air_cost < road_cost else "terrestre"
@@ -402,7 +405,6 @@ def simulate_tech_schedule(tecnico, cities_list):
 
         day += 1
 
-        # sigue en la misma ciudad hasta terminar
         while pending_h[c] > 1e-9 and day <= DIAS_MAX:
             installed = min(pending_h[c], hd)
             pending_h[c] -= installed
@@ -433,7 +435,6 @@ def simulate_tech_schedule(tecnico, cities_list):
 def total_cost_solution(city_type, tech_cities):
     total = 0.0
 
-    # internos
     for t, clist in tech_cities.items():
         if not clist:
             continue
@@ -442,7 +443,6 @@ def total_cost_solution(city_type, tech_cities):
             return 1e18
         total += sum(cst.values())
 
-    # externos
     for c in CIUDADES:
         if c == SANTIAGO:
             continue
@@ -465,7 +465,6 @@ def improve_solution(city_type, tech_cities, iters=400, seed=42):
 
         move_type = int(rng.integers(0, 2))  # 0 flip, 1 reassign
 
-        # MOVE 0: flip externo <-> interno (corregido: no deja interno sin asignación)
         if move_type == 0:
             c = str(rng.choice(cities_no_scl))
 
@@ -492,12 +491,11 @@ def improve_solution(city_type, tech_cities, iters=400, seed=42):
                         best_t = t
 
                 if best_t is None:
-                    continue  # no hacemos flip si no hay técnico factible
+                    continue
 
                 ct2[c] = "interno"
                 tc2[best_t].append(c)
 
-        # MOVE 1: reassign ciudad entre técnicos (solo ciudades internas reales)
         else:
             donors = [t for t in TECNICOS if len(tc2[t]) > 0]
             if not donors:
@@ -527,19 +525,17 @@ def run_all():
     city_type, tech_cities = build_initial_solution(ws)
     city_type2, tech_cities2, best_cost = improve_solution(city_type, tech_cities, iters=400)
 
-    # ---- Validación dura 1: toda ciudad interna (sin Santiago) debe estar asignada
-    internas = [c for c in CIUDADES if c != SANTIAGO and city_type2.get(c) == "interno"]
+    internas_list = [c for c in CIUDADES if c != SANTIAGO and city_type2.get(c) == "interno"]
     asignadas = set()
     for t, clist in tech_cities2.items():
         for c in clist:
             if c != SANTIAGO:
                 asignadas.add(c)
 
-    faltantes = [c for c in internas if c not in asignadas]
+    faltantes = [c for c in internas_list if c not in asignadas]
     if faltantes:
         raise RuntimeError("Plan inconsistente: ciudades INTERNAS sin técnico asignado: " + ", ".join(faltantes))
 
-    # ---- Validación dura 2: fuera de Santiago, no más de 1 técnico por ciudad
     cnt = Counter()
     for t, clist in tech_cities2.items():
         for c in clist:
@@ -549,11 +545,9 @@ def run_all():
     if duplicadas:
         raise RuntimeError("Regla violada: más de un técnico asignado a ciudad (fuera de Santiago): " + ", ".join(duplicadas))
 
-    # ---- Export plan + costos
     plan_rows = []
     cost_rows = []
 
-    # internos
     for t, clist in tech_cities2.items():
         if not clist:
             continue
@@ -569,7 +563,6 @@ def run_all():
             "total_uf": sum(cst.values())
         })
 
-    # externos
     for c in CIUDADES:
         if c == SANTIAGO:
             continue
@@ -617,4 +610,3 @@ def run_all():
 
 if __name__ == "__main__":
     run_all()
-
