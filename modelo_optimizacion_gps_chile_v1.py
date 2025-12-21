@@ -65,6 +65,44 @@ peajes = pd.read_excel(os.path.join(PATH, "matriz_peajes.xlsx"), index_col=0)
 avion_cost = pd.read_excel(os.path.join(PATH, "matriz_costo_avion.xlsx"), index_col=0)
 avion_time = pd.read_excel(os.path.join(PATH, "matriz_tiempo_avion.xlsx"), index_col=0)
 
+def norm_city(x):
+    if pd.isna(x):
+        return x
+    return str(x).strip()
+
+# Normalizar lista maestra de ciudades (demanda manda)
+demanda["ciudad"] = demanda["ciudad"].apply(norm_city)
+CIUDADES = demanda["ciudad"].tolist()
+
+# Normalizar matrices (index y columnas)
+def normalize_matrix(df):
+    df.index = df.index.map(norm_city)
+    df.columns = df.columns.map(norm_city)
+    return df
+
+km = normalize_matrix(km)
+peajes = normalize_matrix(peajes)
+avion_cost = normalize_matrix(avion_cost)
+avion_time = normalize_matrix(avion_time)
+
+# Validación dura: todas las ciudades deben existir en todas las matrices
+def check_matrix_coverage(name, df, cities):
+    missing_rows = [c for c in cities if c not in df.index]
+    missing_cols = [c for c in cities if c not in df.columns]
+    if missing_rows or missing_cols:
+        print(f"\n[ERROR MATRIZ] {name}")
+        if missing_rows:
+            print(" - FALTAN FILAS:", missing_rows)
+        if missing_cols:
+            print(" - FALTAN COLUMNAS:", missing_cols)
+        raise ValueError(f"Matriz {name} no cubre todas las ciudades.")
+
+check_matrix_coverage("km", km, CIUDADES)
+check_matrix_coverage("peajes", peajes, CIUDADES)
+check_matrix_coverage("avion_cost", avion_cost, CIUDADES)
+check_matrix_coverage("avion_time", avion_time, CIUDADES)
+
+
 # =========================
 # 3. PARÁMETROS / SETS
 # =========================
