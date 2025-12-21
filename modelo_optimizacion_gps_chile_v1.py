@@ -168,11 +168,16 @@ def base_tecnico(tecnico: str) -> str:
     return internos.loc[internos["tecnico"] == tecnico, "ciudad_base"].values[0]
 
 def hh_semana(tecnico: str) -> float:
-    return safe_float(internos.loc[internos["tecnico"] == tecnico, "hh_semana_proyecto"].values[0], 0.0)
+    v = safe_float(internos.loc[internos["tecnico"] == tecnico, "hh_semana_proyecto"].values[0], 0.0)
+    # Si viene como FTE (0-1), convertirlo a horas/semana reales
+    if v <= 1.5:
+        return v * (DIAS_SEM * H_DIA)
+    return v  # ya venía como horas
 
 def alpha_tecnico(tecnico: str) -> float:
     denom = max(1e-9, DIAS_SEM * H_DIA)
     return hh_semana(tecnico) / denom
+
 
 def horas_diarias(tecnico: str) -> float:
     return H_DIA * alpha_tecnico(tecnico)
