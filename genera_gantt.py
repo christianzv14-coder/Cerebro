@@ -1,189 +1,130 @@
-import math
+# genera_gantt.py
+# ------------------------------------------------------------
+# Carta Gantt desde archivo resultado_optimizacion_gps*.xlsx
+# - No hardcodea el nombre del Excel
+# - Busca automáticamente el último "resultado_optimizacion_gps*.xlsx"
+# - Detecta la hoja con columnas: tecnico, dia, ciudad_trabajo
+# - Exporta gantt_operativo.html en la misma carpeta del script
+# ------------------------------------------------------------
+
+import os
+import glob
 import pandas as pd
-import numpy as np
 import plotly.express as px
 
 # =========================
 # CONFIG
 # =========================
-FILE_RESULTADO = "resultado_optimizacion_gps_v6.xlsx"
-FILE_DEMANDA = "demanda_ciudades.xlsx"  # si no está dentro del resultado, usa este
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PATRON_RESULTADO = "resultado_optimizacion_gps*.xlsx"
+OUTPUT_HTML = os.path.join(BASE_DIR, "gantt_operativo.html")
 
-HORAS_DIA = 7.0
-DIAS_MAX = 24  # 4 semanas * 6 días
 
-# =========================
-# HELPERS
-# =========================
-def norm_col(df):
-    df.columns = [str(c).strip() for c in df.columns]
-    return df
+def buscar_archivo_resultado() -> str:
+    """Busca el Excel más reciente que matchee el patrón en el directorio del script."""
+    candidatos = glob.glob(os.path.join(BASE_DIR, PATRON_RESULTADO))
+    if not candidatos:
+        raise FileNotFoundError(
+            f"No encontré ningún archivo '{PATRON_RESULTADO}' en:\n{BASE_DIR}\n"
+            f"Solución rápida: copia tu Excel de resultado a esta carpeta o ejecuta el script desde la carpeta correcta."
+        )
+    return max(candidatos, key=os.path.getmtime)
 
-def find_sheet_with_columns(xls, required_cols):
+
+def detectar_hoja_plan(xls: pd.ExcelFile) -> str:
+    """Encuentra la hoja que contiene las columnas necesarias para construir el Gantt."""
+    required = {"tecnico", "dia", "ciudad_trabajo"}
     for sh in xls.sheet_names:
-        df = pd.read_excel(xls, sheet_name=sh)
-        df = norm_col(df)
-        cols = set(df.columns)
-        if all(c in cols for c in required_cols):
-            return sh, df
-    return None, None
-
-def ceil_div(a, b):
-    return int(math.ceil(a / b))
-
-# =========================
-# CARGA
-# =========================
-xls = pd.ExcelFile(FILE_RESULTADO)
-
-# 1) Buscar plan diario internos
-req_plan = ["tecnico", "dia", "ciudad_trabajo", "horas_instal"]
-sh_plan, df_plan = find_sheet_with_columns(xls, req_plan)
-if df_plan is None:
+        try:
+            tmp = pd.read_excel(xls, sh, nrows=10)
+            cols = {c.strip().lower() for c in tmp.columns}
+            if required.issubset(cols):
+                return sh
+        except Exception:
+            continue
     raise ValueError(
-        f"No encontré una hoja con columnas {req_plan} en {FILE_RESULTADO}. "
-        "Revisa nombres de columnas/hojas."
+        "No encontré una hoja con columnas: tecnico, dia, ciudad_trabajo.\n"
+        "Revisa nombres de columnas (deben ser exactamente esos, o al menos en minúscula con esos nombres)."
     )
 
-df_plan = df_plan.copy()
-df_plan["tecnico"] = df_plan["tecnico"].astype(str).str.strip()
-df_plan["ciudad_trabajo"] = df_plan["ciudad_trabajo"].astype(str).str.strip()
-df_plan["dia"] = pd.to_numeric(df_plan["dia"], errors="coerce").fillna(0).astype(int)
-df_plan["horas_instal"] = pd.to_numeric(df_plan["horas_instal"], errors="coerce").fillna(0.0)
 
-# Filtrar filas sin ciudad o sin técnico
-df_plan = df_plan[(df_plan["tecnico"] != "") & (df_plan["ciudad_trabajo"] != "")]
+def normalizar_columnas(df: pd.DataFrame) -> pd.DataFrame:
+    """Normaliza nombres de columnas a minúscula y sin espacios."""
+    df = df.copy()
+    df.columns = [str(c).strip().lower() for c in df.columns]
 
-# 2) Buscar “tipo ciudad final” (interno/externo)
-# Intentamos primero dentro del mismo excel
-req_tipo = ["ciudad", "tipo_final"]
-sh_tipo, df_tipo = find_sheet_with_columns(xls, req_tipo)
+    # Renombres tolerantes si vinieran con tildes u otro texto
+    rename_map = {}
+    for c in df.columns:
+        cl = c.lower().strip()
+        if cl in ("técnico", "tecnico"):
+            rename_map[c] = "tecnico"
+        if cl in ("día", "dia"):
+            rename_map[c] = "dia"
+        if cl in ("ciudad trabajo", "ciudad_trabajo", "ciudad"):
+            # OJO: aquí asumimos que si existe ciudad_trabajo ya está bien;
+            # si no, tomamos "ciudad trabajo" / "ciudad" como fallback.
+            if "ciudad_trabajo" not in df.columns:
+                rename_map[c] = "ciudad_trabajo"
 
-if df_tipo is None:
-    # Si no existe en el resultado, asumimos que ciudades NO presentes en plan interno son externas,
-    # pero para eso necesitamos la lista completa de ciudades desde demanda.
-    demanda = pd.read_excel(FILE_DEMANDA)
-    demanda = norm_col(demanda)
-    demanda["ciudad"] = demanda["ciudad"].astype(str).str.strip()
-    cities_all = demanda["ciudad"].tolist()
+    if rename_map:
+        df = df.rename(columns=rename_map)
 
-    cities_internas = set(df_plan["ciudad_trabajo"].unique())
-    df_tipo = pd.DataFrame({
-        "ciudad": cities_all,
-        "tipo_final": ["interno" if c in cities_internas else "externo" for c in cities_all]
-    })
-else:
-    df_tipo = df_tipo.copy()
-    df_tipo["ciudad"] = df_tipo["ciudad"].astype(str).str.strip()
-    df_tipo["tipo_final"] = df_tipo["tipo_final"].astype(str).str.strip().str.lower()
+    required = {"tecnico", "dia", "ciudad_trabajo"}
+    if not required.issubset(set(df.columns)):
+        faltan = required - set(df.columns)
+        raise ValueError(f"Faltan columnas requeridas: {faltan}. Columnas disponibles: {list(df.columns)}")
 
-# 3) Cargar demanda para horas por ciudad (para construir externos)
-demanda = None
-try:
-    demanda = pd.read_excel(xls, sheet_name="demanda_ciudades")
-    demanda = norm_col(demanda)
-except Exception:
-    demanda = pd.read_excel(FILE_DEMANDA)
-    demanda = norm_col(demanda)
+    return df
 
-demanda["ciudad"] = demanda["ciudad"].astype(str).str.strip()
-for c in ["vehiculos_1gps", "vehiculos_2gps"]:
-    demanda[c] = pd.to_numeric(demanda[c], errors="coerce").fillna(0)
 
-demanda["gps_total"] = demanda["vehiculos_1gps"] + 2 * demanda["vehiculos_2gps"]
-demanda["horas"] = 0.75 * demanda["gps_total"]
+def main():
+    print("[INFO] RUNNING FILE:", os.path.abspath(__file__))
 
-H_city = dict(zip(demanda["ciudad"], demanda["horas"]))
+    archivo = buscar_archivo_resultado()
+    print("[INFO] Archivo resultado usado:", archivo)
 
-# =========================
-# GANTT INTERNOS
-# =========================
-df_internal = df_plan[df_plan["horas_instal"] > 0].copy()
+    xls = pd.ExcelFile(archivo)
+    hoja = detectar_hoja_plan(xls)
+    print("[INFO] Hoja plan usada:", hoja)
 
-# Agrupación por tramos: si hay huecos grandes y quieres separar tramos, se puede.
-# Por ahora: un bloque por (tecnico, ciudad) usando min y max del día.
-gantt_int = (
-    df_internal.groupby(["tecnico", "ciudad_trabajo"], as_index=False)
-    .agg(start_day=("dia", "min"), end_day=("dia", "max"))
-)
-gantt_int["finish_day"] = gantt_int["end_day"] + 1
-gantt_int["resource"] = gantt_int["tecnico"]
-gantt_int["task"] = gantt_int["ciudad_trabajo"]
-gantt_int["tipo"] = "interno"
+    df = pd.read_excel(xls, hoja)
+    df = normalizar_columnas(df)
 
-# =========================
-# GANTT EXTERNOS
-# =========================
-externas = df_tipo[df_tipo["tipo_final"].str.contains("extern")]["ciudad"].tolist()
+    # Asegurar tipos
+    df["tecnico"] = df["tecnico"].astype(str).str.strip()
+    df["ciudad_trabajo"] = df["ciudad_trabajo"].astype(str).str.strip()
+    df["dia"] = pd.to_numeric(df["dia"], errors="coerce")
 
-rows_ext = []
-for c in externas:
-    h = float(H_city.get(c, 0.0))
-    if h <= 1e-9:
-        continue
-    dias = ceil_div(h, HORAS_DIA)
-    start = 1
-    finish = min(DIAS_MAX + 1, start + dias)  # cap por horizonte
-    rows_ext.append({
-        "resource": f"EXTERNO - {c}",
-        "task": c,
-        "start_day": start,
-        "finish_day": finish,
-        "tipo": "externo"
-    })
+    df = df.dropna(subset=["dia"])
+    df["dia"] = df["dia"].astype(int)
 
-gantt_ext = pd.DataFrame(rows_ext)
+    # Orden
+    df = df.sort_values(["tecnico", "dia"]).reset_index(drop=True)
 
-# =========================
-# UNIFICAR Y EXPORTAR TABLA
-# =========================
-gantt_all = pd.concat([
-    gantt_int[["resource", "task", "start_day", "finish_day", "tipo"]],
-    gantt_ext[["resource", "task", "start_day", "finish_day", "tipo"]] if not gantt_ext.empty else pd.DataFrame()
-], ignore_index=True)
+    # Timeline: día a día (barra de 1 día)
+    df["inicio"] = df["dia"]
+    df["fin"] = df["dia"] + 1
 
-# Crear fechas ficticias para Plotly (día 1 = 2026-01-01 por ejemplo)
-base_date = pd.Timestamp("2026-01-01")
-gantt_all["Start"] = base_date + pd.to_timedelta(gantt_all["start_day"] - 1, unit="D")
-gantt_all["Finish"] = base_date + pd.to_timedelta(gantt_all["finish_day"] - 1, unit="D")
+    fig = px.timeline(
+        df,
+        x_start="inicio",
+        x_end="fin",
+        y="tecnico",
+        color="ciudad_trabajo",
+        title="Carta Gantt – Plan Operativo GPS",
+        hover_data=["dia", "ciudad_trabajo"]
+    )
+    fig.update_yaxes(autorange="reversed")
+    fig.update_layout(
+        xaxis_title="Día del proyecto",
+        yaxis_title="Técnico",
+        legend_title="Ciudad"
+    )
 
-# Export tabla base
-gantt_all.to_excel("tabla_gantt_base.xlsx", index=False)
+    fig.write_html(OUTPUT_HTML)
+    print("[OK] Gantt generado:", OUTPUT_HTML)
 
-# =========================
-# 1) GANTT OPERACIÓN (internos)
-# =========================
-fig1 = px.timeline(
-    gantt_int.assign(
-        Start=base_date + pd.to_timedelta(gantt_int["start_day"] - 1, unit="D"),
-        Finish=base_date + pd.to_timedelta(gantt_int["finish_day"] - 1, unit="D")
-    ),
-    x_start="Start",
-    x_end="Finish",
-    y="resource",
-    color="task",
-    title="Carta Gantt Operación – Internos (por técnico)"
-)
-fig1.update_yaxes(autorange="reversed")
-fig1.write_html("gantt_operacion_internos.html")
 
-# =========================
-# 2) GANTT CLIENTE (ciudades, interno vs externo)
-# =========================
-fig2 = px.timeline(
-    gantt_all,
-    x_start="Start",
-    x_end="Finish",
-    y="task",
-    color="tipo",
-    title="Carta Gantt Cliente – Instalación por ciudad (interno vs externo)"
-)
-fig2.update_yaxes(autorange="reversed")
-fig2.write_html("gantt_cliente_ciudades.html")
-
-print("[OK] Generé:")
-print(" - tabla_gantt_base.xlsx")
-print(" - gantt_operacion_internos.html")
-print(" - gantt_cliente_ciudades.html")
-print(f"[INFO] Plan interno desde hoja: {sh_plan}")
-print(f"[INFO] Tipo ciudad desde hoja: {sh_tipo if sh_tipo else 'inferido'}")
+if __name__ == "__main__":
+    main()
