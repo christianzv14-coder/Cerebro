@@ -568,7 +568,7 @@ def improve_solution(city_type, tech_cities, iters=250, seed=42):
                         tc2[t].remove(c)
             else:
                 best_t, best_val = None, 1e18
-                for t in TECNICICOS := TECNICOS:
+                for t in TECNICOS := TECNICOS:
                     if c in tc2.get(t, []):
                         continue
                     tc_trial = deepcopy(tc2)
