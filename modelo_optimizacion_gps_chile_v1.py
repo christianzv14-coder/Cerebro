@@ -1,23 +1,13 @@
-# modelo_optimizacion_gps_chile_FINAL_AUDIT_MAX.py
-# Optimización costos instalación GPS (Chile) – MAX DESGLOSE / AUDITORÍA
+# modelo_optimizacion_gps_chile_v1_MAX_VISTAS.py
+# Optimización costos instalación GPS (Chile) – MISMA LÓGICA + MÁXIMO DESGLOSE EN EXCEL
 #
-# Objetivo:
-# - Mantener tu lógica actual (Fase 1 MILP + Fase 2 asignación factible por días + Opción A)
-# - NO “forzar” internos.
-# - Pero entregar el EXCEL con el máximo desglose posible para analizar TODOS los costos:
-#   * Resumen ejecutivo (UF y %)
-#   * Costos por ciudad ultra-desglosados (PXQ, flete, materiales, UF/GPS, shares)
-#   * Pareto / ranking por drivers (PXQ, materiales, flete)
-#   * Comparativo interno vs externo por ciudad (aprox Fase 1: breakeven y delta)
-#   * Detalle de asignación interna (GPS asignados por técnico x ciudad, días usados, días viaje, días instalación)
-#   * Costos internos por técnico (travel/aloj/alm/sueldo/inc/flete) + UF/GPS interno
-#   * Plan diario (si hay internos) + trazabilidad de viajes
-#   * Parámetros usados + capacidad real de cada técnico (hdía, gps/día, días disponibles)
-#   * Auditoría de inputs: PXQ unit, flete, kits, demanda
+# IMPORTANTE (lo que pediste):
+# - NO se cambia la lógica de optimización/asignación/simulación.
+# - SOLO se agregan “vistas” y hojas nuevas en el Excel output para desglose máximo.
 #
 # Requiere: pandas, numpy, openpyxl, pyomo, pulp (CBC)
 # Inputs en ./data/
-# Output: ./outputs/plan_global_operativo_MAX_DESGLOSE.xlsx
+# Output: ./outputs/plan_global_operativo.xlsx
 
 import os
 import math
@@ -62,7 +52,9 @@ def time_to_hours(x):
         return 0.0
 
 def safe_float(x, default=0.0):
-    # soporta coma decimal
+    """
+    Soporta coma decimal ("100,5") y parsea horas tipo time.
+    """
     try:
         if x is None:
             return default
@@ -108,6 +100,9 @@ def require_mapping_coverage(mapping: dict, cities: list[str], name: str, allow_
     bad = []
     for c in cities:
         v = mapping.get(c, None)
+        if v is None:
+            bad.append((c, v))
+            continue
         vv = safe_float(v, None)
         if vv is None:
             bad.append((c, v))
@@ -117,8 +112,10 @@ def require_mapping_coverage(mapping: dict, cities: list[str], name: str, allow_
     if bad:
         raise ValueError(f"[ERROR] {name}: valores no válidos (<=0 o no parseables). Ejemplos: {bad[:20]}")
 
-def pct(a, b):
-    return 0.0 if abs(b) < 1e-12 else (a / b)
+def pct(n, d):
+    if d is None or abs(d) < 1e-12:
+        return 0.0
+    return float(n) / float(d)
 
 # =========================
 # 2) CARGA DE DATOS (UF)
@@ -131,8 +128,8 @@ kits = pd.read_excel(os.path.join(PATH, "materiales.xlsx"))
 param_df = pd.read_excel(os.path.join(PATH, "parametros.xlsx"))
 
 km = pd.read_excel(os.path.join(PATH, "matriz_distancia_km.xlsx"), index_col=0)
-peajes = pd.read_excel(os.path.join(PATH, "matriz_peajes.xlsx"), index_col=0)            # UF
-avion_cost = pd.read_excel(os.path.join(PATH, "matriz_costo_avion.xlsx"), index_col=0)  # UF
+peajes = pd.read_excel(os.path.join(PATH, "matriz_peajes.xlsx"), index_col=0)           # UF
+avion_cost = pd.read_excel(os.path.join(PATH, "matriz_costo_avion.xlsx"), index_col=0) # UF
 avion_time = pd.read_excel(os.path.join(PATH, "matriz_tiempo_avion.xlsx"), index_col=0)
 
 # =========================
@@ -180,12 +177,14 @@ PRECIO_BENCINA_UF_KM = safe_float(param.get("precio_bencina_uf_km"), 0.0)
 
 demanda["vehiculos_1gps"] = demanda["vehiculos_1gps"].fillna(0).astype(float)
 demanda["vehiculos_2gps"] = demanda["vehiculos_2gps"].fillna(0).astype(float)
-demanda["gps_total"] = (demanda["vehiculos_1gps"] + 2 * demanda["vehiculos_2gps"]).round().astype(int)
+demanda["gps_total"] = demanda["vehiculos_1gps"] + 2 * demanda["vehiculos_2gps"]
+demanda["gps_total"] = demanda["gps_total"].round().astype(int)
 
 GPS_TOTAL = dict(zip(demanda["ciudad"], demanda["gps_total"]))
 V1 = dict(zip(demanda["ciudad"], demanda["vehiculos_1gps"]))
 V2 = dict(zip(demanda["ciudad"], demanda["vehiculos_2gps"]))
 
+# Kits
 kits["tipo_kit"] = kits["tipo_kit"].astype(str)
 KIT1_UF = safe_float(kits.loc[kits["tipo_kit"] == "1_GPS", "costo"].values[0], 0.0)
 KIT2_UF = safe_float(kits.loc[kits["tipo_kit"] == "2_GPS", "costo"].values[0], 0.0)
@@ -193,12 +192,12 @@ KIT2_UF = safe_float(kits.loc[kits["tipo_kit"] == "2_GPS", "costo"].values[0], 0
 def costo_materiales_ciudad(ciudad: str) -> float:
     return KIT1_UF * safe_float(V1.get(ciudad, 0.0), 0.0) + KIT2_UF * safe_float(V2.get(ciudad, 0.0), 0.0)
 
-# PXQ y flete
+# PXQ y flete (guardrails)
 pxq["ciudad"] = pxq["ciudad"].apply(norm_city)
 flete["ciudad"] = flete["ciudad"].apply(norm_city)
 
-PXQ_UF_POR_GPS = dict(zip(pxq["ciudad"], pxq["pxq_externo"]))      # UF/GPS
-FLETE_UF = dict(zip(flete["ciudad"], flete["costo_flete"]))        # UF ciudad si aplica
+PXQ_UF_POR_GPS = dict(zip(pxq["ciudad"], pxq["pxq_externo"]))   # UF/GPS
+FLETE_UF = dict(zip(flete["ciudad"], flete["costo_flete"]))     # UF (por ciudad si aplica)
 
 require_mapping_coverage(PXQ_UF_POR_GPS, CIUDADES, "PXQ_UF_POR_GPS", allow_zero=False)
 require_mapping_coverage(FLETE_UF, CIUDADES, "FLETE_UF", allow_zero=True)
@@ -210,7 +209,7 @@ def base_tecnico(tecnico: str) -> str:
     return internos.loc[internos["tecnico"] == tecnico, "ciudad_base"].values[0]
 
 def dias_semana_proyecto(tecnico: str) -> float:
-    # tu input declarado: viene en DÍAS/SEMANA
+    # Este campo viene en DÍAS/SEMANA (según tu setup actual)
     return safe_float(internos.loc[internos["tecnico"] == tecnico, "hh_semana_proyecto"].values[0], 0.0)
 
 def horas_semana_proyecto(tecnico: str) -> float:
@@ -247,7 +246,6 @@ def choose_mode(o, d):
     return "avion" if air < road else "terrestre"
 
 def flete_aplica(ciudad: str, base: str, modo_llegada: str) -> bool:
-    # regla existente
     if ciudad == SANTIAGO and base == SANTIAGO and modo_llegada == "terrestre":
         return False
     return True
@@ -267,7 +265,6 @@ def costo_externo_uf(ciudad: str, gps_externos: int, base_ref: str = SANTIAGO, m
         fle = safe_float(FLETE_UF.get(ciudad, 0.0), 0.0)
 
     return {
-        "pxq_unit_uf_gps": pxq_unit,
         "pxq_uf": pxq_total,
         "flete_uf": fle,
         "total_externo_sin_materiales_uf": pxq_total + fle,
@@ -313,6 +310,7 @@ def solve_phase1():
         inc = INCENTIVO_UF * int(max(0, GPS_TOTAL.get(ciudad, 0)))
 
         fle = safe_float(FLETE_UF.get(ciudad, 0.0), 0.0) if flete_aplica(ciudad, base, modo) else 0.0
+
         return viaje + sue + alm + alo + inc + fle
 
     m = pyo.ConcreteModel()
@@ -320,8 +318,8 @@ def solve_phase1():
     m.T = pyo.Set(initialize=TECNICOS)
     m.M = pyo.Set(initialize=MODOS)
 
-    m.x = pyo.Var(m.C, m.T, m.M, domain=pyo.Binary)
-    m.y = pyo.Var(m.C, domain=pyo.Binary)  # 1 interno, 0 externo
+    m.x = pyo.Var(m.C, m.T, m.M, domain=pyo.Binary)  # ciudad c asignada a tecnico t por modo m
+    m.y = pyo.Var(m.C, domain=pyo.Binary)            # 1 si ciudad se hace interna, 0 si externo
 
     def obj_rule(mm):
         cost = 0.0
@@ -348,48 +346,23 @@ def solve_phase1():
     solver = pyo.SolverFactory("cbc", executable=CBC_EXE)
     solver.solve(m, tee=False)
 
-    # lecturas
     tech_cities = {t: [] for t in TECNICOS}
-    rows_assign = []
-    rows_city_dec = []
-
+    rows = []
     for c in C_REG:
-        y = int(pyo.value(m.y[c]) > 0.5)
-        ext = costo_externo_uf(c, int(max(0, GPS_TOTAL.get(c, 0))))
-        rows_city_dec.append({
-            "ciudad": c,
-            "gps": int(max(0, GPS_TOTAL.get(c, 0))),
-            "y_interno_fase1": y,
-            "costo_externo_sin_mat_uf": ext["total_externo_sin_materiales_uf"],
-            "pxq_unit_uf_gps": ext["pxq_unit_uf_gps"],
-            "flete_uf": ext["flete_uf"],
-        })
-
         for t in TECNICOS:
             for mo in MODOS:
                 if pyo.value(m.x[c, t, mo]) > 0.5:
                     tech_cities[t].append(c)
-                    rows_assign.append({
-                        "ciudad": c,
-                        "tecnico": t,
-                        "modo": mo,
-                        "dias_aprox": int(0 if GPS_TOTAL.get(c, 0) == 0 else 1) if False else None,  # placeholder
-                        "costo_interno_aprox_uf": float(costo_interno_aprox_uf(t, c, mo)),
-                        "dias_total_aprox": int(dias_total_aprox(t, c, mo)),
-                    })
+                    rows.append([c, t, mo, costo_interno_aprox_uf(t, c, mo), dias_total_aprox(t, c, mo)])
 
-    df_assign = pd.DataFrame(rows_assign)
-    df_city_dec = pd.DataFrame(rows_city_dec)
+    pd.DataFrame(rows, columns=["ciudad", "tecnico", "modo", "costo_aprox_fase1_uf", "dias_aprox_fase1"]).to_excel(
+        os.path.join(OUTPUTS_DIR, "resultado_optimizacion_gps_fase1.xlsx"), index=False
+    )
 
-    return {
-        "tech_cities": tech_cities,
-        "df_assign_fase1": df_assign,
-        "df_city_dec_fase1": df_city_dec,
-        "model": m,  # por si luego quieres auditar más
-    }
+    return {"tech_cities": tech_cities}
 
 # =========================
-# 7) FASE 2 – SIMULACIÓN + ASIGNACIÓN FACTIBLE POR DÍAS
+# 7) FASE 2 – SIMULACIÓN OPERATIVA + ASIGNACIÓN FACTIBLE POR DÍAS
 # =========================
 def simulate_tech_schedule(tecnico: str, cities_list: list[str], gps_asignados: dict[str, int]):
     base = base_tecnico(tecnico)
@@ -397,13 +370,12 @@ def simulate_tech_schedule(tecnico: str, cities_list: list[str], gps_asignados: 
     gpd = gps_por_dia(tecnico)
 
     if hd <= 1e-9 or gpd <= 0:
-        return [], {"total_uf": 1e18}, False, []
+        return [], {"total_uf": 1e18}, False
 
     day = 1
     sleep_city = base
 
     plan = []
-    travel_legs = []  # auditoría: cada tramo viajado
     cost = {"travel_uf": 0.0, "aloj_uf": 0.0, "alm_uf": 0.0, "inc_uf": 0.0, "sueldo_uf": 0.0, "flete_uf": 0.0}
 
     sueldo_proy = costo_sueldo_proyecto_uf(tecnico)
@@ -424,16 +396,6 @@ def simulate_tech_schedule(tecnico: str, cities_list: list[str], gps_asignados: 
         tv = t_viaje(sleep_city, c, modo_in)
         cv = costo_viaje_uf(sleep_city, c, modo_in)
 
-        travel_legs.append({
-            "tecnico": tecnico,
-            "from": sleep_city,
-            "to": c,
-            "modo": modo_in,
-            "tv_h": tv,
-            "costo_viaje_uf": cv,
-            "dia_inicio": day
-        })
-
         cost["travel_uf"] += cv
         cost["alm_uf"] += ALMU_UF
         cost["sueldo_uf"] += sueldo_dia
@@ -441,7 +403,7 @@ def simulate_tech_schedule(tecnico: str, cities_list: list[str], gps_asignados: 
         if flete_aplica(c, base, modo_in):
             cost["flete_uf"] += safe_float(FLETE_UF.get(c, 0.0), 0.0)
 
-        # Opción A: día solo viaje si tv > hh_día y hay cambio de ciudad
+        # Opción A: día solo viaje (tv > hh_dia)
         if tv > hd and sleep_city != c:
             sleep_city = c
             if sleep_city != base:
@@ -500,29 +462,23 @@ def simulate_tech_schedule(tecnico: str, cities_list: list[str], gps_asignados: 
 
     feasible = (day - 1) <= DIAS_MAX
     cost["total_uf"] = sum(v for k, v in cost.items() if k != "total_uf")
-    return plan, cost, feasible, travel_legs
+    return plan, cost, feasible
 
 def allocate_gps_work_factible(tech_cities: dict[str, list[str]]):
     """
-    Asignación factible por días:
-    - Cada técnico: base (si hay demanda) + ciudades asignadas
-    - GPS enteros
-    - Travel_day si tv>hh_día al cambiar ciudad
-    - Retorna también auditoría de días usados por técnico x ciudad
+    Misma lógica: asignación factible por días.
+    - base primero si hay demanda
+    - travel_day si tv > hh_día al cambiar ciudad
+    - remanente => externo
     """
     rem_gps = {c: int(max(0, GPS_TOTAL.get(c, 0))) for c in CIUDADES}
     gps_asignados = {t: defaultdict(int) for t in TECNICOS}
-    audit_rows = []
 
     for t in TECNICOS:
         base = base_tecnico(t)
         gpd = gps_por_dia(t)
         hd = horas_diarias(t)
         if gpd <= 0 or hd <= 1e-9:
-            audit_rows.append({
-                "tecnico": t, "base": base, "gpd": gpd, "hdia": hd,
-                "dias_left_final": DIAS_MAX, "nota": "Sin capacidad (gpd<=0 o hdia<=0)"
-            })
             continue
 
         days_left = DIAS_MAX
@@ -534,8 +490,10 @@ def allocate_gps_work_factible(tech_cities: dict[str, list[str]]):
         ordered += [c for c in tech_cities.get(t, []) if c != base]
 
         for c in ordered:
-            if rem_gps.get(c, 0) <= 0 or days_left <= 0:
+            if rem_gps.get(c, 0) <= 0:
                 continue
+            if days_left <= 0:
+                break
 
             modo = choose_mode(current_city, c)
             tv = t_viaje(current_city, c, modo)
@@ -546,51 +504,27 @@ def allocate_gps_work_factible(tech_cities: dict[str, list[str]]):
 
             max_install_days = days_left - travel_day
             max_gps = max_install_days * gpd
-            take = int(max(0, min(rem_gps[c], max_gps)))
 
+            take = min(rem_gps[c], max_gps)
+            take = int(max(0, take))
             if take <= 0:
                 break
 
-            install_days_used = int(math.ceil(take / max(1, gpd)))
-
-            audit_rows.append({
-                "tecnico": t,
-                "base": base,
-                "from_city": current_city,
-                "to_city": c,
-                "modo": modo,
-                "tv_h": tv,
-                "travel_day": travel_day,
-                "days_left_before": days_left,
-                "install_days_used": install_days_used,
-                "gps_take": take,
-                "gpd": gpd,
-                "hdia": hd,
-                "days_left_after": days_left - (travel_day + install_days_used),
-            })
-
             gps_asignados[t][c] += take
             rem_gps[c] -= take
+
+            install_days_used = int(math.ceil(take / max(1, gpd)))
             days_left -= (travel_day + install_days_used)
             current_city = c
 
             if days_left <= 0:
                 break
 
-        audit_rows.append({
-            "tecnico": t,
-            "base": base,
-            "gpd": gpd,
-            "hdia": hd,
-            "dias_left_final": days_left,
-            "nota": "FIN"
-        })
-
-    df_audit = pd.DataFrame(audit_rows)
-    return gps_asignados, rem_gps, df_audit
+    return gps_asignados, rem_gps
 
 def total_cost_solution(tech_cities):
-    gps_asignados, rem_gps, _ = allocate_gps_work_factible(tech_cities)
+    gps_asignados, rem_gps = allocate_gps_work_factible(tech_cities)
+
     total = 0.0
 
     for t in TECNICOS:
@@ -601,7 +535,7 @@ def total_cost_solution(tech_cities):
         if base in cities:
             cities = [base] + [c for c in cities if c != base]
 
-        plan, cst, feas, _legs = simulate_tech_schedule(t, cities, gps_asignados[t])
+        _, cst, feas = simulate_tech_schedule(t, cities, gps_asignados[t])
         if not feas:
             return 1e18
         total += cst["total_uf"]
@@ -646,7 +580,7 @@ def improve_solution(tech_cities, iters=400, seed=42):
         elif move == 1 and donors:
             t_from = str(rng.choice(donors))
             c = str(rng.choice(tc2[t_from]))
-            tc2[t_from].remove(c)
+            tc2[t_from].remove(c)  # queda externo
 
         else:
             unassigned = [c for c in cities_no_scl if c not in assigned]
@@ -664,27 +598,237 @@ def improve_solution(tech_cities, iters=400, seed=42):
     return best_tc, best_cost
 
 # =========================
-# 8) REPORTES (MAX DESGLOSE)
+# 8) EXPORT: MÁS VISTAS (SIN CAMBIAR LÓGICA)
 # =========================
-def build_reports(tech_cities_final, ws_phase1):
-    gps_asignados, rem_gps, df_audit_alloc = allocate_gps_work_factible(tech_cities_final)
+def build_views(
+    tech_cities_final: dict,
+    gps_asignados: dict,
+    rem_gps: dict,
+    df_plan: pd.DataFrame,
+    df_cost: pd.DataFrame,
+    df_city: pd.DataFrame,
+    best_cost: float
+):
+    # -----------------------
+    # A) Snapshot Inputs
+    # -----------------------
+    df_param = param_df.copy()
+    df_param["valor_num"] = df_param["valor"].apply(lambda x: safe_float(x, np.nan))
 
-    # ---------- Plan diario + costos internos por técnico ----------
-    plan_rows = []
-    legs_rows = []
-    cost_interno_rows = []
+    df_tecn = internos.copy()
+    df_tecn["dias_semana_proyecto"] = df_tecn["hh_semana_proyecto"].apply(lambda x: safe_float(x, 0.0))
+    df_tecn["horas_diarias"] = df_tecn["tecnico"].apply(horas_diarias)
+    df_tecn["gps_por_dia"] = df_tecn["tecnico"].apply(gps_por_dia)
+    df_tecn["sueldo_proy_uf"] = df_tecn["tecnico"].apply(costo_sueldo_proyecto_uf)
+
+    df_dem = demanda.copy()
+    df_dem["materiales_uf_ciudad"] = df_dem["ciudad"].apply(costo_materiales_ciudad)
+
+    df_pxq = pxq.copy()
+    df_flete = flete.copy()
+    df_kits = kits.copy()
+
+    # -----------------------
+    # B) Allocation tables
+    # -----------------------
+    # Tabla larga: GPS asignados internos por técnico-ciudad
     alloc_rows = []
-
     for t in TECNICOS:
-        for c, g in gps_asignados[t].items():
-            if g > 0:
-                alloc_rows.append({
-                    "tecnico": t,
-                    "base": base_tecnico(t),
-                    "ciudad": c,
-                    "gps_asignados_internos": int(g),
-                })
+        base = base_tecnico(t)
+        for c, g in gps_asignados.get(t, {}).items():
+            if int(g) <= 0:
+                continue
+            alloc_rows.append({
+                "tecnico": t,
+                "base": base,
+                "ciudad": c,
+                "gps_internos": int(g),
+            })
+    df_alloc_long = pd.DataFrame(alloc_rows)
+    if df_alloc_long.empty:
+        df_alloc_long = pd.DataFrame(columns=["tecnico", "base", "ciudad", "gps_internos"])
 
+    # Matriz: técnicos x ciudades (GPS internos)
+    df_alloc_matrix = None
+    if not df_alloc_long.empty:
+        df_alloc_matrix = df_alloc_long.pivot_table(
+            index=["tecnico", "base"],
+            columns="ciudad",
+            values="gps_internos",
+            aggfunc="sum",
+            fill_value=0
+        ).reset_index()
+    else:
+        df_alloc_matrix = pd.DataFrame({"tecnico": TECNICICOS if (TECNICOS:=TECNICOS) else []})  # placeholder seguro
+        df_alloc_matrix = pd.DataFrame(columns=["tecnico", "base"] + CIUDADES)
+
+    # Remanente externo
+    df_rem = pd.DataFrame([{
+        "ciudad": c,
+        "gps_total": int(GPS_TOTAL.get(c, 0)),
+        "gps_externos": int(max(0, rem_gps.get(c, 0))),
+        "gps_internos": int(max(0, int(GPS_TOTAL.get(c, 0)) - int(max(0, rem_gps.get(c, 0))))),
+    } for c in CIUDADES])
+
+    # -----------------------
+    # C) City cost decomposition + KPIs
+    # -----------------------
+    df_city2 = df_city.copy()
+
+    # Flags de aplicación de flete (según tu regla)
+    def flete_flag(ciudad):
+        # base_ref=Santiago y modo_ref=terrestre como en costo_externo_uf() actual
+        return bool(flete_aplica(ciudad, SANTIAGO, "terrestre"))
+
+    df_city2["flete_aplica_flag"] = df_city2["ciudad"].apply(flete_flag).astype(int)
+    df_city2["pxq_share"] = df_city2.apply(lambda r: pct(r["pxq_uf"], r["total_ciudad_uf"]), axis=1)
+    df_city2["flete_share"] = df_city2.apply(lambda r: pct(r["flete_uf"], r["total_ciudad_uf"]), axis=1)
+    df_city2["materiales_share"] = df_city2.apply(lambda r: pct(r["materiales_uf"], r["total_ciudad_uf"]), axis=1)
+
+    df_city2["uf_por_gps_total"] = df_city2.apply(lambda r: (r["total_ciudad_uf"] / r["gps_total"]) if r["gps_total"] > 0 else 0.0, axis=1)
+    df_city2["pxq_uf_por_gps_ext"] = df_city2.apply(lambda r: (r["pxq_uf"] / r["gps_externos"]) if r["gps_externos"] > 0 else 0.0, axis=1)
+    df_city2["flete_uf_por_gps_total"] = df_city2.apply(lambda r: (r["flete_uf"] / r["gps_total"]) if r["gps_total"] > 0 else 0.0, axis=1)
+    df_city2["materiales_uf_por_gps_total"] = df_city2.apply(lambda r: (r["materiales_uf"] / r["gps_total"]) if r["gps_total"] > 0 else 0.0, axis=1)
+
+    # Pareto (acumulado)
+    df_pareto = df_city2.sort_values("total_ciudad_uf", ascending=False).reset_index(drop=True)
+    df_pareto["cum_uf"] = df_pareto["total_ciudad_uf"].cumsum()
+    total_all = float(df_pareto["total_ciudad_uf"].sum()) if not df_pareto.empty else 0.0
+    df_pareto["cum_share"] = df_pareto["cum_uf"].apply(lambda x: pct(x, total_all))
+
+    # -----------------------
+    # D) Cost rollups / reconciliations
+    # -----------------------
+    # Resumen por tipo (INTERNO/EXTERNO/MATERIALES)
+    df_roll_tipo = df_cost.groupby("tipo", as_index=False).agg(
+        total_uf=("total_uf", "sum"),
+        travel_uf=("travel_uf", "sum"),
+        aloj_uf=("aloj_uf", "sum"),
+        alm_uf=("alm_uf", "sum"),
+        inc_uf=("inc_uf", "sum"),
+        sueldo_uf=("sueldo_uf", "sum"),
+        flete_uf=("flete_uf", "sum"),
+        pxq_uf=("pxq_uf", "sum"),
+        materiales_uf=("materiales_uf", "sum"),
+    )
+    df_roll_tipo["share_total"] = df_roll_tipo["total_uf"].apply(lambda x: pct(x, df_roll_tipo["total_uf"].sum()))
+
+    # Resumen por técnico (si existieran internos)
+    df_roll_tecnico = df_cost[df_cost["tipo"] == "INTERNO"].copy()
+    if not df_roll_tecnico.empty:
+        df_roll_tecnico = df_roll_tecnico.groupby("responsable", as_index=False).agg(
+            total_uf=("total_uf", "sum"),
+            travel_uf=("travel_uf", "sum"),
+            aloj_uf=("aloj_uf", "sum"),
+            alm_uf=("alm_uf", "sum"),
+            inc_uf=("inc_uf", "sum"),
+            sueldo_uf=("sueldo_uf", "sum"),
+            flete_uf=("flete_uf", "sum"),
+        )
+        df_roll_tecnico["share_internos"] = df_roll_tecnico["total_uf"].apply(lambda x: pct(x, df_roll_tecnico["total_uf"].sum()))
+    else:
+        df_roll_tecnico = pd.DataFrame(columns=[
+            "responsable", "total_uf", "travel_uf", "aloj_uf", "alm_uf", "inc_uf", "sueldo_uf", "flete_uf", "share_internos"
+        ])
+
+    # Auditoría: totales por composición
+    total_cost = float(df_cost["total_uf"].sum()) if not df_cost.empty else 0.0
+    total_pxq = float(df_city2["pxq_uf"].sum()) if not df_city2.empty else 0.0
+    total_flete = float(df_city2["flete_uf"].sum()) if not df_city2.empty else 0.0
+    total_mat = float(df_city2["materiales_uf"].sum()) if not df_city2.empty else 0.0
+    audit_rows = [
+        {"check": "total_costos_detalle (df_cost)", "uf": total_cost},
+        {"check": "total_ciudades(pxq+flete+materiales)", "uf": (total_pxq + total_flete + total_mat)},
+        {"check": "diferencia", "uf": (total_cost - (total_pxq + total_flete + total_mat))},
+        {"check": "best_cost_evaluator (debug)", "uf": float(best_cost)},
+    ]
+    df_audit = pd.DataFrame(audit_rows)
+
+    # -----------------------
+    # E) “What are we paying for?” (per-GPS global)
+    # -----------------------
+    gps_total_all = int(sum(int(max(0, GPS_TOTAL.get(c, 0))) for c in CIUDADES))
+    df_unit = pd.DataFrame([
+        {"metric": "UF_total", "value": total_cost},
+        {"metric": "GPS_total", "value": gps_total_all},
+        {"metric": "UF_por_GPS_global", "value": (total_cost / gps_total_all) if gps_total_all > 0 else 0.0},
+        {"metric": "PXQ_total", "value": total_pxq},
+        {"metric": "Flete_total", "value": total_flete},
+        {"metric": "Materiales_total", "value": total_mat},
+        {"metric": "PXQ_por_GPS", "value": (total_pxq / gps_total_all) if gps_total_all > 0 else 0.0},
+        {"metric": "Flete_por_GPS", "value": (total_flete / gps_total_all) if gps_total_all > 0 else 0.0},
+        {"metric": "Materiales_por_GPS", "value": (total_mat / gps_total_all) if gps_total_all > 0 else 0.0},
+    ])
+
+    # -----------------------
+    # F) Tech cities list (final)
+    # -----------------------
+    rows_tc = []
+    for t in TECNICOS:
+        base = base_tecnico(t)
+        for c in tech_cities_final.get(t, []):
+            rows_tc.append({"tecnico": t, "base": base, "ciudad_asignada_fase1_meta": c})
+    df_tc = pd.DataFrame(rows_tc)
+    if df_tc.empty:
+        df_tc = pd.DataFrame(columns=["tecnico", "base", "ciudad_asignada_fase1_meta"])
+
+    views = {
+        # Originales
+        "Costos_por_Ciudad": df_city,
+        "Plan_Diario": df_plan,
+        "Costos_Detalle": df_cost,
+
+        # Nuevas vistas
+        "00_Parametros": df_param,
+        "01_Tecnicos_Capacidad": df_tecn,
+        "02_Demanda_Materiales": df_dem,
+        "03_PXQ_Input": df_pxq,
+        "04_Flete_Input": df_flete,
+        "05_Kits_Input": df_kits,
+
+        "10_Asignacion_TechCities": df_tc,
+        "11_Asignacion_GPS_Long": df_alloc_long,
+        "12_Asignacion_GPS_Matriz": df_alloc_matrix,
+        "13_Remanente_Externo": df_rem,
+
+        "20_City_KPIs": df_city2.sort_values("total_ciudad_uf", ascending=False),
+        "21_Pareto_Ciudades": df_pareto,
+        "22_Rollup_por_Tipo": df_roll_tipo,
+        "23_Rollup_por_Tecnico": df_roll_tecnico,
+        "24_Auditoria_Totales": df_audit,
+        "25_Costos_unitarios_global": df_unit,
+    }
+    return views
+
+# =========================
+# 9) RUN + EXPORT
+# =========================
+def run_all():
+    print(f"[INFO] CBC_EXE = {CBC_EXE}")
+    print(f"[INFO] DIAS_MAX={DIAS_MAX} DIAS_SEM={DIAS_SEM} SEMANAS={SEMANAS} H_DIA={H_DIA} TIEMPO_INST={TIEMPO_INST_GPS_H}")
+    print(f"[INFO] INCENTIVO_UF={INCENTIVO_UF} PRECIO_BENCINA_UF_KM={PRECIO_BENCINA_UF_KM}")
+
+    print("\n=== DEBUG CAPACIDAD INTERNOS (POST-FIX) ===")
+    for t in TECNICOS:
+        print(
+            f"- {t:20s} base={base_tecnico(t):12s} "
+            f"dias_sem_proy={dias_semana_proyecto(t):5.2f} "
+            f"hdia={horas_diarias(t):5.2f} gps/dia={gps_por_dia(t):3d} "
+            f"sueldo_proy_uf={costo_sueldo_proyecto_uf(t):8.2f}"
+        )
+
+    ws = solve_phase1()
+    tech_cities = ws["tech_cities"]
+
+    tech_cities2, best_cost = improve_solution(tech_cities, iters=400)
+
+    gps_asignados, rem_gps = allocate_gps_work_factible(tech_cities2)
+
+    plan_rows = []
+    cost_rows = []
+    city_rows = []
+
+    # internos
     for t in TECNICOS:
         cities = [c for c, g in gps_asignados[t].items() if g > 0]
         if not cities:
@@ -693,300 +837,131 @@ def build_reports(tech_cities_final, ws_phase1):
         if base in cities:
             cities = [base] + [c for c in cities if c != base]
 
-        plan, cst, feas, legs = simulate_tech_schedule(t, cities, gps_asignados[t])
+        plan, cst, feas = simulate_tech_schedule(t, cities, gps_asignados[t])
         if not feas:
             raise RuntimeError(f"Solución final infeasible para técnico {t}")
 
         plan_rows.extend(plan)
-        legs_rows.extend(legs)
-
-        gps_int = int(sum(gps_asignados[t].values()))
-        cost_interno_rows.append({
-            "tecnico": t,
-            "base": base,
-            "gps_internos_total": gps_int,
+        cost_rows.append({
+            "responsable": t,
+            "tipo": "INTERNO",
             "travel_uf": cst["travel_uf"],
             "aloj_uf": cst["aloj_uf"],
             "alm_uf": cst["alm_uf"],
-            "sueldo_uf": cst["sueldo_uf"],
             "inc_uf": cst["inc_uf"],
+            "sueldo_uf": cst["sueldo_uf"],
             "flete_uf": cst["flete_uf"],
+            "pxq_uf": 0.0,
+            "materiales_uf": 0.0,
             "total_uf": cst["total_uf"],
-            "uf_por_gps_interno": (cst["total_uf"] / gps_int) if gps_int > 0 else 0.0
         })
 
-    df_plan = pd.DataFrame(plan_rows)
-    if not df_plan.empty:
-        df_plan = df_plan.sort_values(["tecnico", "dia"]).reset_index(drop=True)
-        df_plan["gps_inst"] = df_plan["gps_inst"].astype(int)
-    else:
-        df_plan = pd.DataFrame(columns=[
-            "tecnico", "dia", "ciudad_trabajo", "horas_instal", "gps_inst",
-            "viaje_modo_manana", "viaje_h_manana", "duerme_en", "nota"
-        ])
-
-    df_legs = pd.DataFrame(legs_rows)
-    df_cost_interno = pd.DataFrame(cost_interno_rows).sort_values("total_uf", ascending=False)
-    df_alloc = pd.DataFrame(alloc_rows).sort_values(["tecnico", "ciudad"])
-
-    # ---------- Costos externos por ciudad + materiales ----------
-    city_rows = []
+    # externos por ciudad (remanente)
     for c in CIUDADES:
-        gps_total = int(max(0, GPS_TOTAL.get(c, 0)))
         gps_ext = int(max(0, rem_gps.get(c, 0)))
-        gps_int_city = int(max(0, gps_total - gps_ext))
-
         ext = costo_externo_uf(c, gps_externos=gps_ext)
-        mat = costo_materiales_ciudad(c)
-        total_city = ext["total_externo_sin_materiales_uf"] + mat  # en esta versión: internos se expresan por técnico
 
         city_rows.append({
             "ciudad": c,
-            "gps_total": gps_total,
-            "gps_internos": gps_int_city,
+            "gps_total": int(max(0, GPS_TOTAL.get(c, 0))),
+            "gps_internos": int(max(0, GPS_TOTAL.get(c, 0) - gps_ext)),
             "gps_externos": gps_ext,
-            "pxq_unit_uf_gps": ext["pxq_unit_uf_gps"],
+            "pxq_unit_uf_gps": safe_float(PXQ_UF_POR_GPS.get(c), 0.0),
             "pxq_uf": ext["pxq_uf"],
             "flete_uf": ext["flete_uf"],
-            "materiales_uf": mat,
-            "externo_sin_mat_uf": ext["total_externo_sin_materiales_uf"],
-            "total_ciudad_uf": total_city,
-            "uf_por_gps_total": (total_city / gps_total) if gps_total > 0 else 0.0,
-            "share_pxq": 0.0, "share_flete": 0.0, "share_materiales": 0.0
+            "materiales_uf": costo_materiales_ciudad(c),
+            "total_externo_sin_materiales_uf": ext["total_externo_sin_materiales_uf"],
+            "total_ciudad_uf": ext["total_externo_sin_materiales_uf"] + costo_materiales_ciudad(c),
         })
 
-    df_city = pd.DataFrame(city_rows)
-    total_all_city = df_city["total_ciudad_uf"].sum()
-    df_city["share_pxq"] = df_city.apply(lambda r: pct(r["pxq_uf"], r["total_ciudad_uf"]), axis=1)
-    df_city["share_flete"] = df_city.apply(lambda r: pct(r["flete_uf"], r["total_ciudad_uf"]), axis=1)
-    df_city["share_materiales"] = df_city.apply(lambda r: pct(r["materiales_uf"], r["total_ciudad_uf"]), axis=1)
-    df_city = df_city.sort_values("total_ciudad_uf", ascending=False)
-
-    # ---------- Pareto / rankings ----------
-    pareto_total = df_city[["ciudad", "total_ciudad_uf", "gps_total", "uf_por_gps_total"]].copy()
-    pareto_total["cum_uf"] = pareto_total["total_ciudad_uf"].cumsum()
-    pareto_total["cum_share"] = pareto_total["cum_uf"] / max(1e-9, pareto_total["total_ciudad_uf"].sum())
-
-    pareto_pxq = df_city.sort_values("pxq_uf", ascending=False)[["ciudad", "pxq_uf", "gps_externos", "pxq_unit_uf_gps"]].copy()
-    pareto_mat = df_city.sort_values("materiales_uf", ascending=False)[["ciudad", "materiales_uf", "gps_total"]].copy()
-    pareto_flete = df_city.sort_values("flete_uf", ascending=False)[["ciudad", "flete_uf", "gps_externos"]].copy()
-
-    # ---------- Resumen total (incluye internos por técnico) ----------
-    total_externo = df_city["externo_sin_mat_uf"].sum()
-    total_materiales = df_city["materiales_uf"].sum()
-    total_interno = df_cost_interno["total_uf"].sum() if not df_cost_interno.empty else 0.0
-    total_uf = total_interno + total_externo + total_materiales
-
-    df_resumen_total = pd.DataFrame([
-        ["total_uf", total_uf],
-        ["total_interno_uf", total_interno],
-        ["total_externo_sin_materiales_uf", total_externo],
-        ["materiales_total_uf", total_materiales],
-        ["gps_total", sum(int(max(0, GPS_TOTAL.get(c, 0))) for c in CIUDADES)],
-        ["gps_internos_total", int(df_city["gps_internos"].sum())],
-        ["gps_externos_total", int(df_city["gps_externos"].sum())],
-        ["dias_max_proyecto", DIAS_MAX],
-        ["dias_semana", DIAS_SEM],
-        ["semanas", SEMANAS],
-        ["horas_jornada", H_DIA],
-        ["tiempo_inst_gps_h", TIEMPO_INST_GPS_H],
-        ["incentivo_uf_gps", INCENTIVO_UF],
-        ["precio_bencina_uf_km", PRECIO_BENCINA_UF_KM],
-        ["nota", "MAX DESGLOSE: internos por técnico + externos por ciudad + materiales. Sin forzar internos."]
-    ], columns=["metric", "value"])
-
-    # ---------- Parámetros y capacidad técnicos ----------
-    param_rows = []
-    for k, v in param.items():
-        param_rows.append({"parametro": k, "valor": v})
-    df_param = pd.DataFrame(param_rows).sort_values("parametro")
-
-    cap_rows = []
-    for t in TECNICOS:
-        cap_rows.append({
-            "tecnico": t,
-            "base": base_tecnico(t),
-            "dias_semana_proyecto_input": dias_semana_proyecto(t),
-            "horas_semana_proyecto": horas_semana_proyecto(t),
-            "hdia": horas_diarias(t),
-            "gps_por_dia": gps_por_dia(t),
-            "sueldo_proyecto_uf": costo_sueldo_proyecto_uf(t),
-            "dias_max_proyecto": DIAS_MAX,
-        })
-    df_cap = pd.DataFrame(cap_rows).sort_values(["base", "tecnico"])
-
-    # ---------- Auditoría de inputs “de negocio” ----------
-    df_pxq_flete = pd.DataFrame([{
-        "ciudad": c,
-        "pxq_unit_uf_gps": safe_float(PXQ_UF_POR_GPS.get(c), 0.0),
-        "flete_uf": safe_float(FLETE_UF.get(c), 0.0),
-        "kit_1gps_uf": KIT1_UF,
-        "kit_2gps_uf": KIT2_UF,
-        "vehiculos_1gps": safe_float(V1.get(c, 0.0), 0.0),
-        "vehiculos_2gps": safe_float(V2.get(c, 0.0), 0.0),
-        "gps_total": int(max(0, GPS_TOTAL.get(c, 0))),
-        "materiales_uf": costo_materiales_ciudad(c),
-    } for c in CIUDADES]).sort_values("ciudad")
-
-    df_demanda_det = demanda.copy()
-
-    # ---------- Comparativo interno vs externo (aprox fase 1) ----------
-    # Si Fase 1 asigna interno: comparar costo interno aprox vs externo (sin materiales)
-    df_city_dec_fase1 = ws_phase1["df_city_dec_fase1"].copy()
-    df_assign_fase1 = ws_phase1["df_assign_fase1"].copy()
-
-    if not df_assign_fase1.empty:
-        # para cada ciudad, tomar el registro asignado (ciudad -> tecnico/modo/costo)
-        df_best = df_assign_fase1.sort_values("costo_interno_aprox_uf").groupby("ciudad", as_index=False).first()
-        df_comp = df_city_dec_fase1.merge(df_best[["ciudad", "tecnico", "modo", "costo_interno_aprox_uf", "dias_total_aprox"]],
-                                          on="ciudad", how="left")
-    else:
-        df_comp = df_city_dec_fase1.copy()
-        df_comp["tecnico"] = None
-        df_comp["modo"] = None
-        df_comp["costo_interno_aprox_uf"] = np.nan
-        df_comp["dias_total_aprox"] = np.nan
-
-    df_comp["delta_interno_menos_externo_uf"] = df_comp["costo_interno_aprox_uf"] - df_comp["costo_externo_sin_mat_uf"]
-    df_comp["preferencia_aprox"] = df_comp.apply(
-        lambda r: "INTERNO(aprox)" if pd.notna(r["delta_interno_menos_externo_uf"]) and r["delta_interno_menos_externo_uf"] < 0 else "EXTERNO(aprox)",
-        axis=1
-    )
-    df_comp = df_comp.sort_values("delta_interno_menos_externo_uf", ascending=True)
-
-    # ---------- Costos detalle (tabla “contable”) ----------
-    cost_rows = []
-
-    # internos por técnico (si existen)
-    for _, r in df_cost_interno.iterrows():
         cost_rows.append({
-            "responsable": r["tecnico"],
-            "tipo": "INTERNO",
-            "travel_uf": r["travel_uf"],
-            "aloj_uf": r["aloj_uf"],
-            "alm_uf": r["alm_uf"],
-            "sueldo_uf": r["sueldo_uf"],
-            "inc_uf": r["inc_uf"],
-            "flete_uf": r["flete_uf"],
-            "pxq_uf": 0.0,
-            "materiales_uf": 0.0,
-            "total_uf": r["total_uf"],
-        })
-
-    # externos por ciudad
-    for _, r in df_city.iterrows():
-        cost_rows.append({
-            "responsable": r["ciudad"],
+            "responsable": c,
             "tipo": "EXTERNO",
             "travel_uf": 0.0,
             "aloj_uf": 0.0,
             "alm_uf": 0.0,
-            "sueldo_uf": 0.0,
             "inc_uf": 0.0,
-            "flete_uf": r["flete_uf"],
-            "pxq_uf": r["pxq_uf"],
+            "sueldo_uf": 0.0,
+            "flete_uf": ext["flete_uf"],
+            "pxq_uf": ext["pxq_uf"],
             "materiales_uf": 0.0,
-            "total_uf": r["externo_sin_mat_uf"],
+            "total_uf": ext["total_externo_sin_materiales_uf"],
         })
 
-    # materiales (línea auditora)
+    # materiales como línea auditora
+    materiales_total = sum(costo_materiales_ciudad(c) for c in CIUDADES)
     cost_rows.append({
         "responsable": "MATERIALES (TOTAL)",
         "tipo": "MATERIALES",
         "travel_uf": 0.0,
         "aloj_uf": 0.0,
         "alm_uf": 0.0,
-        "sueldo_uf": 0.0,
         "inc_uf": 0.0,
+        "sueldo_uf": 0.0,
         "flete_uf": 0.0,
         "pxq_uf": 0.0,
-        "materiales_uf": total_materiales,
-        "total_uf": total_materiales,
+        "materiales_uf": materiales_total,
+        "total_uf": materiales_total,
     })
 
+    df_plan = pd.DataFrame(plan_rows)
+    if df_plan.empty:
+        df_plan = pd.DataFrame(columns=[
+            "tecnico", "dia", "ciudad_trabajo", "horas_instal", "gps_inst",
+            "viaje_modo_manana", "viaje_h_manana", "duerme_en", "nota"
+        ])
+    else:
+        df_plan = df_plan.sort_values(["tecnico", "dia"]).reset_index(drop=True)
+        gps_float = df_plan["gps_inst"].astype(float)
+        if not np.all(gps_float == np.floor(gps_float)):
+            raise RuntimeError("gps_inst tiene decimales. Debe ser entero.")
+        df_plan["gps_inst"] = df_plan["gps_inst"].astype(int)
+
     df_cost = pd.DataFrame(cost_rows).sort_values(["tipo", "total_uf"], ascending=[True, False])
+    df_city = pd.DataFrame(city_rows).sort_values(["total_ciudad_uf"], ascending=False)
 
-    return {
-        "Resumen_Total": df_resumen_total,
-        "Costos_por_Ciudad": df_city,
-        "Pareto_Total": pareto_total,
-        "Pareto_PXQ": pareto_pxq,
-        "Pareto_Materiales": pareto_mat,
-        "Pareto_Flete": pareto_flete,
-        "Costos_Internos_Tecnico": df_cost_interno,
-        "Asignacion_GPS_Tecnico_Ciudad": df_alloc,
-        "Auditoria_Asignacion_Dias": df_audit_alloc,
-        "Plan_Diario": df_plan,
-        "Auditoria_Viajes": df_legs,
-        "Costos_Detalle_Contable": df_cost,
-        "Parametros_Usados": df_param,
-        "Capacidad_Tecnicos": df_cap,
-        "Input_PXQ_Flete_Kits_Demanda": df_pxq_flete,
-        "Demanda_Detalle": df_demanda_det,
-        "Fase1_Asignaciones": ws_phase1["df_assign_fase1"],
-        "Fase1_Ciudad_Decision": ws_phase1["df_city_dec_fase1"],
-        "Fase1_Comparativo_Int_vs_Ext": df_comp,
-    }
+    total_uf = df_cost["total_uf"].sum()
 
-# =========================
-# 9) RUN + EXPORT (MAX)
-# =========================
-def run_all():
-    print(f"[INFO] CBC_EXE = {CBC_EXE}")
-    print(f"[INFO] DIAS_MAX={DIAS_MAX} DIAS_SEM={DIAS_SEM} SEMANAS={SEMANAS} H_DIA={H_DIA} TIEMPO_INST={TIEMPO_INST_GPS_H}")
-    print(f"[INFO] INCENTIVO_UF={INCENTIVO_UF} PRECIO_BENCINA_UF_KM={PRECIO_BENCINA_UF_KM}")
+    resumen = pd.DataFrame([
+        ["total_uf", total_uf],
+        ["total_interno_uf", df_cost.loc[df_cost["tipo"] == "INTERNO", "total_uf"].sum()],
+        ["total_externo_sin_materiales_uf", df_cost.loc[df_cost["tipo"] == "EXTERNO", "total_uf"].sum()],
+        ["materiales_total_uf", materiales_total],
+        ["gps_total", sum(int(max(0, GPS_TOTAL.get(c, 0))) for c in CIUDADES)],
+        ["dias_max_proyecto", DIAS_MAX],
+        ["dias_semana", DIAS_SEM],
+        ["horas_jornada", H_DIA],
+        ["tiempo_inst_gps_h", TIEMPO_INST_GPS_H],
+        ["nota", "MISMA LÓGICA. Se agregan hojas extra para desglose máximo (KPIs, Pareto, asignación, auditoría, snapshots)."]
+    ], columns=["metric", "value"])
 
-    # DEBUG capacidad
-    print("\n=== DEBUG CAPACIDAD INTERNOS (AUDIT) ===")
-    for t in TECNICOS:
-        print(
-            f"- {t:20s} base={base_tecnico(t):12s} "
-            f"dias_sem_proy={dias_semana_proyecto(t):6.2f} "
-            f"hdia={horas_diarias(t):6.2f} gps/dia={gps_por_dia(t):3d} "
-            f"sueldo_proy_uf={costo_sueldo_proyecto_uf(t):8.2f}"
-        )
+    # -------- NUEVAS VISTAS (sin cambiar lógica) --------
+    views = build_views(
+        tech_cities_final=tech_cities2,
+        gps_asignados=gps_asignados,
+        rem_gps=rem_gps,
+        df_plan=df_plan,
+        df_cost=df_cost,
+        df_city=df_city,
+        best_cost=best_cost
+    )
 
-    ws1 = solve_phase1()
-    tech_cities = ws1["tech_cities"]
+    out_path = os.path.join(OUTPUTS_DIR, "plan_global_operativo.xlsx")
+    with pd.ExcelWriter(out_path) as w:
+        resumen.to_excel(w, index=False, sheet_name="Resumen_Total")
 
-    # mejora (sin forzar)
-    tech_cities2, best_cost = improve_solution(tech_cities, iters=400, seed=42)
+        # Mantener las hojas “clásicas” con nombres esperados
+        df_city.to_excel(w, index=False, sheet_name="Costos_por_Ciudad")
+        df_plan.to_excel(w, index=False, sheet_name="Plan_Diario")
+        df_cost.to_excel(w, index=False, sheet_name="Costos_Detalle")
 
-    reports = build_reports(tech_cities2, ws1)
-
-    out_path = os.path.join(OUTPUTS_DIR, "plan_global_operativo_MAX_DESGLOSE.xlsx")
-    with pd.ExcelWriter(out_path, engine="openpyxl") as w:
-        # Orden pensado para comité + data room
-        order = [
-            "Resumen_Total",
-            "Costos_por_Ciudad",
-            "Pareto_Total",
-            "Pareto_PXQ",
-            "Pareto_Materiales",
-            "Pareto_Flete",
-            "Costos_Internos_Tecnico",
-            "Asignacion_GPS_Tecnico_Ciudad",
-            "Auditoria_Asignacion_Dias",
-            "Plan_Diario",
-            "Auditoria_Viajes",
-            "Costos_Detalle_Contable",
-            "Fase1_Comparativo_Int_vs_Ext",
-            "Fase1_Asignaciones",
-            "Fase1_Ciudad_Decision",
-            "Capacidad_Tecnicos",
-            "Parametros_Usados",
-            "Input_PXQ_Flete_Kits_Demanda",
-            "Demanda_Detalle",
-        ]
-        for name in order:
-            df = reports.get(name)
-            if df is None:
+        # Escribir vistas extra
+        # Nota: Excel limita sheet name a 31 chars (ya están controlados arriba)
+        for sh, df in views.items():
+            if sh in ["Costos_por_Ciudad", "Plan_Diario", "Costos_Detalle"]:
                 continue
-            df.to_excel(w, index=False, sheet_name=name[:31])  # Excel limita a 31 chars
+            df.to_excel(w, index=False, sheet_name=sh)
 
-    # resumen consola
-    df_res = reports["Resumen_Total"]
-    total_uf = float(df_res.loc[df_res["metric"] == "total_uf", "value"].values[0])
     print("[OK] ->", out_path)
     print("[OK] Costo total (UF):", round(total_uf, 4))
     print("[OK] best_cost evaluator (UF):", round(best_cost, 4))
