@@ -219,8 +219,6 @@ def choose_mode(o, d):
     return "avion" if air < road else "terrestre"
 
 def flete_aplica(ciudad: str, base: str, modo_llegada: str) -> bool:
-    # Tú ya pusiste Santiago flete=0 cuando no se manda, así que da igual,
-    # pero dejamos la regla histórica por consistencia.
     if ciudad == SANTIAGO and base == SANTIAGO and modo_llegada == "terrestre":
         return False
     return True
@@ -334,7 +332,7 @@ def solve_phase1():
                     mode[(t, c)] = mo
                     rows.append([c, t, mo, costo_interno_aprox_uf(t, c, mo), dias_total_aprox(t, c, mo)])
 
-    pd.DataFrame(rows, columns=["ciudad","tecnico","modo","costo_aprox_fase1_uf","dias_aprox_fase1"]).to_excel(
+    pd.DataFrame(rows, columns=["ciudad", "tecnico", "modo", "costo_aprox_fase1_uf", "dias_aprox_fase1"]).to_excel(
         os.path.join(OUTPUTS_DIR, "resultado_optimizacion_gps_fase1.xlsx"), index=False
     )
 
@@ -362,7 +360,7 @@ def simulate_tech_schedule(tecnico: str, cities_list: list[str], gps_asignados: 
     sleep_city = base
 
     plan = []
-    cost = {"travel_uf":0.0, "aloj_uf":0.0, "alm_uf":0.0, "inc_uf":0.0, "sueldo_uf":0.0, "flete_uf":0.0}
+    cost = {"travel_uf": 0.0, "aloj_uf": 0.0, "alm_uf": 0.0, "inc_uf": 0.0, "sueldo_uf": 0.0, "flete_uf": 0.0}
 
     sueldo_proy = costo_sueldo_proyecto_uf(tecnico)
     sueldo_dia = sueldo_proy / max(1, DIAS_MAX)
@@ -568,7 +566,7 @@ def improve_solution(city_type, tech_cities, iters=250, seed=42):
                         tc2[t].remove(c)
             else:
                 best_t, best_val = None, 1e18
-                for t in TECNICOS := TECNICOS:
+                for t in TECNICOS:  # FIX: sin walrus
                     if c in tc2.get(t, []):
                         continue
                     tc_trial = deepcopy(tc2)
@@ -707,24 +705,24 @@ def run_all():
             raise RuntimeError("gps_inst tiene decimales. Debe ser entero (revisa asignación/simulación).")
         df_plan["gps_inst"] = df_plan["gps_inst"].astype(int)
 
-    df_cost = pd.DataFrame(cost_rows).sort_values(["tipo","total_uf"], ascending=[True, False])
+    df_cost = pd.DataFrame(cost_rows).sort_values(["tipo", "total_uf"], ascending=[True, False])
     df_city = pd.DataFrame(city_rows).sort_values(["total_ciudad_uf"], ascending=False)
-    df_tipo = pd.DataFrame([{"ciudad": c, "tipo_final": ("mixto_scl" if c == SANTIAGO else city_type2.get(c,"externo"))} for c in CIUDADES])
+    df_tipo = pd.DataFrame([{"ciudad": c, "tipo_final": ("mixto_scl" if c == SANTIAGO else city_type2.get(c, "externo"))} for c in CIUDADES])
 
     total_uf = df_cost["total_uf"].sum()
 
     resumen = pd.DataFrame([
         ["total_uf", total_uf],
-        ["total_interno_uf", df_cost.loc[df_cost["tipo"]=="INTERNO","total_uf"].sum()],
-        ["total_externo_sin_materiales_uf", df_cost.loc[df_cost["tipo"]=="EXTERNO","total_uf"].sum()],
+        ["total_interno_uf", df_cost.loc[df_cost["tipo"] == "INTERNO", "total_uf"].sum()],
+        ["total_externo_sin_materiales_uf", df_cost.loc[df_cost["tipo"] == "EXTERNO", "total_uf"].sum()],
         ["materiales_total_uf", materiales_total],
-        ["gps_total", sum(int(max(0, GPS_TOTAL.get(c,0))) for c in CIUDADES)],
+        ["gps_total", sum(int(max(0, GPS_TOTAL.get(c, 0))) for c in CIUDADES)],
         ["dias_max_proyecto", DIAS_MAX],
         ["dias_semana", DIAS_SEM],
         ["horas_jornada", H_DIA],
         ["tiempo_inst_gps_h", TIEMPO_INST_GPS_H],
         ["nota", "Fase 2 factible por días (incluye travel_day cuando tv>hh_día). GPS enteros. Inputs UF."]
-    ], columns=["metric","value"])
+    ], columns=["metric", "value"])
 
     out_path = os.path.join(OUTPUTS_DIR, "plan_global_operativo.xlsx")
     with pd.ExcelWriter(out_path) as w:
