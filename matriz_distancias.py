@@ -1,46 +1,32 @@
 import time
-import math
 import requests
 import pandas as pd
 
-GOOGLE_MAPS_API_KEY = "AIzaSyCl1TqEM40K5NL5fivonE8-XHn_0zdknlo"
+GOOGLE_MAPS_API_KEY = "PEGA_AQUI_TU_API_KEY_REAL"
 
+# =========================================================
+# CIUDADES (LAT / LNG)
+# =========================================================
 CITIES = {
     "Antofagasta": {"latitude": -23.6509, "longitude": -70.3975},
-    "Arica": {"latitude": -18.4783, "longitude": -70.3126},
-    "Coronel": {"latitude": -37.0167, "longitude": -73.1333},
-    "Calama": {"latitude": -22.4559, "longitude": -68.9306},
-    "Caldera": {"latitude": -27.0697, "longitude": -70.8171},
-    "Castro": {"latitude": -42.4825, "longitude": -73.7624},
-    "Puerto Chacabuco": {"latitude": -45.4631, "longitude": -72.8266},
     "Chillán": {"latitude": -36.6063, "longitude": -72.1034},
     "Concepción": {"latitude": -36.8201, "longitude": -73.0444},
-    "Copiapó": {"latitude": -27.3668, "longitude": -70.3314},
     "Coquimbo": {"latitude": -29.9533, "longitude": -71.3436},
-    "Iquique": {"latitude": -20.2307, "longitude": -70.1357},
-    "Lautaro": {"latitude": -38.5339, "longitude": -72.4481},
-    "Linares": {"latitude": -35.8464, "longitude": -71.5937},
     "Los Ángeles": {"latitude": -37.4694, "longitude": -72.3530},
-    "Mejillones": {"latitude": -23.1014, "longitude": -70.4486},
-    "Osorno": {"latitude": -40.5739, "longitude": -73.1335},
-    "Ovalle": {"latitude": -30.5983, "longitude": -71.1990},
-    "Pichirropulli": {"latitude": -39.8778, "longitude": -72.5606},
     "Puerto Montt": {"latitude": -41.4689, "longitude": -72.9411},
-    "Puerto Natales": {"latitude": -51.7236, "longitude": -72.4875},
-    "Puerto Williams": {"latitude": -54.9333, "longitude": -67.6167},
-    "Punta Arenas": {"latitude": -53.1638, "longitude": -70.9171},
-    "Romeral": {"latitude": -34.9635, "longitude": -71.1262},
-    "San Antonio": {"latitude": -33.5933, "longitude": -71.6217},
-    "San Fernando": {"latitude": -34.5844, "longitude": -70.9890},
-    "San Vicente": {"latitude": -34.4389, "longitude": -71.0789},
-    "Santiago": {"latitude": -33.4489, "longitude": -70.6693},
-    "Talca": {"latitude": -35.4264, "longitude": -71.6554},
-    "Valdivia": {"latitude": -39.8142, "longitude": -73.2459},
     "Valparaíso": {"latitude": -33.0472, "longitude": -71.6127},
+    "Rancagua": {"latitude": -34.1708, "longitude": -70.7444},
+    "Santiago": {"latitude": -33.4489, "longitude": -70.6693},
+    "Curicó": {"latitude": -34.9828, "longitude": -71.2394},
+    "Temuco": {"latitude": -38.7359, "longitude": -72.5904},
+    "Chiloé (Castro)": {"latitude": -42.4825, "longitude": -73.7624},
+    "La Serena": {"latitude": -29.9027, "longitude": -71.2519},
+    "Curanilahue": {"latitude": -37.4764, "longitude": -73.3467},
+    "Talca": {"latitude": -35.4264, "longitude": -71.6554},
 }
 
 # =========================================================
-# ROUTES API
+# GOOGLE ROUTES API
 # =========================================================
 ROUTES_URL = "https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix"
 HEADERS = {
@@ -63,23 +49,21 @@ def route_matrix_chunk(origin_idx, dest_idx, city_names):
         "routingPreference": "TRAFFIC_UNAWARE",
         "units": "METRIC",
     }
+
     r = requests.post(ROUTES_URL, headers=HEADERS, json=body, timeout=90)
     r.raise_for_status()
     return r.json()
 
 def main():
-    if "TU_API_KEY" in GOOGLE_MAPS_API_KEY:
-        raise RuntimeError("❌ No pegaste la API KEY")
+    if "PEGA_AQUI" in GOOGLE_MAPS_API_KEY:
+        raise RuntimeError("❌ API KEY no configurada")
 
     city_names = list(CITIES.keys())
     n = len(city_names)
 
     matrix_km = [[0.0] * n for _ in range(n)]
-
-    # CONTADOR BRUTAL
     filled = 0
-
-    block = 25  # 25x25 = 625 elementos
+    block = 25  # 25x25 = 625 rutas por llamada
 
     for oi in range(0, n, block):
         for dj in range(0, n, block):
@@ -88,7 +72,7 @@ def main():
 
             resp = route_matrix_chunk(origin_idx, dest_idx, city_names)
 
-            print(f"Chunk {oi}-{dj} | items: {len(resp)} | ejemplo: {resp[0] if resp else 'VACÍO'}")
+            print(f"Chunk {oi}-{dj} | rutas: {len(resp)}")
 
             for e in resp:
                 if e.get("condition") == "ROUTE_EXISTS" and "distanceMeters" in e:
@@ -100,11 +84,11 @@ def main():
                         matrix_km[o][d] = km
                         filled += 1
 
-            time.sleep(0.05)
+            time.sleep(0.05)  # rate limit sano
 
     print("===================================")
-    print("Celdas llenadas (km > 0):", filled)
-    print("Ejemplo Antofagasta → Arica:", matrix_km[0][1])
+    print("Celdas llenadas:", filled)
+    print("Ejemplo Santiago → Temuco:", matrix_km[city_names.index("Santiago")][city_names.index("Temuco")])
     print("===================================")
 
     df = pd.DataFrame(matrix_km, index=city_names, columns=city_names)
