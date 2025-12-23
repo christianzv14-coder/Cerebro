@@ -2,7 +2,7 @@ import time
 import requests
 import pandas as pd
 
-GOOGLE_MAPS_API_KEY = "AIzaSyCl1TqEM40K5NL5fivonE8-XHn_0zdknloL"
+GOOGLE_MAPS_API_KEY = "AIzaSyCl1TqEM40K5NL5fivonE8-XHn_0zdknlo"
 
 # =========================================================
 # CIUDADES (LAT / LNG)
