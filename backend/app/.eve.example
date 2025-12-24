@@ -1,0 +1,6 @@
+OPENAI_API_KEY=AQUI_TU_OPENAI_KEY
+WHATSAPP_TOKEN=AQUI_TU_TOKEN
+WHATSAPP_PHONE_ID=PHONE_ID
+WHATSAPP_VERIFY_TOKEN=escribe_tu_token
+ADMIN_DEBUG_KEY=clave_debug
+DATABASE_URL=postgresql://usuario:password@host/neondb?sslmode=require
