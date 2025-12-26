@@ -45,12 +45,23 @@ def process_excel_upload(file: IO, db: Session):
 
     for index, row in df.iterrows():
         # Validate row data
-        if pd.isna(row['ticket_id']) or pd.isna(row['tecnico_nombre']):
+        if pd.isna(row['ticket_id']):
              continue # Skip empty rows
 
         ticket_id = str(row['ticket_id']).strip()
-        tecnico_nombre = str(row['tecnico_nombre']).strip()
+        
+        # Handle empty/NaN technician (Mantis default)
+        raw_tech = row['tecnico_nombre']
+        if pd.isna(raw_tech) or str(raw_tech).strip() == "" or str(raw_tech).lower() == "nan":
+            tecnico_nombre = "Sin Asignar"
+        else:
+            tecnico_nombre = str(raw_tech).strip()
+            
         fecha_val = pd.to_datetime(row['fecha']).date()
+        if pd.isna(fecha_val):
+            # Default to today if missing? Or keep going
+            from datetime import date
+            fecha_val = date.today()
         
         # Ensure User exists (Auto-provisioning for MVP)
         user = db.query(User).filter(User.tecnico_nombre == tecnico_nombre).first()
@@ -85,6 +96,13 @@ def process_excel_upload(file: IO, db: Session):
                 cliente=str(row['cliente']) if pd.notna(row['cliente']) else None,
                 direccion=str(row['direccion']) if pd.notna(row['direccion']) else None,
                 tipo_trabajo=str(row['tipo_trabajo']) if pd.notna(row['tipo_trabajo']) else None,
+                
+                # New fields
+                prioridad=str(row['Prioridad']) if pd.notna(row['Prioridad']) else None,
+                accesorios=str(row['Accesorios']) if pd.notna(row['Accesorios']) else None,
+                comuna=str(row['Comuna']) if pd.notna(row['Comuna']) else None,
+                region=str(row['Region']) if pd.notna(row['Region']) else None,
+                
                 estado=ActivityState.PENDIENTE
             )
             db.add(new_act)
@@ -99,6 +117,12 @@ def process_excel_upload(file: IO, db: Session):
                 activity.cliente = str(row['cliente']) if pd.notna(row['cliente']) else None
                 activity.direccion = str(row['direccion']) if pd.notna(row['direccion']) else None
                 activity.tipo_trabajo = str(row['tipo_trabajo']) if pd.notna(row['tipo_trabajo']) else None
+                
+                # New fields
+                activity.prioridad = str(row['Prioridad']) if pd.notna(row['Prioridad']) else None
+                activity.accesorios = str(row['Accesorios']) if pd.notna(row['Accesorios']) else None
+                activity.comuna = str(row['Comuna']) if pd.notna(row['Comuna']) else None
+                activity.region = str(row['Region']) if pd.notna(row['Region']) else None
                 updated_count += 1
                 
             # Case 3: NOT PENDIENTE -> Safe Update Only
@@ -108,6 +132,12 @@ def process_excel_upload(file: IO, db: Session):
                 activity.cliente = str(row['cliente']) if pd.notna(row['cliente']) else activity.cliente
                 activity.direccion = str(row['direccion']) if pd.notna(row['direccion']) else activity.direccion
                 activity.tipo_trabajo = str(row['tipo_trabajo']) if pd.notna(row['tipo_trabajo']) else activity.tipo_trabajo
+                
+                # Update new fields
+                activity.prioridad = str(row['Prioridad']) if pd.notna(row['Prioridad']) else activity.prioridad
+                activity.accesorios = str(row['Accesorios']) if pd.notna(row['Accesorios']) else activity.accesorios
+                activity.comuna = str(row['Comuna']) if pd.notna(row['Comuna']) else activity.comuna
+                activity.region = str(row['Region']) if pd.notna(row['Region']) else activity.region
                 # IGNORE: fecha, tecnico_nombre
                 updated_count += 1
         

@@ -37,7 +37,7 @@ def subir_archivo(ruta_excel):
             upload_res = requests.post(f"{BASE_URL}/admin/upload_excel", headers=headers, files=files)
             
         upload_res.raise_for_status()
-        print("\n¡CARGA EXITOSA! 🎉")
+        print("\nCARGA EXITOSA!")
         print(f"Resumen: {upload_res.json()['stats']}")
         print("\nLas tareas ya deberían aparecer en la App y en el Google Sheet.")
         
@@ -47,7 +47,7 @@ def subir_archivo(ruta_excel):
             print(f"   -> Detalle: {e.response.text}")
 
 if __name__ == "__main__":
-    archivo = "plantilla_planificacion.xlsx"
+    archivo = "backend/plantilla_planificacion_v2.xlsx"
     if len(sys.argv) > 1:
         archivo = sys.argv[1]
     

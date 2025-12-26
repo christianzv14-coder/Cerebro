@@ -44,6 +44,12 @@ class Activity(Base):
     direccion = Column(String, nullable=True)
     tipo_trabajo = Column(String, nullable=True)
     
+    # New fields from Mantis
+    prioridad = Column(String, nullable=True)
+    accesorios = Column(String, nullable=True)
+    comuna = Column(String, nullable=True)
+    region = Column(String, nullable=True)
+    
     estado = Column(SqEnum(ActivityState), default=ActivityState.PENDIENTE, index=True)
     
     hora_inicio = Column(DateTime, nullable=True)

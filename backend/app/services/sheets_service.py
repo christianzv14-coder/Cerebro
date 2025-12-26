@@ -87,6 +87,19 @@ def sync_activity_to_sheet(activity):
             for c in ["motivo", "motivo fallido", "motivo fallo", "motivo_fallido", "resultado_motivo"]:
                 if c in headers: motivo_col = headers.index(c) + 1; break
 
+            # New Fields Config
+            prioridad_col = -1
+            if "prioridad" in headers: prioridad_col = headers.index("prioridad") + 1
+            
+            acc_col = -1
+            if "accesorios" in headers: acc_col = headers.index("accesorios") + 1
+            
+            comuna_col = -1
+            if "comuna" in headers: comuna_col = headers.index("comuna") + 1
+            
+            region_col = -1
+            if "region" in headers: region_col = headers.index("region") + 1
+
         except Exception as e:
             print(f"DEBUG [SHEETS] Error mapping columns: {e}")
             return
@@ -100,7 +113,10 @@ def sync_activity_to_sheet(activity):
         for i, row in enumerate(all_rows[1:], start=2):
             if len(row) > ticket_col and row[ticket_col].strip().upper() == target_ticket:
                 print(f"  [MATCH] Ticket {target_ticket} found in row {i}. Updating...")
+                
+                # Update standard fields
                 ws.update_cell(i, state_col, str(activity.estado.value if hasattr(activity.estado, "value") else activity.estado))
+                
                 if start_col != -1 and activity.hora_inicio:
                     ws.update_cell(i, start_col, str(activity.hora_inicio))
                 if end_col != -1 and activity.hora_fin:
@@ -109,6 +125,17 @@ def sync_activity_to_sheet(activity):
                     ws.update_cell(i, obs_col, str(activity.observacion))
                 if motivo_col != -1 and activity.resultado_motivo:
                     ws.update_cell(i, motivo_col, str(activity.resultado_motivo))
+                
+                # Update new fields (Always update if column exists, as these are static from plan)
+                if prioridad_col != -1 and activity.prioridad:
+                    ws.update_cell(i, prioridad_col, str(activity.prioridad))
+                if acc_col != -1 and activity.accesorios:
+                    ws.update_cell(i, acc_col, str(activity.accesorios))
+                if comuna_col != -1 and activity.comuna:
+                    ws.update_cell(i, comuna_col, str(activity.comuna))
+                if region_col != -1 and activity.region:
+                    ws.update_cell(i, region_col, str(activity.region))
+
                 found = True
                 break
         
@@ -131,7 +158,12 @@ def sync_activity_to_sheet(activity):
                  "cliente": activity.cliente,
                  "direccion": activity.direccion,
                  "tipo trabajo": activity.tipo_trabajo,
-                 "estado final": str(activity.estado.value if hasattr(activity.estado, "value") else activity.estado)
+                 "estado final": str(activity.estado.value if hasattr(activity.estado, "value") else activity.estado),
+                 # New fields mapping
+                 "prioridad": str(activity.prioridad or ""),
+                 "accesorios": str(activity.accesorios or ""),
+                 "comuna": str(activity.comuna or ""),
+                 "region": str(activity.region or "")
              }
              
              for h_idx, h_name in enumerate(headers):
