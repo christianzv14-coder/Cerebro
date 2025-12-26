@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/activity.dart';
+import '../models/models.dart';
 import '../services/api_service.dart';
 
 class ActivityDetailScreen extends StatefulWidget {

@@ -4,7 +4,11 @@ class User {
   final String tecnicoNombre;
   final String role;
 
-  User({required this.id, required this.email, required this.tecnicoNombre, required this.role});
+  User(
+      {required this.id,
+      required this.email,
+      required this.tecnicoNombre,
+      required this.role});
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
@@ -47,21 +51,21 @@ class Activity {
 
   factory Activity.fromJson(Map<String, dynamic> json) {
     return Activity(
-      ticketId: json['ticket_id'],
-      fecha: json['fecha'],
-      tecnicoNombre: json['tecnico_nombre'],
-      patente: json['patente'],
+      ticketId: json['ticket_id'] ?? 'Unknown Ticket',
+      fecha: json['fecha'] ?? '',
+      tecnicoNombre: json['tecnico_nombre'] ?? 'Unknown Tech',
+      patente: json['patente'], // Already nullable String?
       cliente: json['cliente'],
       direccion: json['direccion'],
       tipoTrabajo: json['tipo_trabajo'],
-      estado: json['estado'],
+      estado: json['estado'] ?? 'PENDIENTE',
       horaInicio: json['hora_inicio'],
       horaFin: json['hora_fin'],
       resultadoMotivo: json['resultado_motivo'],
       observacion: json['observacion'],
     );
   }
-  
+
   bool get isPending => estado == 'PENDIENTE';
   bool get isInProgress => estado == 'EN_CURSO';
   bool get isClosed => ['EXITOSO', 'FALLIDO', 'REPROGRAMADO'].contains(estado);

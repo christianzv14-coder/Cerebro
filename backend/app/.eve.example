@@ -3,4 +3,4 @@ WHATSAPP_TOKEN=AQUI_TU_TOKEN
 WHATSAPP_PHONE_ID=PHONE_ID
 WHATSAPP_VERIFY_TOKEN=escribe_tu_token
 ADMIN_DEBUG_KEY=clave_debug
-DATABASE_URL=postgresql://usuario:password@host/neondb?sslmode=require
+DATABASE_URL=postgresql://neondb_owner:npg_ZbcEMTzOfS85@ep-mute-wave-a4rf1hds-pooler.us-east-1.aws.neon.tech/Tecnicos?sslmode=require&channel_binding=require

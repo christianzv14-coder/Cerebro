@@ -20,13 +20,12 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Cerebro Patio',
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-          useMaterial3: true,
-          inputDecorationTheme: const InputDecorationTheme(
-            border: OutlineInputBorder(),
-            filled: true,
-          )
-        ),
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+            useMaterial3: true,
+            inputDecorationTheme: const InputDecorationTheme(
+              border: OutlineInputBorder(),
+              filled: true,
+            )),
         home: const AuthWrapper(),
       ),
     );

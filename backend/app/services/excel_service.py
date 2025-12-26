@@ -22,13 +22,27 @@ def process_excel_upload(file: IO, db: Session):
     created_count = 0
     updated_count = 0
     
-    # Pre-fetch existing users to create them on the fly? 
-    # Or strict validation? Requirement said: "Login simple por correo + selección de “Técnico Nombre”"
-    # Plan said: "User table links email to tecnico_nombre".
-    # If Excel has a new tech name, we probably should create a placeholder User or fail?
-    # Let's create a placeholder user if he doesn't exist so the activity constraint doesn't fail.
-    # We will assume email = "tech_name@example.com" or just allow tech login later.
-    
+    # Pre-clean logic: Delete existing PENDIENTE activities for the techs and dates in the Excel
+    # to ensure the app view matches the Excel exactly as requested.
+    try:
+        # Collect unique pairs of (date, tecnico_nombre)
+        unique_pairs = set()
+        for index, row in df.iterrows():
+            if pd.notna(row['ticket_id']) and pd.notna(row['tecnico_nombre']):
+                d = pd.to_datetime(row['fecha']).date()
+                unique_pairs.add((d, str(row['tecnico_nombre']).strip()))
+        
+        for d, tech in unique_pairs:
+            db.query(Activity).filter(
+                Activity.fecha == d,
+                Activity.tecnico_nombre == tech,
+                Activity.estado == ActivityState.PENDIENTE
+            ).delete()
+        db.commit()
+    except Exception as e:
+        print(f"DEBUG [EXCEL] Pre-cleaning failed: {e}")
+        db.rollback()
+
     for index, row in df.iterrows():
         # Validate row data
         if pd.isna(row['ticket_id']) or pd.isna(row['tecnico_nombre']):
@@ -99,6 +113,13 @@ def process_excel_upload(file: IO, db: Session):
         
         processed_count += 1
         
+        # Sync to Sheets (Planning Phase)
+        try:
+            from app.services.sheets_service import sync_activity_to_sheet
+            sync_activity_to_sheet(activity if activity else new_act)
+        except Exception as e:
+            print(f"DEBUG [EXCEL] Sheet sync failed for ticket {ticket_id}: {e}")
+            
         # Periodic flush?
         if index % 50 == 0:
             db.commit()

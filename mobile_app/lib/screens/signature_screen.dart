@@ -34,16 +34,7 @@ class _SignatureScreenState extends State<SignatureScreen> {
       final Uint8List? data = await _controller.toPngBytes();
       if (data == null) return;
       
-      // TODO: Implement backend endpoint for signature upload
-      // For MVP, we simulate success or assuming endpoint exists
-      // await _api.uploadSignature(data); 
-      
-      // Since backend endpoint /signatures is in Plan but maybe not router?
-      // Let's assume it's done or we just mock it for now on API service.
-      // If we strictly follow the plan, we should have added it. 
-      // I will add a mock method in ApiService to close loop.
-      
-      await Future.delayed(const Duration(seconds: 1)); // Mock network
+      await _api.uploadSignature(data); 
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Jornada Firmada y Cerrada.')));

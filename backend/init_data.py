@@ -28,13 +28,17 @@ def init_data():
         print("\n2. Generando y Cargando Datos de Prueba...")
         # Generar datos dummy
         data = {
-            'fecha': [date.today(), date.today(), date.today() + timedelta(days=1)],
-            'ticket_id': ['TKT-001', 'TKT-002', 'TKT-003'],
-            'tecnico_nombre': ['Juan Perez', 'Juan Perez', 'Maria Gonzalez'],
-            'patente': ['AB-1234', 'CD-5678', 'EF-9012'],
-            'cliente': ['Transportes Fast', 'Logistica Global', 'Chile Trucks'],
-            'direccion': ['Av. Kennedy 111', 'Ruta 68 km 10', 'Panamericana Norte 5000'],
-            'tipo_trabajo': ['Instalacion GPS', 'Revision Sensor', 'Desinstalacion']
+            'fecha': [
+                date.today(), date.today(), 
+                date.today() + timedelta(days=1), date.today() + timedelta(days=1),
+                date.today() - timedelta(days=1)
+            ],
+            'ticket_id': ['TKT-001', 'TKT-002', 'TKT-M1-01', 'TKT-003', 'TKT-OLD-01'],
+            'tecnico_nombre': ['Juan Perez', 'Juan Perez', 'Juan Perez', 'Juan Perez', 'Juan Perez'],
+            'patente': ['AB-1234', 'CD-5678', 'XY-9999', 'EF-9012', 'ZZ-0000'],
+            'cliente': ['Transportes Fast', 'Logistica Global', 'Cliente Manana', 'Chile Trucks', 'Old Task'],
+            'direccion': ['Av. Kennedy 111', 'Ruta 68 km 10', 'Ruta 66 km 10', 'Panamericana Norte 5000', 'Somewhere'],
+            'tipo_trabajo': ['Instalacion GPS', 'Revision Sensor', 'Mantenimiento', 'Desinstalacion', 'Audit']
         }
         df = pd.read_json(pd.DataFrame(data).to_json()) # Trick to sanitize dates if needed, but DataFrame is fine
         df = pd.DataFrame(data)

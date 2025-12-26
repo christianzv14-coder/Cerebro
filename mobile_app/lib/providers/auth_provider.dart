@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import '../models/user.dart';
+import '../models/models.dart';
 
 class AuthProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();

@@ -1,0 +1,12 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "cerebro_patio",
+            "request": "launch",
+            "type": "dart",
+            "program": "mobile_app/lib/main.dart",
+            "flutterMode": "debug"
+        }
+    ]
+}

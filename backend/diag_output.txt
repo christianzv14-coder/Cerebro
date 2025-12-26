@@ -1,0 +1,27 @@
+🕒 SERVER DATE: 2025-12-25
+
+--- BASE DE DATOS: Users ---
+ID: 1 | Email: admin@cerebro.com | Nombre: 'Admin General' | Role: Role.ADMIN
+ID: 2 | Email: juan.perez@cerebro.com | Nombre: 'Juan Perez' | Role: Role.TECH
+ID: 3 | Email: maria.gonzalez@cerebro.com | Nombre: 'Maria Gonzalez' | Role: Role.TECH
+
+--- BASE DE DATOS: DaySignatures ---
+LA TABLA DaySignatures ESTÁ VACÍA.
+
+🔍 DIAGNÓSTICO DE GOOGLE SHEETS
+Pestañas encontradas: ['Bitacora 2025', 'Hoja 1', 'Firmas 2025']
+
+--- Detalle de 'Bitacora 2025' ---
+Headers (16): ['año', 'fecha plan', 'fecha cierre', 'ticket id', 'tecnico', 'patente', 'cliente', 'direccion', 'tipo trabajo', 'estado final', 'motivo fallo', 'hora inicio', 'hora fin', 'duracion min', 'observacion', 'firmado']
+
+Buscando coincidencias para 'Juan Perez' today (2025-12-25) in Bitacora...
+Row 2: ['2025', '2025-12-25', '2025-12-25 21:55:46.395090', 'TKT-001', 'Juan Perez', 'AB-1234', 'Transportes Fast', 'Av. Kennedy 111', 'Instalacion GPS', 'EXITOSO', '', '2025-12-25 22:01:01.955403', '2025-12-25 22:01:04.687221', '0', 'Prueba automática del sistema', '']
+Row 3: ['2025', '2025-12-25', '2025-12-25 21:55:56.655315', 'TKT-002', 'Juan Perez', 'CD-5678', 'Logistica Global', 'Ruta 68 km 10', 'Revision Sensor', 'EXITOSO', '', '2025-12-25 22:01:11.287363', '2025-12-25 22:01:14.254931', '0', '', '']
+
+--- Detalle de 'Firmas 2025' ---
+Headers (4): ['fecha', 'tecnico', 'timestamp', 'referencia firma']
+
+Contenido de 'Firmas 2025':
+Row 2: ['2025-12-25', 'Juan Perez', '2025-12-25 19:28:06.316172', 'uploads/signatures/test_sig.png']
+Row 3: ['2025-12-25', 'Juan Perez', '2025-12-25 21:00:14.435959', 'uploads/signatures\\juan_perez_2025-12-25_fb490c.png']
+Row 4: ['2025-12-25', 'Juan Perez', '2025-12-25 21:42:06.972829', 'uploads/signatures\\juan_perez_2025-12-25_e140f4.png']

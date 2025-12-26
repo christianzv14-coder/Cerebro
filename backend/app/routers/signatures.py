@@ -1,0 +1,131 @@
+import os
+import uuid
+from datetime import date
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.models.models import DaySignature, User
+from app.deps import get_current_user
+from app.services.sheets_service import sync_signature_to_sheet
+
+router = APIRouter()
+
+UPLOAD_DIR = "uploads/signatures"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+from pydantic import BaseModel
+from typing import Optional
+import base64
+
+class SignatureUpload(BaseModel):
+    image_base64: str
+
+@router.post("/")
+async def upload_signature_json(
+    upload_data: SignatureUpload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Main endpoint for Mobile App (Base64)."""
+    return await _process_signature_upload(db, current_user, base64_str=upload_data.image_base64)
+
+@router.post("/file")
+async def upload_signature_file(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Legacy/Fallback endpoint for MultiPart."""
+    return await _process_signature_upload(db, current_user, file=file)
+
+@router.post("/ping")
+async def ping_signatures():
+    print("\n[!!!] SIGNATURES PING RECEIVED")
+    return {"status": "ok", "message": "Signature API is reachable"}
+
+async def _process_signature_upload(db, current_user, base64_str=None, file=None):
+    today = date.today()
+    tech_name_db = current_user.tecnico_nombre
+    tech_clean = tech_name_db.strip().lower()
+    
+    print(f"\n>>> [UPLOAD START] Tech: '{tech_name_db}' | Clean: '{tech_clean}'")
+    
+    # 1. Idempotency Check
+    all_sigs = db.query(DaySignature).filter(DaySignature.fecha == today).all()
+    existing = next((s for s in all_sigs if s.tecnico_nombre.strip().lower() == tech_clean), None)
+    
+    if existing:
+        print(f"DEBUG: Rejected. Signature already exists: ID {existing.id}")
+        raise HTTPException(status_code=400, detail="La jornada de hoy ya ha sido firmada.")
+    
+    content = None
+    file_ext = "png"
+    
+    try:
+        if file:
+            print("DEBUG: Processing MultiPart file...")
+            content = await file.read()
+            file_ext = file.filename.split(".")[-1]
+        elif base64_str:
+            print(f"DEBUG: Processing Base64 string (Length: {len(base64_str)})...")
+            if "," in base64_str:
+                base64_str = base64_str.split(",")[1]
+            content = base64.b64decode(base64_str)
+        else:
+            raise HTTPException(status_code=400, detail="No data provided")
+            
+        # 3. Save File
+        file_name = f"{tech_clean.replace(' ', '_')}_{today}_{uuid.uuid4().hex[:6]}.{file_ext}"
+        file_path = os.path.join(UPLOAD_DIR, file_name)
+        
+        with open(file_path, "wb") as f:
+            f.write(content)
+        print(f"DEBUG: File saved to {file_path}")
+        
+    except Exception as e:
+        print(f"DEBUG: Save failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al procesar archivo: {e}")
+    
+    # 4. Save to Database
+    try:
+        new_sig = DaySignature(
+            tecnico_nombre=tech_name_db,
+            fecha=today,
+            signature_ref=file_path
+        )
+        db.add(new_sig)
+        db.commit()
+        db.refresh(new_sig)
+        print(f"DEBUG: DB Record created: ID {new_sig.id}")
+    except Exception as e:
+        db.rollback()
+        print(f"DEBUG: DB Insert failed: {e}")
+        raise HTTPException(status_code=500, detail="Error al registrar en BD.")
+    
+    # 5. Sync to Sheets
+    try:
+        sync_signature_to_sheet(new_sig)
+    except Exception as e:
+        print(f"DEBUG WARNING: Sheets sync failed: {e}")
+        return {"status": "success", "message": "Firma guardada localmente, error en Sheets."}
+        
+    return {"status": "success", "message": "Firma guardada y sincronizada correctamente."}
+
+@router.get("/status")
+def get_signature_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Check if current user has signed today."""
+    today = date.today()
+    tech_clean = current_user.tecnico_nombre.strip().lower()
+    
+    all_sigs = db.query(DaySignature).filter(DaySignature.fecha == today).all()
+    # print(f"DEBUG [STATUS] Checking signature for '{tech_clean}'. Found {len(all_sigs)} total sigs today.")
+    
+    existing = next((s for s in all_sigs if s.tecnico_nombre.strip().lower() == tech_clean), None)
+    
+    # if existing:
+    #     print(f"DEBUG [STATUS] Result: SIGNED (ID: {existing.id})")
+    
+    return {"is_signed": existing is not None}

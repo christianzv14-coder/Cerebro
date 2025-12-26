@@ -20,7 +20,7 @@ dependencies:
   # Storage/Cache
   shared_preferences: ^2.2.2
   sqflite: ^2.3.0
-  path: ^1.9.0
+  path: ^1.8.3
   
   # UI/Utils
   intl: ^0.19.0
