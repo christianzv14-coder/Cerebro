@@ -32,7 +32,9 @@ class _HomeScreenState extends State<HomeScreen> {
       _errorMessage = '';
     });
     try {
-      final list = await _api.getActivities(date: DateTime.now());
+      // Server defaults to Today if no date is passed.
+      // This avoids timezone mismatches between Phone and Server.
+      final list = await _api.getActivities();
       final isSigned = await _api.getSignatureStatus();
       debugPrint('DEBUG: _isSigned fetched as $isSigned');
       setState(() {
@@ -85,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Hola, ${user?.tecnicoNombre ?? ""}'),
+        title: Text('Hola, ${user?.tecnicoNombre ?? ""} (vFixed)'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

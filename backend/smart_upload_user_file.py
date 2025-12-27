@@ -17,12 +17,42 @@ def smart_upload():
     
     # 1. Copy file (Try to bypass lock)
     print(f"Reading {source_file}...")
+    temp_lock_bypass = os.path.join(script_dir, "temp_lock_bypass.xlsx")
+    
     try:
-        # Instead of shutil, try reading directly into pandas (sometimes works even if open)
-        df = pd.read_excel(source_file)
-        print("Success: Read file into memory.")
+        shutil.copy2(source_file, temp_lock_bypass)
+        df = pd.read_excel(temp_lock_bypass)
+        print("Success: Read file into memory (Bypassed lock).")
+        try: os.remove(temp_lock_bypass)
+        except: pass
+        
+        # --- ROBUSTNESS FIX ---
+        # 1. Normalize Header (strip spaces)
+        df.columns = [str(c).strip() for c in df.columns]
+        
+        # 2. Handle 'fecha' Case Insensitivity
+        if 'fecha' not in df.columns:
+            for c in df.columns:
+                if str(c).lower().strip() == 'fecha':
+                    df.rename(columns={c: 'fecha'}, inplace=True)
+                    print(f"Renamed column '{c}' to 'fecha'")
+                    break
+        
+        # 3. Handle Missing 'fecha' -> Force Today
+        if 'fecha' not in df.columns:
+            print("WARNING: 'fecha' column missing. Defaulting to Today.")
+            df['fecha'] = date.today()
+        else:
+            # Fill NaT/NaN dates with Today
+            df['fecha'] = pd.to_datetime(df['fecha']).fillna(pd.Timestamp("today").date())
+            # Ensure it is date type not datetime
+            df['fecha'] = df['fecha'].dt.date
+            
+        print(f"Columns processed: {list(df.columns)}")
+        # ----------------------
+        
     except Exception as e:
-        print(f"CRITICAL ERROR: Could not read file. IS IT OPEN IN EXCEL? Please close it.\nDetails: {e}")
+        print(f"CRITICAL ERROR: Could not read file. Please close Excel.\nDetails: {e}")
         return
 
     # 2. Fix Data
@@ -33,10 +63,10 @@ def smart_upload():
     df["fecha"] = "2025-12-26"
     print(" -> Forced dates to '2025-12-26' (to ensure visibility in App today)")
     
-    # b. Verify Tech Names & Normalize to Match DB User (Pedro pascal)
-    # DB has 'Pedro pascal' (lowercase p), so we must match it exactly.
-    df["tecnico_nombre"] = df["tecnico_nombre"].replace("Pedro Pascal", "Pedro pascal")
-    print(" -> Techs found (Normalized):", df["tecnico_nombre"].unique())
+    # b. Verify Tech Names
+    # Target 'Pedro Pascal' (Capitalized) to match 'pedro@cerebro.com'
+    # df["tecnico_nombre"] = df["tecnico_nombre"].replace("Pedro Pascal", "Pedro pascal") # DISABLED
+    print(" -> Techs found:", df["tecnico_nombre"].unique())
     
     # 3. Save to Temp
     df.to_excel(temp_file, index=False)

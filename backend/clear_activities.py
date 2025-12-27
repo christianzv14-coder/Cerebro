@@ -1,12 +1,15 @@
+from sqlalchemy import text
 from app.database import SessionLocal
-from app.models.models import Activity
 
-def clear_all():
+def clear_activities():
+    print("--- CLEARING ALL ACTIVITIES ---")
     db = SessionLocal()
     try:
-        num = db.query(Activity).delete()
+        db.execute(text("TRUNCATE TABLE activities CASCADE"))
+        # Also clear signatures to be safe?
+        db.execute(text("TRUNCATE TABLE day_signatures CASCADE"))
         db.commit()
-        print(f"Deleted {num} activities. The App should now be empty.")
+        print(" -> All activities deleted.")
     except Exception as e:
         print(f"Error: {e}")
         db.rollback()
@@ -14,4 +17,4 @@ def clear_all():
         db.close()
 
 if __name__ == "__main__":
-    clear_all()
+    clear_activities()

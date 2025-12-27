@@ -2,15 +2,23 @@ import pandas as pd
 from typing import IO
 from datetime import datetime
 from sqlalchemy.orm import Session
-from app.models.models import Activity, ActivityState, User, Role
+from app.models.models import Activity, ActivityState, User, Role, DaySignature
 from app.core.security import get_password_hash
 
 REQUIRED_COLUMNS = ['fecha', 'ticket_id', 'tecnico_nombre', 'patente', 'cliente', 'direccion', 'tipo_trabajo']
 
 def process_excel_upload(file: IO, db: Session):
+    with open("upload_debug.log", "a") as f:
+        f.write(f"\n\n--- UPLOAD STARTED AT {datetime.now()} ---\n")
+
     try:
         df = pd.read_excel(file)
+        with open("upload_debug.log", "a") as f:
+            f.write(f"Columns found: {list(df.columns)}\n")
+            f.write(f"First row: {df.iloc[0].to_dict() if not df.empty else 'EMPTY'}\n")
     except Exception as e:
+        with open("upload_debug.log", "a") as f:
+            f.write(f"ERROR reading excel: {e}\n")
         raise ValueError(f"Error reading Excel file: {e}")
 
     # Validate columns
@@ -33,14 +41,28 @@ def process_excel_upload(file: IO, db: Session):
                 unique_pairs.add((d, str(row['tecnico_nombre']).strip()))
         
         for d, tech in unique_pairs:
-            db.query(Activity).filter(
+            with open("upload_debug.log", "a") as f:
+                f.write(f"Pre-cleaning for Tech: '{tech}', Date: '{d}'\n")
+            
+            deleted_acts = db.query(Activity).filter(
                 Activity.fecha == d,
-                Activity.tecnico_nombre == tech,
-                Activity.estado == ActivityState.PENDIENTE
+                Activity.tecnico_nombre == tech
             ).delete()
+            
+            # Also reset Signature for this day/tech if exists, ensuring "Sign" button resets
+            deleted_sigs = db.query(DaySignature).filter(
+                DaySignature.fecha == d,
+                DaySignature.tecnico_nombre == tech
+            ).delete()
+            
+            with open("upload_debug.log", "a") as f:
+                f.write(f"  -> Deleted {deleted_acts} activities, {deleted_sigs} signatures.\n")
+
         db.commit()
     except Exception as e:
         print(f"DEBUG [EXCEL] Pre-cleaning failed: {e}")
+        with open("upload_debug.log", "a") as f:
+            f.write(f"ERROR in Pre-cleaning: {e}\n")
         db.rollback()
 
     for index, row in df.iterrows():
@@ -97,11 +119,11 @@ def process_excel_upload(file: IO, db: Session):
                 direccion=str(row['direccion']) if pd.notna(row['direccion']) else None,
                 tipo_trabajo=str(row['tipo_trabajo']) if pd.notna(row['tipo_trabajo']) else None,
                 
-                # New fields
-                prioridad=str(row['Prioridad']) if pd.notna(row['Prioridad']) else None,
-                accesorios=str(row['Accesorios']) if pd.notna(row['Accesorios']) else None,
-                comuna=str(row['Comuna']) if pd.notna(row['Comuna']) else None,
-                region=str(row['Region']) if pd.notna(row['Region']) else None,
+                # New fields - Handle missing columns gracefully
+                prioridad=str(row['Prioridad']) if 'Prioridad' in df.columns and pd.notna(row['Prioridad']) else None,
+                accesorios=str(row['Accesorios']) if 'Accesorios' in df.columns and pd.notna(row['Accesorios']) else None,
+                comuna=str(row['Comuna']) if 'Comuna' in df.columns and pd.notna(row['Comuna']) else None,
+                region=str(row['Region']) if 'Region' in df.columns and pd.notna(row['Region']) else None,
                 
                 estado=ActivityState.PENDIENTE
             )
@@ -119,10 +141,10 @@ def process_excel_upload(file: IO, db: Session):
                 activity.tipo_trabajo = str(row['tipo_trabajo']) if pd.notna(row['tipo_trabajo']) else None
                 
                 # New fields
-                activity.prioridad = str(row['Prioridad']) if pd.notna(row['Prioridad']) else None
-                activity.accesorios = str(row['Accesorios']) if pd.notna(row['Accesorios']) else None
-                activity.comuna = str(row['Comuna']) if pd.notna(row['Comuna']) else None
-                activity.region = str(row['Region']) if pd.notna(row['Region']) else None
+                activity.prioridad = str(row['Prioridad']) if 'Prioridad' in df.columns and pd.notna(row['Prioridad']) else None
+                activity.accesorios = str(row['Accesorios']) if 'Accesorios' in df.columns and pd.notna(row['Accesorios']) else None
+                activity.comuna = str(row['Comuna']) if 'Comuna' in df.columns and pd.notna(row['Comuna']) else None
+                activity.region = str(row['Region']) if 'Region' in df.columns and pd.notna(row['Region']) else None
                 updated_count += 1
                 
             # Case 3: NOT PENDIENTE -> Safe Update Only
@@ -134,10 +156,10 @@ def process_excel_upload(file: IO, db: Session):
                 activity.tipo_trabajo = str(row['tipo_trabajo']) if pd.notna(row['tipo_trabajo']) else activity.tipo_trabajo
                 
                 # Update new fields
-                activity.prioridad = str(row['Prioridad']) if pd.notna(row['Prioridad']) else activity.prioridad
-                activity.accesorios = str(row['Accesorios']) if pd.notna(row['Accesorios']) else activity.accesorios
-                activity.comuna = str(row['Comuna']) if pd.notna(row['Comuna']) else activity.comuna
-                activity.region = str(row['Region']) if pd.notna(row['Region']) else activity.region
+                activity.prioridad = str(row['Prioridad']) if 'Prioridad' in df.columns and pd.notna(row['Prioridad']) else activity.prioridad
+                activity.accesorios = str(row['Accesorios']) if 'Accesorios' in df.columns and pd.notna(row['Accesorios']) else activity.accesorios
+                activity.comuna = str(row['Comuna']) if 'Comuna' in df.columns and pd.notna(row['Comuna']) else activity.comuna
+                activity.region = str(row['Region']) if 'Region' in df.columns and pd.notna(row['Region']) else activity.region
                 # IGNORE: fecha, tecnico_nombre
                 updated_count += 1
         

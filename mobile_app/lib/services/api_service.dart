@@ -39,7 +39,7 @@ class ApiService {
       Uri.parse('$baseUrl/auth/login'),
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: {'username': email, 'password': password},
-    );
+    ).timeout(const Duration(seconds: 10));
 
     if (response.statusCode == 200) {
       final data = json.decode(utf8.decode(response.bodyBytes));
@@ -55,7 +55,7 @@ class ApiService {
     final response = await http.get(
       Uri.parse('$baseUrl/users/me'),
       headers: {'Authorization': 'Bearer $token'},
-    );
+    ).timeout(const Duration(seconds: 10));
 
     if (response.statusCode == 200) {
       return User.fromJson(json.decode(utf8.decode(response.bodyBytes)));
@@ -74,7 +74,7 @@ class ApiService {
     final response = await http.get(
       Uri.parse('$baseUrl/activities/$query'),
       headers: {'Authorization': 'Bearer $token'},
-    );
+    ).timeout(const Duration(seconds: 10));
 
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
@@ -91,11 +91,13 @@ class ApiService {
 
   Future<Activity> startActivity(String ticketId) async {
     final encodedId = Uri.encodeComponent(ticketId);
-    final response = await http.post(
-      Uri.parse('$baseUrl/activities/$encodedId/start'),
-      headers: await _getHeaders(contentType: 'application/json'),
-      body: jsonEncode({'timestamp': DateTime.now().toIso8601String()}),
-    );
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/activities/$encodedId/start'),
+          headers: await _getHeaders(contentType: 'application/json'),
+          body: jsonEncode({'timestamp': DateTime.now().toIso8601String()}),
+        )
+        .timeout(const Duration(seconds: 10));
 
     if (response.statusCode == 200) {
       return Activity.fromJson(json.decode(utf8.decode(response.bodyBytes)));
@@ -108,16 +110,18 @@ class ApiService {
   Future<Activity> finishActivity(
       String ticketId, String resultado, String? motivo, String? obs) async {
     final encodedId = Uri.encodeComponent(ticketId);
-    final response = await http.post(
-      Uri.parse('$baseUrl/activities/$encodedId/finish'),
-      headers: await _getHeaders(contentType: 'application/json'),
-      body: jsonEncode({
-        'timestamp': DateTime.now().toIso8601String(),
-        'resultado': resultado,
-        'motivo': motivo,
-        'observacion': obs
-      }),
-    );
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/activities/$encodedId/finish'),
+          headers: await _getHeaders(contentType: 'application/json'),
+          body: jsonEncode({
+            'timestamp': DateTime.now().toIso8601String(),
+            'resultado': resultado,
+            'motivo': motivo,
+            'observacion': obs
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
 
     if (response.statusCode == 200) {
       return Activity.fromJson(json.decode(utf8.decode(response.bodyBytes)));
@@ -132,7 +136,7 @@ class ApiService {
     final response = await http.get(
       Uri.parse('$baseUrl/signatures/status'),
       headers: {'Authorization': 'Bearer $token'},
-    );
+    ).timeout(const Duration(seconds: 10));
 
     if (response.statusCode == 200) {
       return json.decode(utf8.decode(response.bodyBytes))['is_signed'];
@@ -145,16 +149,18 @@ class ApiService {
     final uri = Uri.parse('$baseUrl/signatures/');
 
     debugPrint('DEBUG: [API] Subiendo firma (Base64)...');
-    final response = await http.post(
-      uri,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: json.encode({
-        'image_base64': base64Encode(bytes),
-      }),
-    );
+    final response = await http
+        .post(
+          uri,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          body: json.encode({
+            'image_base64': base64Encode(bytes),
+          }),
+        )
+        .timeout(const Duration(seconds: 30)); // 30s for upload
 
     debugPrint('DEBUG: [API] Status: ${response.statusCode}');
     if (response.statusCode != 200) {

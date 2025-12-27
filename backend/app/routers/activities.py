@@ -28,11 +28,13 @@ def get_my_activities(
         end_date = fecha + timedelta(days=1)
         query = query.filter(Activity.fecha.between(start_date, end_date))
     else:
-        # Default to today if no date provided? Or return all? 
-        # User request: "Home: Mi agenda de hoy". So defaulting to today seems appropriate or client sends it.
-        # Let's filter by today default strict or loose? 
-        # Making it optional but Client usually requests specific date.
-        pass
+        # Default to today if no date provided
+        today = date.today()
+        # Same flexibility for Today
+        from datetime import timedelta
+        start_date = today - timedelta(days=1)
+        end_date = today + timedelta(days=1)
+        query = query.filter(Activity.fecha.between(start_date, end_date))
 
     # Sort: PENDIENTE first, then by time
     # Custom sort not easy in SQL without case, let's just order by fecha, ticket_id
