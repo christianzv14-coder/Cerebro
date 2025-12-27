@@ -109,3 +109,4 @@ def send_plan_summary(stats: dict, df: pd.DataFrame):
 
     except Exception as e:
         print(f"ERROR sending email: {e}")
+        raise e  # Re-raise so the caller/endpoint sees the error!
