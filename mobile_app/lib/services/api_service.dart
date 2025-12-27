@@ -9,9 +9,12 @@ import '../models/models.dart';
 class ApiService {
   // Update this URL for your local or production backend
   static String get baseUrl {
-    if (kIsWeb) return 'http://127.0.0.1:8000/api/v1';
-    if (Platform.isAndroid) return 'http://10.0.2.2:8000/api/v1';
-    return 'http://127.0.0.1:8000/api/v1';
+    // Production URL (Railway)
+    return 'https://cozy-smile-production.up.railway.app/api/v1';
+
+    // Localhost Debugging (Keep for reference)
+    // if (Platform.isAndroid) return 'http://10.0.2.2:8000/api/v1';
+    // return 'http://127.0.0.1:8000/api/v1';
   }
 
   final _storage = const FlutterSecureStorage();
