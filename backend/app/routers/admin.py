@@ -37,7 +37,6 @@ def upload_planification(
 
 @router.get("/test_email")
 def test_email_configuration(
-    current_user: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     """
