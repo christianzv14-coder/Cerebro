@@ -89,6 +89,22 @@ class ApiService {
     }
   }
 
+  Future<List<String>> getDates() async {
+    final token = await getToken();
+    final response = await http.get(
+      Uri.parse('$baseUrl/activities/dates'),
+      headers: {'Authorization': 'Bearer $token'},
+    ).timeout(const Duration(seconds: 10));
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
+      // Returns list of strings "YYYY-MM-DD"
+      return data.map((d) => d.toString()).toList();
+    } else {
+      throw Exception('Failed to load dates: ${response.statusCode}');
+    }
+  }
+
   Future<Activity> startActivity(String ticketId) async {
     final encodedId = Uri.encodeComponent(ticketId);
     final response = await http

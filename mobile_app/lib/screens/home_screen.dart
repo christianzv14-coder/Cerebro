@@ -5,9 +5,11 @@ import '../services/api_service.dart';
 import '../providers/auth_provider.dart';
 import 'activity_detail_screen.dart';
 import 'signature_screen.dart';
+import '../widgets/app_drawer.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final DateTime? initialDate;
+  const HomeScreen({super.key, this.initialDate});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -33,9 +35,17 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     try {
       // Server defaults to Today if no date is passed.
-      // This avoids timezone mismatches between Phone and Server.
-      final list = await _api.getActivities();
-      final isSigned = await _api.getSignatureStatus();
+      // If widget.initialDate is set (from History), use it!
+      final list = await _api.getActivities(date: widget.initialDate);
+
+      // Allow signing only if it's TODAY. History shouldn't change today's signature?
+      // Or maybe History is read-only?
+      // User said "Folder por dia". Let's show data.
+      // Signature status check usually defaults to today in backend if no date passed.
+      // We might need to handle signature for past dates later, but for now focus on list.
+
+      final isSigned =
+          await _api.getSignatureStatus(); // Checks TODAY always currently
       debugPrint('DEBUG: _isSigned fetched as $isSigned');
       setState(() {
         _activities = list;
@@ -86,8 +96,13 @@ class _HomeScreenState extends State<HomeScreen> {
     debugPrint('DEBUG BUILD: showSignatureButton=$showSignatureButton');
 
     return Scaffold(
+      drawer: widget.initialDate == null
+          ? const AppDrawer()
+          : null, // Show Drawer only on main Home, not history detail
       appBar: AppBar(
-        title: Text('Hola, ${user?.tecnicoNombre ?? ""} (vFixed)'),
+        title: Text(widget.initialDate == null
+            ? 'Hola, ${user?.tecnicoNombre ?? ""} (vDrawer)'
+            : 'Historial: ${widget.initialDate.toString().split(" ")[0]}'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

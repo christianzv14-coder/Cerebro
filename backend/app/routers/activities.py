@@ -42,6 +42,25 @@ def get_my_activities(
     
     return query.all()
 
+@router.get("/dates", response_model=List[date])
+def get_activity_dates(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get distinct dates where the user has activities.
+    """
+    # SQL: SELECT DISTINCT fecha FROM activities WHERE tecnico_nombre = ... ORDER BY fecha DESC
+    dates = db.query(Activity.fecha)\
+        .filter(Activity.tecnico_nombre == current_user.tecnico_nombre)\
+        .distinct()\
+        .order_by(Activity.fecha.desc())\
+        .all()
+    
+    # query.all() returns list of Row/Tuple objects like [(date1,), (date2,)]
+    # We need to flatten it to [date1, date2]
+    return [d[0] for d in dates]
+
 @router.post("/{ticket_id}/start", response_model=ActivityResponse)
 def start_activity(
     ticket_id: str,
