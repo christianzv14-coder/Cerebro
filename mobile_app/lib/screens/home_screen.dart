@@ -38,15 +38,22 @@ class _HomeScreenState extends State<HomeScreen> {
       // If widget.initialDate is set (from History), use it!
       final list = await _api.getActivities(date: widget.initialDate);
 
-      // Allow signing only if it's TODAY. History shouldn't change today's signature?
-      // Or maybe History is read-only?
-      // User said "Folder por dia". Let's show data.
-      // Signature status check usually defaults to today in backend if no date passed.
-      // We might need to handle signature for past dates later, but for now focus on list.
+      // Determine the date of the loaded plan to check signature correctly
+      // If list is not empty, use the date of the first activity.
+      // If empty, fallback to widget.initialDate or DateTime.now()
+      DateTime? planDate = widget.initialDate;
+      if (list.isNotEmpty) {
+        // Activity.fecha is assumed to be "YYYY-MM-DD"
+        try {
+          planDate = DateTime.parse(list.first.fecha);
+        } catch (_) {}
+      }
 
-      final isSigned =
-          await _api.getSignatureStatus(); // Checks TODAY always currently
-      debugPrint('DEBUG: _isSigned fetched as $isSigned');
+      // Check signature for THAT specific date
+      final isSigned = await _api.getSignatureStatus(date: planDate);
+
+      debugPrint(
+          'DEBUG: Activities loaded for $planDate. _isSigned fetched as $isSigned');
       setState(() {
         _activities = list;
         _isSigned = isSigned;

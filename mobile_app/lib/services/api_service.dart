@@ -147,10 +147,15 @@ class ApiService {
     }
   }
 
-  Future<bool> getSignatureStatus() async {
+  Future<bool> getSignatureStatus({DateTime? date}) async {
     final token = await getToken();
+    String query = '';
+    if (date != null) {
+      query = '?fecha=${date.toIso8601String().split('T')[0]}';
+    }
+
     final response = await http.get(
-      Uri.parse('$baseUrl/signatures/status'),
+      Uri.parse('$baseUrl/signatures/status$query'),
       headers: {'Authorization': 'Bearer $token'},
     ).timeout(const Duration(seconds: 10));
 

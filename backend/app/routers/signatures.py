@@ -113,19 +113,16 @@ async def _process_signature_upload(db, current_user, base64_str=None, file=None
 
 @router.get("/status")
 def get_signature_status(
+    fecha: Optional[date] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Check if current user has signed today."""
-    today = date.today()
+    """Check if current user has signed for a specific date (default: Today)."""
+    target_date = fecha if fecha else date.today()
     tech_clean = current_user.tecnico_nombre.strip().lower()
     
-    all_sigs = db.query(DaySignature).filter(DaySignature.fecha == today).all()
-    # print(f"DEBUG [STATUS] Checking signature for '{tech_clean}'. Found {len(all_sigs)} total sigs today.")
+    all_sigs = db.query(DaySignature).filter(DaySignature.fecha == target_date).all()
     
     existing = next((s for s in all_sigs if s.tecnico_nombre.strip().lower() == tech_clean), None)
-    
-    # if existing:
-    #     print(f"DEBUG [STATUS] Result: SIGNED (ID: {existing.id})")
     
     return {"is_signed": existing is not None}
