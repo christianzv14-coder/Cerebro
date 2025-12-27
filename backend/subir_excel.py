@@ -3,7 +3,9 @@ import sys
 import os
 
 # Configuración
-BASE_URL = "http://127.0.0.1:8000/api/v1"
+# Configuración
+# BASE_URL = "http://127.0.0.1:8000/api/v1" # LOCALHOST
+BASE_URL = "https://cozy-smile-production.up.railway.app/api/v1" # RAILWAY PROD
 ADMIN_EMAIL = "admin@cerebro.com"
 ADMIN_PASS = "123456"
 
@@ -47,7 +49,11 @@ def subir_archivo(ruta_excel):
             print(f"   -> Detalle: {e.response.text}")
 
 if __name__ == "__main__":
-    archivo = "backend/plantilla_planificacion_v2.xlsx"
+    # Resolve path relative to this script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    archivo = os.path.join(script_dir, "plantilla_planificacion_v2.xlsx")
+    
+    # Fallback to current dir if not found (or just use the resolved one)
     if len(sys.argv) > 1:
         archivo = sys.argv[1]
     

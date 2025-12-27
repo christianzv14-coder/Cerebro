@@ -22,7 +22,11 @@ def get_my_activities(
     query = db.query(Activity).filter(Activity.tecnico_nombre == current_user.tecnico_nombre)
     
     if fecha:
-        query = query.filter(Activity.fecha == fecha)
+        # Flexible Date Filter: +/- 1 day to handle timezone mismatches between Client (App) and Server/DB
+        from datetime import timedelta
+        start_date = fecha - timedelta(days=1)
+        end_date = fecha + timedelta(days=1)
+        query = query.filter(Activity.fecha.between(start_date, end_date))
     else:
         # Default to today if no date provided? Or return all? 
         # User request: "Home: Mi agenda de hoy". So defaulting to today seems appropriate or client sends it.
