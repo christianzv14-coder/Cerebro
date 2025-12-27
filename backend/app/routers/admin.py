@@ -56,13 +56,18 @@ def test_email_configuration(
         "comuna": ["Comuna 1", "Comuna 2", "Comuna 1"]
     })
     
+    
+    # Debug: Check what keys exist
+    smtp_keys = [k for k in os.environ.keys() if "SMTP" in k]
+    
     try:
         send_plan_summary(stats, df)
         return {
             "message": "Email sent attempt finished.",
             "debug_config": {
                 "from": f"{user[:3]}***@***" if len(user) > 5 else user,
-                "to": f"{to[:3]}***@***" if len(to) > 5 else to
+                "to": f"{to[:3]}***@***" if len(to) > 5 else to,
+                "found_keys_in_env": smtp_keys
             }
         }
     except Exception as e:
