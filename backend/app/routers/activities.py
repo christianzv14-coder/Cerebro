@@ -22,19 +22,12 @@ def get_my_activities(
     query = db.query(Activity).filter(Activity.tecnico_nombre == current_user.tecnico_nombre)
     
     if fecha:
-        # Flexible Date Filter: +/- 1 day to handle timezone mismatches between Client (App) and Server/DB
-        from datetime import timedelta
-        start_date = fecha - timedelta(days=1)
-        end_date = fecha + timedelta(days=1)
-        query = query.filter(Activity.fecha.between(start_date, end_date))
+        # Strict Date Filter: Match exact date requested by App
+        query = query.filter(Activity.fecha == fecha)
     else:
         # Default to today if no date provided
         today = date.today()
-        # Same flexibility for Today
-        from datetime import timedelta
-        start_date = today - timedelta(days=1)
-        end_date = today + timedelta(days=1)
-        query = query.filter(Activity.fecha.between(start_date, end_date))
+        query = query.filter(Activity.fecha == today)
 
     # Sort: PENDIENTE first, then by time
     # Custom sort not easy in SQL without case, let's just order by fecha, ticket_id
