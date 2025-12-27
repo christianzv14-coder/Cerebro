@@ -42,8 +42,9 @@ def test_email_configuration(
     """
     Debug endpoint to test email sending using server env vars.
     """
-    import pandas as pd
-    from app.services.email_service import send_plan_summary
+    import os
+    user = os.getenv("SMTP_USER", "NOT_SET")
+    to = os.getenv("SMTP_TO", "NOT_SET")
     
     # Mock Data
     stats = {"processed": 10, "created": 5, "updated": 5}
@@ -54,6 +55,12 @@ def test_email_configuration(
     
     try:
         send_plan_summary(stats, df)
-        return {"message": "Email sent successfully (Check inbox/spam)."}
+        return {
+            "message": "Email sent attempt finished.",
+            "debug_config": {
+                "from": f"{user[:3]}***@***" if len(user) > 5 else user,
+                "to": f"{to[:3]}***@***" if len(to) > 5 else to
+            }
+        }
     except Exception as e:
         return {"error": str(e), "detail": "Check SMTP variables in Railway."}
