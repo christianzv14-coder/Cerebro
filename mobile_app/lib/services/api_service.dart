@@ -165,11 +165,18 @@ class ApiService {
     return false;
   }
 
-  Future<void> uploadSignature(Uint8List bytes) async {
+  Future<void> uploadSignature(Uint8List bytes, {DateTime? date}) async {
     final token = await getToken();
     final uri = Uri.parse('$baseUrl/signatures/');
 
-    debugPrint('DEBUG: [API] Subiendo firma (Base64)...');
+    debugPrint('DEBUG: [API] Subiendo firma (Base64) para fecha: $date...');
+    final body_map = {
+      'image_base64': base64Encode(bytes),
+    };
+    if (date != null) {
+      body_map['fecha'] = date.toIso8601String().split('T')[0];
+    }
+
     final response = await http
         .post(
           uri,
@@ -177,9 +184,7 @@ class ApiService {
             'Authorization': 'Bearer $token',
             'Content-Type': 'application/json',
           },
-          body: json.encode({
-            'image_base64': base64Encode(bytes),
-          }),
+          body: json.encode(body_map),
         )
         .timeout(const Duration(seconds: 30)); // 30s for upload
 

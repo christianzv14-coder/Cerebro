@@ -21,6 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
   bool _isSigned = false;
   String _errorMessage = '';
+  DateTime? _currentPlanDate;
 
   @override
   void initState() {
@@ -57,6 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _activities = list;
         _isSigned = isSigned;
+        _currentPlanDate = planDate;
         _isLoading = false;
       });
     } catch (e, stackTrace) {
@@ -230,7 +232,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     await Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => const SignatureScreen()));
+                            builder: (_) =>
+                                SignatureScreen(planDate: _currentPlanDate)));
                     _loadActivities();
                   }
                 },

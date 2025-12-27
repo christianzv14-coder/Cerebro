@@ -4,7 +4,8 @@ import 'package:signature/signature.dart';
 import '../services/api_service.dart';
 
 class SignatureScreen extends StatefulWidget {
-  const SignatureScreen({super.key});
+  final DateTime? planDate;
+  const SignatureScreen({super.key, this.planDate});
 
   @override
   State<SignatureScreen> createState() => _SignatureScreenState();
@@ -16,7 +17,7 @@ class _SignatureScreenState extends State<SignatureScreen> {
     penColor: Colors.black,
     exportBackgroundColor: Colors.white,
   );
-  
+
   bool _isLoading = false;
   final ApiService _api = ApiService();
 
@@ -24,24 +25,27 @@ class _SignatureScreenState extends State<SignatureScreen> {
 
   void _submit() async {
     if (_controller.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Debes firmar para continuar')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Debes firmar para continuar')));
       return;
     }
-    
+
     setState(() => _isLoading = true);
-    
+
     try {
       final Uint8List? data = await _controller.toPngBytes();
       if (data == null) return;
-      
-      await _api.uploadSignature(data); 
-      
+
+      await _api.uploadSignature(data, date: widget.planDate);
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Jornada Firmada y Cerrada.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Jornada Firmada y Cerrada.')));
         Navigator.pop(context); // Back to Home
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -78,16 +82,15 @@ class _SignatureScreenState extends State<SignatureScreen> {
               children: [
                 OutlinedButton(onPressed: _clear, child: const Text('Limpiar')),
                 ElevatedButton(
-                  onPressed: _isLoading ? null : _submit, 
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue, 
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16)
-                  ),
-                  child: _isLoading 
-                    ? const CircularProgressIndicator(color: Colors.white) 
-                    : const Text('ENVIAR FIRMA')
-                ),
+                    onPressed: _isLoading ? null : _submit,
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 32, vertical: 16)),
+                    child: _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text('ENVIAR FIRMA')),
               ],
             ),
           )

@@ -19,6 +19,7 @@ import base64
 
 class SignatureUpload(BaseModel):
     image_base64: str
+    fecha: Optional[date] = None # New optional field for Plan Date
 
 @router.post("/")
 async def upload_signature_json(
@@ -27,15 +28,18 @@ async def upload_signature_json(
     current_user: User = Depends(get_current_user)
 ):
     """Main endpoint for Mobile App (Base64)."""
-    return await _process_signature_upload(db, current_user, base64_str=upload_data.image_base64)
+    return await _process_signature_upload(db, current_user, base64_str=upload_data.image_base64, fecha=upload_data.fecha)
 
 @router.post("/file")
 async def upload_signature_file(
     file: UploadFile = File(...),
+    fecha: Optional[date] = None, # Allow form-data param too? Maybe harder for app, but consistent.
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Legacy/Fallback endpoint for MultiPart."""
+    # Note: FastAPI Form parameters would be needed here to parse 'fecha' alongside File.
+    # For now, mobile app uses JSON endpoint, so focusing there.
     return await _process_signature_upload(db, current_user, file=file)
 
 @router.post("/ping")
@@ -43,20 +47,23 @@ async def ping_signatures():
     print("\n[!!!] SIGNATURES PING RECEIVED")
     return {"status": "ok", "message": "Signature API is reachable"}
 
-async def _process_signature_upload(db, current_user, base64_str=None, file=None):
-    today = date.today()
+async def _process_signature_upload(db, current_user, base64_str=None, file=None, fecha: Optional[date] = None):
+    # If a specific Plan Date is provided (e.g. from App viewing yesterday's plan), use it.
+    # Otherwise default to today (legacy behavior).
+    upload_date = fecha if fecha else date.today()
+    
     tech_name_db = current_user.tecnico_nombre
     tech_clean = tech_name_db.strip().lower()
     
-    print(f"\n>>> [UPLOAD START] Tech: '{tech_name_db}' | Clean: '{tech_clean}'")
+    print(f"\n>>> [UPLOAD START] Tech: '{tech_name_db}' | Date: '{upload_date}'")
     
     # 1. Idempotency Check
-    all_sigs = db.query(DaySignature).filter(DaySignature.fecha == today).all()
+    all_sigs = db.query(DaySignature).filter(DaySignature.fecha == upload_date).all()
     existing = next((s for s in all_sigs if s.tecnico_nombre.strip().lower() == tech_clean), None)
     
     if existing:
-        print(f"DEBUG: Rejected. Signature already exists: ID {existing.id}")
-        raise HTTPException(status_code=400, detail="La jornada de hoy ya ha sido firmada.")
+        print(f"DEBUG: Rejected. Signature already exists for {upload_date}: ID {existing.id}")
+        raise HTTPException(status_code=400, detail=f"La jornada del {upload_date} ya ha sido firmada.")
     
     content = None
     file_ext = "png"
@@ -75,7 +82,7 @@ async def _process_signature_upload(db, current_user, base64_str=None, file=None
             raise HTTPException(status_code=400, detail="No data provided")
             
         # 3. Save File
-        file_name = f"{tech_clean.replace(' ', '_')}_{today}_{uuid.uuid4().hex[:6]}.{file_ext}"
+        file_name = f"{tech_clean.replace(' ', '_')}_{upload_date}_{uuid.uuid4().hex[:6]}.{file_ext}"
         file_path = os.path.join(UPLOAD_DIR, file_name)
         
         with open(file_path, "wb") as f:
@@ -90,7 +97,7 @@ async def _process_signature_upload(db, current_user, base64_str=None, file=None
     try:
         new_sig = DaySignature(
             tecnico_nombre=tech_name_db,
-            fecha=today,
+            fecha=upload_date,
             signature_ref=file_path
         )
         db.add(new_sig)
