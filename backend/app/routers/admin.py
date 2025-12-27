@@ -43,6 +43,9 @@ def test_email_configuration(
     Debug endpoint to test email sending using server env vars.
     """
     import os
+    import pandas as pd
+    from app.services.email_service import send_plan_summary
+
     user = os.getenv("SMTP_USER", "NOT_SET")
     to = os.getenv("SMTP_TO", "NOT_SET")
     
