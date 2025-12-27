@@ -25,9 +25,17 @@ def get_my_activities(
         # Strict Date Filter: Match exact date requested by App
         query = query.filter(Activity.fecha == fecha)
     else:
-        # Default to today if no date provided
-        today = date.today()
-        query = query.filter(Activity.fecha == today)
+        # Default to LATEST available date (Max Date) for this user to show the most recent Plan
+        from sqlalchemy import func
+        max_date_query = db.query(func.max(Activity.fecha)).filter(Activity.tecnico_nombre == current_user.tecnico_nombre)
+        latest_date = max_date_query.scalar()
+        
+        if latest_date:
+            query = query.filter(Activity.fecha == latest_date)
+        else:
+            # Fallback if no activities at all
+            today = date.today()
+            query = query.filter(Activity.fecha == today)
 
     # Sort: PENDIENTE first, then by time
     # Custom sort not easy in SQL without case, let's just order by fecha, ticket_id
