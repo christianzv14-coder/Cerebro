@@ -60,15 +60,47 @@ def test_email_configuration(
     # Debug: Check what keys exist
     smtp_keys = [k for k in os.environ.keys() if "SMTP" in k]
     
+    
+    # Debug: Check network connectivity
+    import socket
+    network_results = {}
     try:
+        ip = socket.gethostbyname("smtp.gmail.com")
+        network_results["dns_resolution"] = f"Success ({ip})"
+        
+        # Test Port 465
+        try:
+            sock = socket.create_connection(("smtp.gmail.com", 465), timeout=2)
+            network_results["port_465"] = "Open"
+            sock.close()
+        except Exception as e:
+            network_results["port_465"] = f"Closed/Blocked ({e})"
+
+        # Test Port 587
+        try:
+            sock = socket.create_connection(("smtp.gmail.com", 587), timeout=2)
+            network_results["port_587"] = "Open"
+            sock.close()
+        except Exception as e:
+            network_results["port_587"] = f"Closed/Blocked ({e})"
+            
+    except Exception as e:
+        network_results["dns"] = f"Failed ({e})"
+
+    try:
+        # Try sending (will likely fail, but we want the detailed network report)
         send_plan_summary(stats, df)
         return {
             "message": "Email sent attempt finished.",
             "debug_config": {
                 "from": f"{user[:3]}***@***" if len(user) > 5 else user,
-                "to": f"{to[:3]}***@***" if len(to) > 5 else to,
-                "found_keys_in_env": smtp_keys
+                "found_keys_in_env": smtp_keys,
+                "network_test": network_results
             }
         }
     except Exception as e:
-        return {"error": str(e), "detail": "Check SMTP variables in Railway."}
+        return {
+            "error": str(e), 
+            "network_test": network_results,
+            "detail": "If ports are 'Closed/Blocked', Railway is preventing the connection."
+        }
