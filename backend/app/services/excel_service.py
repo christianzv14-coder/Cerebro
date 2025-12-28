@@ -184,12 +184,12 @@ def process_excel_upload(file: IO, db: Session):
         "updated": updated_count
     }
 
-    # Send Email Summary
-    try:
-        from app.services.email_service import send_plan_summary
-        # Pass stats and the ORIGINAL DataFrame (df) to calculate breakdowns
-        send_plan_summary(stats, df)
-    except Exception as e:
-        print(f"DEBUG: Failed to trigger email summary: {e}")
+    # Send Email Summary (DISABLED due to Railway Port Blocking)
+    # try:
+    #     from app.services.email_service import send_plan_summary
+    #     # Pass stats and the ORIGINAL DataFrame (df) to calculate breakdowns
+    #     send_plan_summary(stats, df)
+    # except Exception as e:
+    #     print(f"DEBUG: Failed to trigger email summary: {e}")
     
     return stats
