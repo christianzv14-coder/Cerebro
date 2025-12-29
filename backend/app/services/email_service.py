@@ -8,7 +8,7 @@ from datetime import date, datetime
 from app.models.models import Activity
 
 SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 465
+SMTP_PORT = 587
 
 def _log_debug(msg):
     with open("email_debug.log", "a", encoding="utf-8") as f:
@@ -26,7 +26,9 @@ def _get_smtp_connection():
         return None
         
     try:
-        server = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT)
+        # Use simple SMTP with STARTTLS for Port 587
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=15)
+        server.starttls()
         server.login(user, password)
         _log_debug("SMTP Login Success")
         return server
