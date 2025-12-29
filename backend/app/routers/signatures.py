@@ -134,7 +134,7 @@ async def _process_signature_upload(db, current_user, background_tasks: Backgrou
         # Better to resolve here to pass clean args.
         
         if not recipient or "@" not in recipient:
-             import os
+             # os is already imported globally
              fallback = os.getenv("SMTP_TO", os.getenv("SMTP_USER"))
              print(f"DEBUG: User {tech_name_db} has invalid email '{recipient}'. Using fallback: {fallback}")
              recipient = fallback
