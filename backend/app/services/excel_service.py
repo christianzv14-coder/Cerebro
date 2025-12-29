@@ -89,28 +89,37 @@ def process_excel_upload(file: IO, db: Session):
             from datetime import date
             fecha_val = date.today()
         
-        # Ensure User exists (Auto-provisioning for MVP)
-        # CASE-INSENSITIVE LOOKUP:
-        # 1. Try exact match
-        user = db.query(User).filter(User.tecnico_nombre == tecnico_nombre).first()
+        # Ensure User exists (Auto-provisioning with FUZZY MATCH)
+        # 1. Prepare DB User Map (Normalized keys for fast lookup)
+        all_users = db.query(User).all()
         
-        # 2. If not found, try case-insensitive match from all users (slow but safe for small MVP)
+        import unicodedata
+        import difflib
+        
+        def normalize_str(s):
+            return unicodedata.normalize('NFKD', s).encode('ASCII', 'ignore').decode('utf-8').lower()
+            
+        user_map = {normalize_str(u.tecnico_nombre): u for u in all_users}
+        known_names_normalized = list(user_map.keys())
+        
+        clean_input = normalize_str(tecnico_nombre)
+        
+        # 2. Try Exact Normalized Match
+        user = user_map.get(clean_input)
+        
+        # 3. Fuzzy Match (If exact fails)
         if not user:
-            import unicodedata
-            def normalize_str(s):
-                return unicodedata.normalize('NFKD', s).encode('ASCII', 'ignore').decode('utf-8').lower()
-            
-            clean_input = normalize_str(tecnico_nombre)
-            all_users = db.query(User).all()
-            # robust match: normalize both DB name and Input name
-            user = next((u for u in all_users if normalize_str(u.tecnico_nombre) == clean_input), None)
-            
-        if user:
-            # Match found! Use the DB's official casing/accent
-            tecnico_nombre = user.tecnico_nombre
-        else:
-            # Create dummy user to satisfy FK
-            # But try to check if we can salvage email 
+            # cutoff=0.8 means 80% similarity required. "Parez" vs "Perez" is >80%.
+            matches = difflib.get_close_matches(clean_input, known_names_normalized, n=1, cutoff=0.75)
+            if matches:
+                best_match_key = matches[0]
+                user = user_map[best_match_key]
+                print(f"DEBUG [EXCEL]: Fuzzy Match! Input '{tecnico_nombre}' -> DB '{user.tecnico_nombre}'")
+                tecnico_nombre = user.tecnico_nombre # AUTO-CORRECT the name to match DB
+                
+        # 4. Create New User (If really no match)
+        if not user:
+            print(f"DEBUG [EXCEL]: No match for '{tecnico_nombre}'. creating new user.")
             clean_tech_name = tecnico_nombre.replace(" ", "_").lower()
             new_user = User(
                 email=f"{clean_tech_name}@cerebro.com", # Mock email
@@ -118,16 +127,17 @@ def process_excel_upload(file: IO, db: Session):
                 hashed_password=get_password_hash("123456"),
                 role=Role.TECH
             )
-            # Handle potential email collision if name logic produces same email? Unlikely for MVP.
-            # But better verify email unique.
+            # Handle potential email collision
             if db.query(User).filter(User.email == new_user.email).first():
                  new_user.email = f"{new_user.email}_dup_{index}" 
                  
             db.add(new_user)
             db.commit()
             db.refresh(new_user)
-            # Ensure we use the freshly created name (though likely same)
             tecnico_nombre = new_user.tecnico_nombre
+        else:
+            # We found the user (Exact or Fuzzy), ensure we use their OFFICIAL name
+            tecnico_nombre = user.tecnico_nombre
 
         # Merge Logic
         activity = db.query(Activity).filter(Activity.ticket_id == ticket_id).first()
