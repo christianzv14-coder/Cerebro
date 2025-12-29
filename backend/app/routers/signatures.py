@@ -130,17 +130,27 @@ async def _process_signature_upload(db, current_user, base64_str=None, file=None
         ).all()
         
         recipient = current_user.email
-        # If user has no email, maybe fallback to a default notification email? 
-        # For now, just log.
         
+        # Fallback if user email is missing or invalid
+        if not recipient or "@" not in recipient:
+             import os
+             fallback = os.getenv("SMTP_TO", os.getenv("SMTP_USER"))
+             print(f"DEBUG: User {tech_name_db} has invalid email '{recipient}'. Using fallback: {fallback}")
+             recipient = fallback
+
         if recipient:
-            print(f"DEBUG: Sending confirmation email to {recipient}...")
-            send_workday_summary(recipient, tech_name_db, upload_date, activities)
+            print(f"DEBUG: Sending confirmation email to {recipient} via Port 465 SSL...")
+            # We wrap this in a try/except specifically for the send call to separate it from the outer block
+            try:
+                send_workday_summary(recipient, tech_name_db, upload_date, activities)
+                print("DEBUG: Email send function returned.")
+            except Exception as e:
+                 print(f"DEBUG ERROR: send_workday_summary crashed: {e}")
         else:
-             print("DEBUG: Current user has no email address. Skipping email.")
+             print("DEBUG: No recipient email found (User empty and no SMTP_TO fallback). Skipping.")
 
     except Exception as e:
-        print(f"DEBUG WARNING: Email sending failed: {e}")
+        print(f"DEBUG WARNING: Email logic block failed: {e}")
 
     return {"status": "success", "message": "Firma guardada y sincronizada correctamente."}
 
