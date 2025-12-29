@@ -1,0 +1,132 @@
+
+
+--- UPLOAD STARTED AT 2025-12-29 09:52:27.212161 ---
+Columns found: ['fecha', 'ticket_id', 'tecnico_nombre', 'patente', 'cliente', 'direccion', 'tipo_trabajo', 'Prioridad', 'Comuna', 'Region']
+First row: {'fecha': '2023-10-27', 'ticket_id': 'TICKET-TEST-001', 'tecnico_nombre': 'Juan Perez', 'patente': 'AB-CD-12', 'cliente': 'Cliente Test', 'direccion': 'Calle Falsa 123', 'tipo_trabajo': 'Instalacion', 'Prioridad': 'Alta', 'Comuna': 'Santiago', 'Region': 'Metropolitana'}
+Pre-cleaning for Tech: 'Juan Perez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+
+
+--- UPLOAD STARTED AT 2025-12-29 09:59:44.587687 ---
+Columns found: ['fecha', 'ticket_id', 'tecnico_nombre', 'patente', 'cliente', 'direccion', 'tipo_trabajo', 'Prioridad', 'Comuna', 'Region']
+First row: {'fecha': '2023-10-27', 'ticket_id': 'TICKET-TEST-001', 'tecnico_nombre': 'Juan Perez', 'patente': 'AB-CD-12', 'cliente': 'Cliente Test', 'direccion': 'Calle Falsa 123', 'tipo_trabajo': 'Instalacion', 'Prioridad': 'Alta', 'Comuna': 'Santiago', 'Region': 'Metropolitana'}
+Pre-cleaning for Tech: 'Juan Perez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+
+
+--- UPLOAD STARTED AT 2025-12-29 10:05:28.476613 ---
+Columns found: ['fecha', 'ticket_id', 'tecnico_nombre', 'patente', 'cliente', 'direccion', 'tipo_trabajo', 'Prioridad', 'Comuna', 'Region']
+First row: {'fecha': '2023-10-27', 'ticket_id': 'TICKET-TEST-001', 'tecnico_nombre': 'Juan Perez', 'patente': 'AB-CD-12', 'cliente': 'Cliente Test', 'direccion': 'Calle Falsa 123', 'tipo_trabajo': 'Instalacion', 'Prioridad': 'Alta', 'Comuna': 'Santiago', 'Region': 'Metropolitana'}
+Pre-cleaning for Tech: 'Juan Perez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+
+
+--- UPLOAD STARTED AT 2025-12-29 10:08:37.456334 ---
+Columns found: ['fecha', 'ticket_id', 'tecnico_nombre', 'patente', 'cliente', 'direccion', 'tipo_trabajo', 'Prioridad', 'Comuna', 'Region']
+First row: {'fecha': '2023-10-27', 'ticket_id': 'TICKET-TEST-001', 'tecnico_nombre': 'Juan Perez', 'patente': 'AB-CD-12', 'cliente': 'Cliente Test', 'direccion': 'Calle Falsa 123', 'tipo_trabajo': 'Instalacion', 'Prioridad': 'Alta', 'Comuna': 'Santiago', 'Region': 'Metropolitana'}
+Pre-cleaning for Tech: 'Juan Perez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+
+
+--- UPLOAD STARTED AT 2025-12-29 10:11:55.817282 ---
+Columns found: ['fecha', 'ticket_id', 'tecnico_nombre', 'patente', 'cliente', 'direccion', 'tipo_trabajo', 'Prioridad', 'Comuna', 'Region']
+First row: {'fecha': '2023-10-27', 'ticket_id': 'TICKET-TEST-001', 'tecnico_nombre': 'Juan Perez', 'patente': 'AB-CD-12', 'cliente': 'Cliente Test', 'direccion': 'Calle Falsa 123', 'tipo_trabajo': 'Instalacion', 'Prioridad': 'Alta', 'Comuna': 'Santiago', 'Region': 'Metropolitana'}
+Pre-cleaning for Tech: 'Pedro Gonzalez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+Pre-cleaning for Tech: 'Juan Perez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+
+
+--- UPLOAD STARTED AT 2025-12-29 10:15:24.054011 ---
+Columns found: ['fecha', 'ticket_id', 'tecnico_nombre', 'patente', 'cliente', 'direccion', 'tipo_trabajo', 'Prioridad', 'Comuna', 'Region']
+First row: {'fecha': '2023-10-27', 'ticket_id': 'TICKET-TEST-001', 'tecnico_nombre': 'Juan Perez', 'patente': 'AB-CD-12', 'cliente': 'Cliente Test', 'direccion': 'Calle Falsa 123', 'tipo_trabajo': 'Instalacion', 'Prioridad': 'Alta', 'Comuna': 'Santiago', 'Region': 'Metropolitana'}
+Pre-cleaning for Tech: 'Pedro Gonzalez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+Pre-cleaning for Tech: 'Juan Perez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+
+
+--- UPLOAD STARTED AT 2025-12-29 10:19:27.749628 ---
+Columns found: ['fecha', 'ticket_id', 'tecnico_nombre', 'patente', 'cliente', 'direccion', 'tipo_trabajo', 'Prioridad', 'Comuna', 'Region']
+First row: {'fecha': '2023-10-27', 'ticket_id': 'TICKET-TEST-001', 'tecnico_nombre': 'Juan Perez', 'patente': 'AB-CD-12', 'cliente': 'Cliente Test', 'direccion': 'Calle Falsa 123', 'tipo_trabajo': 'Instalacion', 'Prioridad': 'Alta', 'Comuna': 'Santiago', 'Region': 'Metropolitana'}
+Pre-cleaning for Tech: 'Pedro Gonzalez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+Pre-cleaning for Tech: 'Juan Perez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+
+
+--- UPLOAD STARTED AT 2025-12-29 10:59:33.927570 ---
+Columns found: ['fecha', 'ticket_id', 'tecnico_nombre', 'patente', 'cliente', 'direccion', 'tipo_trabajo', 'Prioridad', 'Comuna', 'Region']
+First row: {'fecha': '2023-10-27', 'ticket_id': 'TICKET-TEST-001', 'tecnico_nombre': 'Juan Perez', 'patente': 'AB-CD-12', 'cliente': 'Cliente Test', 'direccion': 'Calle Falsa 123', 'tipo_trabajo': 'Instalacion', 'Prioridad': 'Alta', 'Comuna': 'Santiago', 'Region': 'Metropolitana'}
+Pre-cleaning for Tech: 'Pedro Gonzalez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+Pre-cleaning for Tech: 'Juan Perez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+
+
+--- UPLOAD STARTED AT 2025-12-29 11:03:50.909421 ---
+Columns found: ['fecha', 'ticket_id', 'tecnico_nombre', 'patente', 'cliente', 'direccion', 'tipo_trabajo', 'Prioridad', 'Comuna', 'Region']
+First row: {'fecha': '2023-10-27', 'ticket_id': 'TICKET-TEST-001', 'tecnico_nombre': 'Juan Perez', 'patente': 'AB-CD-12', 'cliente': 'Cliente Test', 'direccion': 'Calle Falsa 123', 'tipo_trabajo': 'Instalacion', 'Prioridad': 'Alta', 'Comuna': 'Santiago', 'Region': 'Metropolitana'}
+Pre-cleaning for Tech: 'Juan Perez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+Pre-cleaning for Tech: 'Pedro Gonzalez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+
+
+--- UPLOAD STARTED AT 2025-12-29 11:04:19.900971 ---
+Columns found: ['fecha', 'ticket_id', 'tecnico_nombre', 'patente', 'cliente', 'direccion', 'tipo_trabajo', 'Prioridad', 'Comuna', 'Region']
+First row: {'fecha': '2023-10-27', 'ticket_id': 'TICKET-TEST-001', 'tecnico_nombre': 'Juan Perez', 'patente': 'AB-CD-12', 'cliente': 'Cliente Test', 'direccion': 'Calle Falsa 123', 'tipo_trabajo': 'Instalacion', 'Prioridad': 'Alta', 'Comuna': 'Santiago', 'Region': 'Metropolitana'}
+Pre-cleaning for Tech: 'Pedro Gonzalez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+Pre-cleaning for Tech: 'Juan Perez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+
+
+--- UPLOAD STARTED AT 2025-12-29 11:10:38.635253 ---
+DataFrame Shape: (3, 10) (Rows, Cols)
+Columns found: ['fecha', 'ticket_id', 'tecnico_nombre', 'patente', 'cliente', 'direccion', 'tipo_trabajo', 'Prioridad', 'Comuna', 'Region']
+First row: {'fecha': '2023-10-27', 'ticket_id': 'TICKET-TEST-001', 'tecnico_nombre': 'Juan Perez', 'patente': 'AB-CD-12', 'cliente': 'Cliente Test', 'direccion': 'Calle Falsa 123', 'tipo_trabajo': 'Instalacion', 'Prioridad': 'Alta', 'Comuna': 'Santiago', 'Region': 'Metropolitana'}
+Ticket IDs in file: ['TICKET-TEST-001', 'TICKET-TEST-002', 'TICKET-TEST-003']
+Pre-cleaning for Tech: 'Juan Perez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+Pre-cleaning for Tech: 'Pedro Gonzalez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+
+
+--- UPLOAD STARTED AT 2025-12-29 11:18:52.638017 ---
+DataFrame Shape: (3, 10) (Rows, Cols)
+Columns found: ['fecha', 'ticket_id', 'tecnico_nombre', 'patente', 'cliente', 'direccion', 'tipo_trabajo', 'Prioridad', 'Comuna', 'Region']
+First row: {'fecha': '2023-10-27', 'ticket_id': 'TICKET-TEST-001', 'tecnico_nombre': 'Juan Perez', 'patente': 'AB-CD-12', 'cliente': 'Cliente Test', 'direccion': 'Calle Falsa 123', 'tipo_trabajo': 'Instalacion', 'Prioridad': 'Alta', 'Comuna': 'Santiago', 'Region': 'Metropolitana'}
+Ticket IDs in file: ['TICKET-TEST-001', 'TICKET-TEST-002', 'TICKET-TEST-003']
+Pre-cleaning for Tech: 'Pedro Gonzalez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+Pre-cleaning for Tech: 'Juan Perez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+
+
+--- UPLOAD STARTED AT 2025-12-29 11:21:09.430600 ---
+DataFrame Shape: (3, 10) (Rows, Cols)
+Columns found: ['fecha', 'ticket_id', 'tecnico_nombre', 'patente', 'cliente', 'direccion', 'tipo_trabajo', 'Prioridad', 'Comuna', 'Region']
+First row: {'fecha': '2023-10-27', 'ticket_id': 'TICKET-TEST-001', 'tecnico_nombre': 'Juan Perez', 'patente': 'AB-CD-12', 'cliente': 'Cliente Test', 'direccion': 'Calle Falsa 123', 'tipo_trabajo': 'Instalacion', 'Prioridad': 'Alta', 'Comuna': 'Santiago', 'Region': 'Metropolitana'}
+Ticket IDs in file: ['TICKET-TEST-001', 'TICKET-TEST-002', 'TICKET-TEST-003']
+Pre-cleaning for Tech: 'Juan Perez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+Pre-cleaning for Tech: 'Pedro Gonzalez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+Attempting to import email_service...
+Calling send_plan_summary...
+DEBUG: Failed to trigger email summary: name 'datetime' is not defined
+
+
+--- UPLOAD STARTED AT 2025-12-29 11:22:56.923786 ---
+DataFrame Shape: (3, 10) (Rows, Cols)
+Columns found: ['fecha', 'ticket_id', 'tecnico_nombre', 'patente', 'cliente', 'direccion', 'tipo_trabajo', 'Prioridad', 'Comuna', 'Region']
+First row: {'fecha': '2023-10-27', 'ticket_id': 'TICKET-TEST-001', 'tecnico_nombre': 'Juan Perez', 'patente': 'AB-CD-12', 'cliente': 'Cliente Test', 'direccion': 'Calle Falsa 123', 'tipo_trabajo': 'Instalacion', 'Prioridad': 'Alta', 'Comuna': 'Santiago', 'Region': 'Metropolitana'}
+Ticket IDs in file: ['TICKET-TEST-001', 'TICKET-TEST-002', 'TICKET-TEST-003']
+Pre-cleaning for Tech: 'Juan Perez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+Pre-cleaning for Tech: 'Pedro Gonzalez', Date: '2023-10-27'
+  -> Deleted 0 activities, 0 signatures.
+Attempting to import email_service...
+Calling send_plan_summary...
+Returned from send_plan_summary.

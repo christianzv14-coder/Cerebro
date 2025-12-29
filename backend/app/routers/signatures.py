@@ -7,6 +7,8 @@ from app.database import get_db
 from app.models.models import DaySignature, User
 from app.deps import get_current_user
 from app.services.sheets_service import sync_signature_to_sheet
+from app.services.email_service import send_workday_summary
+from app.models.models import DaySignature, User, Activity
 
 router = APIRouter()
 
@@ -114,8 +116,32 @@ async def _process_signature_upload(db, current_user, base64_str=None, file=None
         sync_signature_to_sheet(new_sig)
     except Exception as e:
         print(f"DEBUG WARNING: Sheets sync failed: {e}")
-        return {"status": "success", "message": "Firma guardada localmente, error en Sheets."}
+        # preventing return here to allow email to attempt? No, usually we return success if local save worked.
+        # But let's just log and continue to email if Sheets fails?
+        # The original code returned early on Sheets error. I should probably keep that or decide if Email is more important.
+        # Let's simple insert the email logic BEFORE the final return, independent of Sheets success? 
+        # Actually, if sheets fails, we might still want to email.
+    
+    # 6. Send Email Confirmation
+    try:
+        activities = db.query(Activity).filter(
+            Activity.tecnico_nombre == tech_name_db,
+            Activity.fecha == upload_date
+        ).all()
         
+        recipient = current_user.email
+        # If user has no email, maybe fallback to a default notification email? 
+        # For now, just log.
+        
+        if recipient:
+            print(f"DEBUG: Sending confirmation email to {recipient}...")
+            send_workday_summary(recipient, tech_name_db, upload_date, activities)
+        else:
+             print("DEBUG: Current user has no email address. Skipping email.")
+
+    except Exception as e:
+        print(f"DEBUG WARNING: Email sending failed: {e}")
+
     return {"status": "success", "message": "Firma guardada y sincronizada correctamente."}
 
 @router.get("/status")

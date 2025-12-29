@@ -29,6 +29,7 @@ dependencies:
   flutter_secure_storage: ^9.0.0
   connectivity_plus: ^5.0.2
   jwt_decoder: ^2.0.1
+  image_picker: ^1.0.7
   
   # Icons
   cupertino_icons: ^1.0.6

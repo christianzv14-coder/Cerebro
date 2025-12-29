@@ -252,3 +252,4 @@ def sync_signature_to_sheet(signature):
         print("DEBUG [SHEETS] Signature update in Bitacora DONE.")
     except Exception as e:
         print(f"ERROR [SHEETS] Signature sync failed: {e}")
+

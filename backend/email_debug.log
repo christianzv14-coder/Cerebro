@@ -1,0 +1,6 @@
+2025-12-29 11:23:05.879933: --- Starting send_plan_summary ---
+2025-12-29 11:23:05.882345: Connecting to SMTP as Christianzv14@gmail.com...
+2025-12-29 11:23:07.077404: SMTP Login Success
+2025-12-29 11:23:07.079916: Target Email: Christianzv14@gmail.com
+2025-12-29 11:23:07.092800: Stats calculated: 2 techs, 3 comunas
+2025-12-29 11:23:08.571698: Plan Summary Email sent successfully to Christianzv14@gmail.com

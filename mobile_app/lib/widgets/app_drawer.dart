@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import '../screens/home_screen.dart';
 import '../screens/history_screen.dart';
 import '../screens/points_screen.dart';
+import '../screens/expense_entry_screen.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -52,6 +53,16 @@ class AppDrawer extends StatelessWidget {
               Navigator.pop(context);
               Navigator.pushReplacement(context,
                   MaterialPageRoute(builder: (_) => const PointsScreen()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.attach_money),
+            title: const Text('Ingresar Gasto'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                  context, // Push (don't replace) so they can go back
+                  MaterialPageRoute(builder: (_) => ExpenseEntryScreen()));
             },
           ),
           const Divider(),

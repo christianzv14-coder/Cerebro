@@ -14,8 +14,12 @@ def process_excel_upload(file: IO, db: Session):
     try:
         df = pd.read_excel(file)
         with open("upload_debug.log", "a") as f:
+            f.write(f"DataFrame Shape: {df.shape} (Rows, Cols)\n")
             f.write(f"Columns found: {list(df.columns)}\n")
             f.write(f"First row: {df.iloc[0].to_dict() if not df.empty else 'EMPTY'}\n")
+            # Log all Ticket IDs to see what we got
+            if 'ticket_id' in df.columns:
+                 f.write(f"Ticket IDs in file: {df['ticket_id'].tolist()}\n")
     except Exception as e:
         with open("upload_debug.log", "a") as f:
             f.write(f"ERROR reading excel: {e}\n")
@@ -86,8 +90,19 @@ def process_excel_upload(file: IO, db: Session):
             fecha_val = date.today()
         
         # Ensure User exists (Auto-provisioning for MVP)
+        # CASE-INSENSITIVE LOOKUP:
+        # 1. Try exact match
         user = db.query(User).filter(User.tecnico_nombre == tecnico_nombre).first()
+        
+        # 2. If not found, try case-insensitive match from all users (slow but safe for small MVP)
         if not user:
+            all_users = db.query(User).all()
+            user = next((u for u in all_users if u.tecnico_nombre.strip().lower() == tecnico_nombre.lower()), None)
+            
+        if user:
+            # Use the existing user's casing for the Activity to ensure FK consistency
+            tecnico_nombre = user.tecnico_nombre
+        else:
             # Create dummy user to satisfy FK
             # Password default: "123456" for new techs
             new_user = User(
@@ -104,6 +119,8 @@ def process_excel_upload(file: IO, db: Session):
             db.add(new_user)
             db.commit()
             db.refresh(new_user)
+            # Ensure we use the freshly created name (though likely same)
+            tecnico_nombre = new_user.tecnico_nombre
 
         # Merge Logic
         activity = db.query(Activity).filter(Activity.ticket_id == ticket_id).first()
@@ -184,12 +201,25 @@ def process_excel_upload(file: IO, db: Session):
         "updated": updated_count
     }
 
-    # Send Email Summary (DISABLED due to Railway Port Blocking)
-    # try:
-    #     from app.services.email_service import send_plan_summary
-    #     # Pass stats and the ORIGINAL DataFrame (df) to calculate breakdowns
-    #     send_plan_summary(stats, df)
-    # except Exception as e:
-    #     print(f"DEBUG: Failed to trigger email summary: {e}")
+    # Send Email Summary
+    try:
+        with open("upload_debug.log", "a") as f:
+            f.write("Attempting to import email_service...\n")
+            
+        from app.services.email_service import send_plan_summary
+        
+        with open("upload_debug.log", "a") as f:
+            f.write("Calling send_plan_summary...\n")
+            
+        # Pass stats and the ORIGINAL DataFrame (df) to calculate breakdowns
+        send_plan_summary(stats, df)
+        
+        with open("upload_debug.log", "a") as f:
+            f.write("Returned from send_plan_summary.\n")
+            
+    except Exception as e:
+        with open("upload_debug.log", "a") as f:
+            f.write(f"DEBUG: Failed to trigger email summary: {e}\n")
+        print(f"DEBUG: Failed to trigger email summary: {e}")
     
     return stats

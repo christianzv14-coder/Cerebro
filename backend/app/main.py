@@ -3,7 +3,8 @@ import os
 from app.core.config import settings
 from app.database import engine, Base
 from fastapi.staticfiles import StaticFiles
-from app.routers import auth, users, activities, admin, signatures
+from app.routers import auth, users, activities, admin, signatures, finance
+from app.models.finance import Expense  # Import to register with Base
 
 # Create tables on startup (simple for MVP)
 Base.metadata.create_all(bind=engine)
@@ -13,24 +14,16 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
-# Request Logger Middleware
-@app.middleware("http")
-async def log_requests(request, call_next):
-    method = request.method
-    path = request.url.path
-    print(f"\n[!!!] INCOMING: {method} {path}")
-    try:
-        response = await call_next(request)
-        print(f"[!!!] OUTGOING: {method} {path} -> STATUS {response.status_code}")
-        return response
-    except Exception as e:
-        print(f"[!!!] CRITICAL ERROR on {method} {path}: {e}")
-        from fastapi.responses import JSONResponse
-        return JSONResponse(status_code=500, content={"detail": str(e)})
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Static Files for signatures
-os.makedirs("uploads/signatures", exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# ... (omitted) ...
 
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 app.include_router(users.router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])

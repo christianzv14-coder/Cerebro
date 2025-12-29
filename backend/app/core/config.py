@@ -15,6 +15,13 @@ class Settings(BaseSettings):
     GOOGLE_SHEETS_CREDENTIALS_JSON: str = ""
     GOOGLE_SHEET_ID: str = ""
 
+    # Email (SMTP)
+    SMTP_SERVER: str = "smtp.gmail.com"
+    SMTP_PORT: int = 465
+    SMTP_USER: str = ""
+    SMTP_PASS: str = ""
+    SMTP_TO: str = ""
+
     model_config = SettingsConfigDict(env_file=".env", env_ignore_empty=True, extra="ignore")
 
 settings = Settings()
