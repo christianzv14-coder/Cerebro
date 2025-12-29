@@ -96,17 +96,24 @@ def process_excel_upload(file: IO, db: Session):
         
         # 2. If not found, try case-insensitive match from all users (slow but safe for small MVP)
         if not user:
+            import unicodedata
+            def normalize_str(s):
+                return unicodedata.normalize('NFKD', s).encode('ASCII', 'ignore').decode('utf-8').lower()
+            
+            clean_input = normalize_str(tecnico_nombre)
             all_users = db.query(User).all()
-            user = next((u for u in all_users if u.tecnico_nombre.strip().lower() == tecnico_nombre.lower()), None)
+            # robust match: normalize both DB name and Input name
+            user = next((u for u in all_users if normalize_str(u.tecnico_nombre) == clean_input), None)
             
         if user:
-            # Use the existing user's casing for the Activity to ensure FK consistency
+            # Match found! Use the DB's official casing/accent
             tecnico_nombre = user.tecnico_nombre
         else:
             # Create dummy user to satisfy FK
-            # Password default: "123456" for new techs
+            # But try to check if we can salvage email 
+            clean_tech_name = tecnico_nombre.replace(" ", "_").lower()
             new_user = User(
-                email=f"{tecnico_nombre.replace(' ', '.').lower()}@cerebro.com", # Mock email
+                email=f"{clean_tech_name}@cerebro.com", # Mock email
                 tecnico_nombre=tecnico_nombre,
                 hashed_password=get_password_hash("123456"),
                 role=Role.TECH
