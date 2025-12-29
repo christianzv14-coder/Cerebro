@@ -48,76 +48,141 @@ def send_workday_summary(to_email: str, tech_name: str, workday_date: date, acti
     msg = MIMEMultipart()
     msg['From'] = os.getenv("SMTP_USER")
     msg['To'] = to_email
-    msg['Subject'] = f"Resumen Jornada Laboral - {tech_name} - {workday_date}"
+    msg['Subject'] = f"Cierre de Jornada - {tech_name} - {workday_date}"
 
-    # Generate HTML content
+    # Calculate basic KPIs
+    total = len(activities)
+    completed = sum(1 for a in activities if a.estado.value == 'EXITOSO')
+    failed = sum(1 for a in activities if a.estado.value == 'FALLIDO')
+    
+    # Colors
+    c_primary = "#1a365d" # Dark Blue Header
+    c_bg_light = "#f4f7f6"
+    c_card_blue_text = "#1565c0"
+    c_card_blue_bg = "#e3f2fd"
+    c_card_green_text = "#2e7d32"
+    c_card_green_bg = "#e8f5e9"
+    c_card_red_text = "#c62828"
+    c_card_red_bg = "#ffebee"
+
     html_content = f"""
     <html>
     <head>
         <style>
-            table {{ border-collapse: collapse; width: 100%; }}
-            th, td {{ border: 1px solid #dddddd; text-align: left; padding: 8px; }}
-            th {{ background-color: #f2f2f2; }}
-            .header {{ font-family: Arial, sans-serif; }}
+            body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: {c_bg_light}; margin: 0; padding: 0; }}
+            .container {{ max-width: 800px; margin: 0 auto; background-color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-family: 'Segoe UI', sans-serif; }}
+            .header {{ background-color: {c_primary}; color: white; padding: 30px 40px; text-align: center; }}
+            .header h1 {{ margin: 0; font-size: 24px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }}
+            .header p {{ margin: 10px 0 0; opacity: 0.8; font-size: 14px; }}
+            
+            .kpi-number {{ font-size: 32px; font-weight: bold; margin: 0; }}
+            .kpi-label {{ font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-top: 5px; font-weight: 600; }}
+            
+            .content {{ padding: 20px; }}
+            .tech-section {{ margin-bottom: 30px; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; }}
+            .tech-header {{ background-color: #f1f5f9; padding: 15px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; }}
+            .tech-name {{ font-weight: 700; color: #333; font-size: 16px; margin-right: 10px; }}
+            .tech-badge {{ background-color: #1976d2; color: white; border-radius: 12px; padding: 2px 10px; font-size: 12px; font-weight: 600; }}
+            
+            .task-table {{ width: 100%; border-collapse: collapse; }}
+            .task-table th {{ text-align: left; padding: 12px; color: #888; font-size: 12px; font-weight: 600; border-bottom: 1px solid #eee; }}
+            .task-table td {{ padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; color: #444; vertical-align: top; }}
+            .task-table tr:last-child td {{ border-bottom: none; }}
+            
+            .ticket-id {{ font-weight: 600; color: #1a365d; }}
+            .footer {{ background-color: #f8f9fa; padding: 20px; text-align: center; color: #888; font-size: 12px; border-top: 1px solid #eee; }}
         </style>
     </head>
-    <body class="header">
-        <h2>Confirmación de Jornada Laboral</h2>
-        <p><strong>Técnico:</strong> {tech_name}</p>
-        <p><strong>Fecha:</strong> {workday_date}</p>
-        <p>Se ha registrado exitosamente su firma para la jornada.</p>
-        
-        <h3>Detalle de Actividades</h3>
-        <table>
-            <tr>
-                <th>Técnico</th>
-                <th>Hora Inicio</th>
-                <th>Hora Fin</th>
-                <th>Cliente</th>
-                <th>Tipo Trabajo</th>
-                <th>Estado</th>
-                <th>Resultado</th>
-            </tr>
+    <body>
+        <div class="container">
+            <!-- Header -->
+            <div class="header">
+                <h1>Reporte de Cierre Diario</h1>
+                <p>CONFIRMACIÓN DE JORNADA | {workday_date.strftime('%d-%m-%Y')}</p>
+                <p style="font-size: 16px; margin-top: 5px;">Técnico: <strong>{tech_name}</strong></p>
+            </div>
+            
+            <!-- Cards -->
+            <table width="100%" cellpadding="0" cellspacing="10" style="padding: 10px;">
+                <tr>
+                    <td width="33%" style="background-color: {c_card_blue_bg}; border-radius: 8px; padding: 20px; text-align: center;">
+                        <div class="kpi-number" style="color: {c_card_blue_text};">{total}</div>
+                        <div class="kpi-label" style="color: {c_card_blue_text};">TOTAL TAREAS</div>
+                    </td>
+                    <td width="33%" style="background-color: {c_card_green_bg}; border-radius: 8px; padding: 20px; text-align: center;">
+                        <div class="kpi-number" style="color: {c_card_green_text};">{completed}</div>
+                        <div class="kpi-label" style="color: {c_card_green_text};">EXITOSAS</div>
+                    </td>
+                    <td width="33%" style="background-color: {c_card_red_bg}; border-radius: 8px; padding: 20px; text-align: center;">
+                        <div class="kpi-number" style="color: {c_card_red_text};">{failed}</div>
+                        <div class="kpi-label" style="color: {c_card_red_text};">FALLIDAS</div>
+                    </td>
+                </tr>
+            </table>
+
+            <div class="content">
+                <div class="tech-section">
+                    <div class="tech-header">
+                        <span class="tech-name">Detalle de Actividades</span>
+                    </div>
+                    <table class="task-table">
+                        <thead>
+                            <tr>
+                                <th width="15%">HORA</th>
+                                <th width="25%">CLIENTE</th>
+                                <th width="20%">TIPO</th>
+                                <th width="20%">ESTADO</th>
+                                <th width="20%">RESULTADO</th>
+                            </tr>
+                        </thead>
+                        <tbody>
     """
     
     if not activities:
-        html_content += "<tr><td colspan='7'>No hay actividades registradas para este día.</td></tr>"
+        html_content += "<tr><td colspan='5' style='text-align:center; padding:20px;'>No hay actividades registradas.</td></tr>"
     else:
         for act in activities:
             start = act.hora_inicio.strftime("%H:%M") if act.hora_inicio else "-"
-            end = act.hora_fin.strftime("%H:%M") if act.hora_fin else "-"
+            # end = act.hora_fin.strftime("%H:%M") if act.hora_fin else "-" # Not showing end time to save space
             reason = act.resultado_motivo if act.resultado_motivo else "-"
-            # Fallback if tecnico_nombre is not on the object (e.g. legacy or mock), though it should be.
-            # actually tech_name is passed to the function, so we can use that if act.tecnico_nombre is missing?
-            # But Activity model has tecnico_nombre. Let's use act.tecnico_nombre if valid, else tech_name.
-            t_name = getattr(act, 'tecnico_nombre', tech_name)
+            
+            # Status Color
+            status_color = "#555"
+            if act.estado.value == 'EXITOSO': status_color = "green"
+            elif act.estado.value == 'FALLIDO': status_color = "red"
             
             html_content += f"""
             <tr>
-                <td>{t_name}</td>
                 <td>{start}</td>
-                <td>{end}</td>
                 <td>{act.cliente}</td>
                 <td>{act.tipo_trabajo}</td>
-                <td>{act.estado.value}</td>
+                <td><span style="color: {status_color}; font-weight: bold;">{act.estado.value}</span></td>
                 <td>{reason}</td>
             </tr>
             """
 
     html_content += """
-        </table>
-        <br>
-        <p>Este correo ha sido generado automáticamente por el sistema Cerebro.</p>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="footer">
+                <p>Generado automáticamente por CEREBRO SYSTEM</p>
+            </div>
+        </div>
     </body>
     </html>
     """
 
     msg.attach(MIMEText(html_content, 'html'))
-
+    
     try:
         server.send_message(msg)
-        print(f"Email sent successfully to {to_email}")
+        _log_debug(f"Workday Summary Email sent successfully to {to_email}")
+        print(f"Workday Summary Email sent successfully to {to_email}")
     except Exception as e:
+        _log_debug(f"Failed to send email: {e}")
         print(f"Failed to send email: {e}")
     finally:
         server.quit()
