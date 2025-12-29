@@ -1,7 +1,7 @@
 import os
 import uuid
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.models import DaySignature, User
@@ -26,11 +26,12 @@ class SignatureUpload(BaseModel):
 @router.post("/")
 async def upload_signature_json(
     upload_data: SignatureUpload,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Main endpoint for Mobile App (Base64)."""
-    return await _process_signature_upload(db, current_user, base64_str=upload_data.image_base64, fecha=upload_data.fecha)
+    return await _process_signature_upload(db, current_user, background_tasks, base64_str=upload_data.image_base64, fecha=upload_data.fecha)
 
 @router.post("/file")
 async def upload_signature_file(
@@ -49,7 +50,7 @@ async def ping_signatures():
     print("\n[!!!] SIGNATURES PING RECEIVED")
     return {"status": "ok", "message": "Signature API is reachable"}
 
-async def _process_signature_upload(db, current_user, base64_str=None, file=None, fecha: Optional[date] = None):
+async def _process_signature_upload(db, current_user, background_tasks: BackgroundTasks = None, base64_str=None, file=None, fecha: Optional[date] = None):
     # If a specific Plan Date is provided (e.g. from App viewing yesterday's plan), use it.
     # Otherwise default to today (legacy behavior).
     upload_date = fecha if fecha else date.today()
@@ -111,18 +112,15 @@ async def _process_signature_upload(db, current_user, base64_str=None, file=None
         print(f"DEBUG: DB Insert failed: {e}")
         raise HTTPException(status_code=500, detail="Error al registrar en BD.")
     
-    # 5. Sync to Sheets
+    
+    # 5. Sync to Sheets (Keep sync for now, it's usually fast enough or we can background it too?)
+    # Sheets is critical for data consistency, but email is notification. Let's background the email.
     try:
         sync_signature_to_sheet(new_sig)
     except Exception as e:
         print(f"DEBUG WARNING: Sheets sync failed: {e}")
-        # preventing return here to allow email to attempt? No, usually we return success if local save worked.
-        # But let's just log and continue to email if Sheets fails?
-        # The original code returned early on Sheets error. I should probably keep that or decide if Email is more important.
-        # Let's simple insert the email logic BEFORE the final return, independent of Sheets success? 
-        # Actually, if sheets fails, we might still want to email.
-    
-    # 6. Send Email Confirmation
+
+    # 6. Send Email Confirmation (BACKGROUND TASK)
     try:
         activities = db.query(Activity).filter(
             Activity.tecnico_nombre == tech_name_db,
@@ -131,7 +129,10 @@ async def _process_signature_upload(db, current_user, base64_str=None, file=None
         
         recipient = current_user.email
         
-        # Fallback if user email is missing or invalid
+        # Fallback Logic (moved to helper or inline for background task)
+        # We need to resolve the recipient BEFORE passing to background task, or inside?
+        # Better to resolve here to pass clean args.
+        
         if not recipient or "@" not in recipient:
              import os
              fallback = os.getenv("SMTP_TO", os.getenv("SMTP_USER"))
@@ -139,20 +140,16 @@ async def _process_signature_upload(db, current_user, base64_str=None, file=None
              recipient = fallback
 
         if recipient:
-            print(f"DEBUG: Sending confirmation email to {recipient} via Port 465 SSL...")
-            # We wrap this in a try/except specifically for the send call to separate it from the outer block
-            try:
-                send_workday_summary(recipient, tech_name_db, upload_date, activities)
-                print("DEBUG: Email send function returned.")
-            except Exception as e:
-                 print(f"DEBUG ERROR: send_workday_summary crashed: {e}")
+            print(f"DEBUG: Queuing confirmation email to {recipient}...")
+            # Use BackgroundTasks
+            background_tasks.add_task(send_workday_summary, recipient, tech_name_db, upload_date, activities)
         else:
-             print("DEBUG: No recipient email found (User empty and no SMTP_TO fallback). Skipping.")
+             print("DEBUG: No recipient email found. Skipping email queue.")
 
     except Exception as e:
-        print(f"DEBUG WARNING: Email logic block failed: {e}")
+        print(f"DEBUG WARNING: Email queuing failed: {e}")
 
-    return {"status": "success", "message": "Firma guardada y sincronizada correctamente."}
+    return {"status": "success", "message": "Firma guardada. Correo en cola."}
 
 @router.get("/status")
 def get_signature_status(
