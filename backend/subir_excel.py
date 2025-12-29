@@ -5,6 +5,7 @@ import os
 # Configuración
 # Configuración
 # BASE_URL = "http://127.0.0.1:8000/api/v1" # LOCALHOST
+# BASE_URL = "http://127.0.0.1:8001/api/v1" # LOCALHOST DEBUG PORT
 BASE_URL = "https://cozy-smile-production.up.railway.app/api/v1" # RAILWAY PROD
 ADMIN_EMAIL = "admin@cerebro.com"
 ADMIN_PASS = "123456"
