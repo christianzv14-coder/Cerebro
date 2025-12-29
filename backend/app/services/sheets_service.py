@@ -177,7 +177,7 @@ def sync_activity_to_sheet(activity):
     except Exception as e:
         print(f"ERROR [SHEETS] Activity sync failed: {e}")
 
-def sync_signature_to_sheet(signature):
+def sync_signature_to_sheet(signature, user_email=None):
     print(f"\n>>> [SHEETS START] Syncing signature for {signature.tecnico_nombre}...")
     try:
         sheet = get_sheet()
@@ -192,11 +192,12 @@ def sync_signature_to_sheet(signature):
         try:
             ws_firmas = sheet.worksheet(firmas_title)
         except gspread.WorksheetNotFound:
-            ws_firmas = sheet.add_worksheet(title=firmas_title, rows=1000, cols=5)
-            ws_firmas.append_row(["Fecha", "Tecnico", "Timestamp", "Referencia Firma"])
+            ws_firmas = sheet.add_worksheet(title=firmas_title, rows=1000, cols=6)
+            ws_firmas.append_row(["Fecha", "Tecnico", "Timestamp", "Referencia Firma", "Email", "Estado Email"])
         
-        ws_firmas.append_row([today_iso, signature.tecnico_nombre, str(signature.timestamp), signature.signature_ref])
-        print(f"DEBUG [SHEETS] Signature appended to '{firmas_title}'")
+        # Write Email to Column 5
+        ws_firmas.append_row([today_iso, signature.tecnico_nombre, str(signature.timestamp), signature.signature_ref, user_email or "", "PENDIENTE"])
+        print(f"DEBUG [SHEETS] Signature appended to '{firmas_title}' with email '{user_email}'")
 
         # 2. Update Bitacora 'Firmado' column
         bitacora_title = f"Bitacora {year}"

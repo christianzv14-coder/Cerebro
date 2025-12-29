@@ -113,13 +113,6 @@ async def _process_signature_upload(db, current_user, background_tasks: Backgrou
         raise HTTPException(status_code=500, detail="Error al registrar en BD.")
     
     
-    # 5. Sync to Sheets (Keep sync for now, it's usually fast enough or we can background it too?)
-    # Sheets is critical for data consistency, but email is notification. Let's background the email.
-    try:
-        sync_signature_to_sheet(new_sig)
-    except Exception as e:
-        print(f"DEBUG WARNING: Sheets sync failed: {e}")
-
     # 6. Send Email Confirmation (BACKGROUND TASK)
     try:
         activities = db.query(Activity).filter(
@@ -129,15 +122,18 @@ async def _process_signature_upload(db, current_user, background_tasks: Backgrou
         
         recipient = current_user.email
         
-        # Fallback Logic (moved to helper or inline for background task)
-        # We need to resolve the recipient BEFORE passing to background task, or inside?
-        # Better to resolve here to pass clean args.
-        
         if not recipient or "@" not in recipient:
              # os is already imported globally
              fallback = os.getenv("SMTP_TO", os.getenv("SMTP_USER"))
              print(f"DEBUG: User {tech_name_db} has invalid email '{recipient}'. Using fallback: {fallback}")
              recipient = fallback
+
+        # 5. Sync to Sheets (Now with Email)
+        try:
+             # Ensure we pass the resolved recipient
+             sync_signature_to_sheet(new_sig, recipient)
+        except Exception as e:
+            print(f"DEBUG WARNING: Sheets sync failed: {e}")
 
         if recipient:
             print(f"DEBUG: Queuing confirmation email to {recipient}...")
