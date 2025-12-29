@@ -35,6 +35,89 @@ def upload_planification(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
+@router.get("/debug_full_system")
+def debug_full_system(db: Session = Depends(get_db)):
+    """
+    Runs a complete diagnostic of the server's ability to send emails.
+    """
+    import socket
+    import smtplib
+    import os
+    import sys
+    from io import StringIO
+    
+    report = {
+        "env_vars": {
+            "SMTP_USER_SET": bool(os.getenv("SMTP_USER")),
+            "SMTP_PASS_SET": bool(os.getenv("SMTP_PASS")),
+            "SMTP_TO_SET": bool(os.getenv("SMTP_TO")),
+            "SMTP_USER_LEN": len(os.getenv("SMTP_USER", "")),
+            "SMTP_PASS_LEN": len(os.getenv("SMTP_PASS", "")),
+            "SMTP_HOST": os.getenv("SMTP_HOST", "NOT_SET"),
+            "SMTP_PORT": os.getenv("SMTP_PORT", "NOT_SET")
+        },
+        "network": {},
+        "smtp_handshake": "Not Run"
+    }
+    
+    smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    smtp_port = int(os.getenv("SMTP_PORT", 587))
+
+    # 1. Network / DNS
+    try:
+        ip = socket.gethostbyname(smtp_host)
+        report["network"]["dns"] = f"OK -> {ip}"
+    except Exception as e:
+        report["network"]["dns"] = f"FAIL: {e}"
+        return report
+
+    # 2. Port Check
+    try:
+        sock = socket.create_connection((smtp_host, smtp_port), timeout=5)
+        report["network"][f"port_{smtp_port}"] = "OPEN"
+        sock.close()
+    except Exception as e:
+        report["network"][f"port_{smtp_port}"] = f"CLOSED/TIMEOUT: {e}"
+        # If port blocked, return early
+        return report
+
+    # 3. SMTP Conversation Capture
+    log_capture = StringIO()
+    try:
+        server = smtplib.SMTP(smtp_host, smtp_port, timeout=10)
+        server.set_debuglevel(1)
+        # Redirect stderr to capture debug output
+        original_stderr = sys.stderr
+        sys.stderr = log_capture
+        
+        server.starttls()
+        user = os.getenv("SMTP_USER")
+        password = os.getenv("SMTP_PASS")
+        
+        login_resp = "Skipped (No Auth)"
+        if user and password:
+            try:
+                server.login(user, password)
+                login_resp = "Login SUCCESS"
+                
+                # Try sending a test email to self
+                to_addr = os.getenv("SMTP_TO", user)
+                msg = f"Subject: CEREBRO PROD DIAGNOSTIC\n\nDiagnostic Email Test from {socket.gethostname()}"
+                server.sendmail(user, to_addr, msg)
+                report["email_send_attempt"] = "SUCCESS (Accepted by Server)"
+            except Exception as login_err:
+                login_resp = f"Login FAILED: {login_err}"
+        
+        server.quit()
+        report["smtp_handshake"] = login_resp
+        
+    except Exception as e:
+        report["smtp_handshake"] = f"Handshake CRASHED: {e}"
+    finally:
+        sys.stderr = original_stderr
+        report["smtp_log"] = log_capture.getvalue()
+        
+    return report
 @router.get("/test_email")
 def test_email_configuration(
     db: Session = Depends(get_db)
