@@ -253,3 +253,8 @@ def sync_signature_to_sheet(signature):
     except Exception as e:
         print(f"ERROR [SHEETS] Signature sync failed: {e}")
 
+def sync_expense_to_sheet(expense, tech_name):
+    print(f"DEBUG [SHEETS] Syncing expense (STUB): {expense.concept} - {expense.amount}")
+    # TODO: Implement actual sheet sync for expenses
+    pass
+
