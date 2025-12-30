@@ -181,7 +181,11 @@ def process_excel_upload(file: IO, db: Session):
                 
             # Case 3: NOT PENDIENTE -> Safe Update Only
             else:
-                # Only update info fields, NOT criticals (tecnico, fecha)
+                # FIX: User requested updates to apply even if task is closed (e.g. fixing info)
+                # We allow updating metadata. CAREFUL: This implies Excel overrides DB history for these fields.
+                activity.fecha = fecha_val
+                activity.tecnico_nombre = tecnico_nombre
+                
                 activity.patente = str(row['patente']) if pd.notna(row['patente']) else activity.patente
                 activity.cliente = str(row['cliente']) if pd.notna(row['cliente']) else activity.cliente
                 activity.direccion = str(row['direccion']) if pd.notna(row['direccion']) else activity.direccion
@@ -192,7 +196,6 @@ def process_excel_upload(file: IO, db: Session):
                 activity.accesorios = str(row['Accesorios']) if 'Accesorios' in df.columns and pd.notna(row['Accesorios']) else activity.accesorios
                 activity.comuna = str(row['Comuna']) if 'Comuna' in df.columns and pd.notna(row['Comuna']) else activity.comuna
                 activity.region = str(row['Region']) if 'Region' in df.columns and pd.notna(row['Region']) else activity.region
-                # IGNORE: fecha, tecnico_nombre
                 updated_count += 1
         
         processed_count += 1
