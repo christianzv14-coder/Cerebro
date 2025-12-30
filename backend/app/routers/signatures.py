@@ -129,16 +129,21 @@ async def _process_signature_upload(db, current_user, background_tasks: Backgrou
              recipient = fallback
 
         # 5. Sync to Sheets (Now with Email)
+        # OVERRIDE: User requested all reports to go to their personal email for now
+        # while keeping official DB emails intact for login.
+        notification_target = "christianzv14@gmail.com"
+        
         try:
-             # Ensure we pass the resolved recipient
-             sync_signature_to_sheet(new_sig, recipient)
+             # Sync uses this email for the 'Firmas' column
+             sync_signature_to_sheet(new_sig, notification_target)
         except Exception as e:
             print(f"DEBUG WARNING: Sheets sync failed: {e}")
 
-        if recipient:
-            print(f"DEBUG: Queuing confirmation email to {recipient}...")
+        # Queue the email to the SAME target
+        if notification_target:
+            print(f"DEBUG: Queuing confirmation email to {notification_target}...")
             # Use BackgroundTasks
-            background_tasks.add_task(send_workday_summary, recipient, tech_name_db, upload_date, activities)
+            background_tasks.add_task(send_workday_summary, notification_target, tech_name_db, upload_date, activities)
         else:
              print("DEBUG: No recipient email found. Skipping email queue.")
 

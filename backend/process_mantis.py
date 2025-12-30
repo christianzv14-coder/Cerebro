@@ -85,7 +85,26 @@ def automator():
                 df_renamed[col] = "" 
                 selected_cols.append(col)
                 
-        final_df = df_renamed[selected_cols]
+        final_df = df_renamed[selected_cols].copy()
+
+        # --- NEW LOGIC: SPLIT ACCESSORIES ---
+        if "Accesorios" in final_df.columns:
+            # 1. Split into a temporary DataFrame
+            # Fill NaN with empty string, then split by comma
+            accessories_split = final_df["Accesorios"].fillna("").astype(str).str.split(',', expand=True)
+            
+            # 2. Rename columns to "Accesorio 1", "Accesorio 2", etc.
+            # accessories_split.columns is 0, 1, 2...
+            num_columns = len(accessories_split.columns)
+            new_col_names = [f"Accesorio {i+1}" for i in range(num_columns)]
+            accessories_split.columns = new_col_names
+            
+            # 3. Join with original DataFrame
+            # We want these new columns at the end
+            final_df = pd.concat([final_df, accessories_split], axis=1)
+            
+            print(f"Split 'Accesorios' into {num_columns} extra columns: {new_col_names}")
+        # ------------------------------------
         
         # 4. Save
         final_df.to_excel(output_file, index=False)

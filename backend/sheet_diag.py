@@ -19,20 +19,9 @@ def diagnose_all():
             
             print(f"🕒 SERVER DATE: {date.today()}")
             
-            print("\n--- BASE DE DATOS: Users ---")
-            db = SessionLocal()
-            users = db.query(User).all()
-            for u in users:
-                print(f"ID: {u.id} | Email: {u.email} | Nombre: '{u.tecnico_nombre}' | Role: {u.role}")
 
-            print("\n--- BASE DE DATOS: DaySignatures ---")
-            sigs = db.query(DaySignature).all()
-            if not sigs:
-                print("LA TABLA DaySignatures ESTÁ VACÍA.")
-            for s in sigs:
-                print(f"ID: {s.id} | Tech: '{s.tecnico_nombre}' | Fecha: {s.fecha} | Ref: {s.signature_ref}")
-            db.close()
-
+            print("\n--- BASE DE DATOS (Skipped to avoid Lock) ---")
+            
             print("\n🔍 DIAGNÓSTICO DE GOOGLE SHEETS")
             sheet = get_sheet()
             if not sheet:

@@ -38,17 +38,49 @@ def send_local_email(ruta_excel, stats):
 
         df = pd.read_excel(ruta_excel)
         
-        # Calculate Tech Stats
-        tech_counts = {}
-        if 'tecnico_nombre' in df.columns:
-            tech_counts = df['tecnico_nombre'].value_counts().to_dict()
+        # 1. Identify Columns (Robust Search)
+        headers = [c.lower().strip() for c in df.columns]
+        col_map = {"tecnico": None, "actividad": None, "cliente": None}
+        
+        # Mapping variants
+        variants = {
+            "tecnico": ["tecnico_nombre", "tecnico", "técnico", "nombre tecnico"],
+            "actividad": ["tipo_trabajo", "actividad", "tipo trabajo", "tarea"],
+            "cliente": ["cliente", "nombre_cliente", "client"]
+        }
+        
+        for key, possible_names in variants.items():
+            for name in possible_names:
+                if name in headers:
+                    # Find original casing
+                    col_map[key] = df.columns[headers.index(name)]
+                    break
+        
+        # 2. Build Data Structure
+        tech_data = {} # { "Juan": [ {"actividad": "...", "cliente": "..."}, ... ] }
+        
+        if col_map["tecnico"]:
+            # Fill NaN with empty strings to avoid errors
+            df = df.fillna("")
+            
+            for index, row in df.iterrows():
+                tech = str(row[col_map["tecnico"]]).strip()
+                if not tech: continue
+                
+                act = row[col_map["actividad"]] if col_map["actividad"] else "N/A"
+                cli = row[col_map["cliente"]] if col_map["cliente"] else "N/A"
+                
+                if tech not in tech_data:
+                    tech_data[tech] = []
+                
+                tech_data[tech].append({"actividad": act, "cliente": cli})
 
         msg = MIMEMultipart()
         msg['From'] = user
         msg['To'] = to_email
         msg['Subject'] = f"Resumen Planificación - {date.today()} (Local)"
         
-        # Professional HTML Template
+        # 3. Build HTML
         html = f"""
         <html>
         <body style="font-family: 'Segoe UI', Arial, sans-serif; background-color: #f4f7f6; padding: 20px;">
@@ -68,26 +100,36 @@ def send_local_email(ruta_excel, stats):
                             <div style="font-size: 24px; font-weight: bold; color: #2e7d32;">{stats.get('created', 0)}</div>
                             <div style="font-size: 11px; font-weight: bold; color: #2e7d32;">NUEVAS</div>
                         </div>
-                        <div style="flex: 1; background: #fff3e0; padding: 15px; border-radius: 6px; text-align: center;">
-                            <div style="font-size: 24px; font-weight: bold; color: #ef6c00;">{stats.get('updated', 0)}</div>
-                            <div style="font-size: 11px; font-weight: bold; color: #ef6c00;">ACTUALIZADAS</div>
-                        </div>
                     </div>
 
                     <h3 style="border-bottom: 2px solid #eee; padding-bottom: 10px; color: #333;">Detalle por Técnico</h3>
-                    <table style="width: 100%; border-collapse: collapse;">
         """
         
-        for tech, count in tech_counts.items():
-            html += f"""
-                        <tr>
-                            <td style="padding: 10px; border-bottom: 1px solid #eee;">{tech}</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #eee; font-weight: bold; text-align: right;">{count}</td>
-                        </tr>
-            """
+        if not tech_data:
+            html += "<p style='color: #666;'>No se encontraron técnicos en el archivo.</p>"
+        else:
+            for tech, activities in tech_data.items():
+                html += f"""
+                    <div style="margin-bottom: 20px;">
+                        <div style="background-color: #f8f9fa; padding: 10px; border-left: 4px solid #1a365d; font-weight: bold; color: #2c3e50;">
+                            {tech} <span style="font-weight: normal; font-size: 12px; color: #666;">({len(activities)} tareas)</span>
+                        </div>
+                        <table style="width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 13px;">
+                            <tr style="background-color: #eee; color: #555;">
+                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #ddd;">Actividad</th>
+                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #ddd;">Cliente</th>
+                            </tr>
+                """
+                for item in activities:
+                    html += f"""
+                            <tr>
+                                <td style="padding: 8px; border-bottom: 1px solid #eee;">{item['actividad']}</td>
+                                <td style="padding: 8px; border-bottom: 1px solid #eee; color: #555;">{item['cliente']}</td>
+                            </tr>
+                    """
+                html += "</table></div>"
             
         html += """
-                    </table>
                 </div>
                 <div style="background-color: #f8f9fa; padding: 15px; text-align: center; color: #888; font-size: 12px;">
                     Enviado desde PC Local (Script Seguro)
@@ -105,7 +147,7 @@ def send_local_email(ruta_excel, stats):
         server.login(user, password)
         server.send_message(msg)
         server.quit()
-        print("✅ Email enviado exitosamente.")
+        print("✅ Email detallado enviado exitosamente.")
         
     except Exception as e:
         print(f"⚠️ Error enviando email: {e}")

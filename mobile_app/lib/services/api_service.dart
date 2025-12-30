@@ -195,59 +195,18 @@ class ApiService {
     }
   }
 
-  Future<void> createExpense({
-    required int amount,
-    required String concept,
-    required String category,
-    String? imagePath,
-  }) async {
+  Future<Map<String, dynamic>?> fetchMyScores() async {
     final token = await getToken();
-    final uri = Uri.parse('$baseUrl/expenses/');
+    final response = await http.get(
+      Uri.parse('$baseUrl/users/me/scores'),
+      headers: {'Authorization': 'Bearer $token'},
+    ).timeout(const Duration(seconds: 10));
 
-    debugPrint('DEBUG: [API] Subiendo gasto: $concept ($amount)');
-
-    if (imagePath != null) {
-      // Multipart Request
-      var request = http.MultipartRequest('POST', uri);
-      request.headers['Authorization'] = 'Bearer $token';
-
-      request.fields['amount'] = amount.toString();
-      request.fields['concept'] = concept;
-      request.fields['category'] = category;
-
-      request.files.add(await http.MultipartFile.fromPath('image', imagePath));
-
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        debugPrint('DEBUG: [API] Gasto con imagen subido OK');
-      } else {
-        throw Exception(
-            'Error al subir gasto: ${response.statusCode} ${response.body}');
-      }
+    if (response.statusCode == 200) {
+      return json.decode(utf8.decode(response.bodyBytes));
     } else {
-      // Form/JSON Request (Using Multipart format for consistency with backend Form parameters)
-      // Backend create_expense expects Form(...) parameters, not JSON body!
-      // So we MUST use MultipartRequest or x-www-form-urlencoded, NOT jsonEncode.
-      // MultipartRequest is safest for "Form(...)" parameters even without file.
-      var request = http.MultipartRequest('POST', uri);
-      request.headers['Authorization'] = 'Bearer $token';
-
-      request.fields['amount'] = amount.toString();
-      request.fields['concept'] = concept;
-      request.fields['category'] = category;
-      // No file added
-
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        debugPrint('DEBUG: [API] Gasto subido OK');
-      } else {
-        throw Exception(
-            'Error al subir gasto: ${response.statusCode} ${response.body}');
-      }
+      debugPrint('Error fetching scores: ${response.statusCode}');
+      return null;
     }
   }
 }

@@ -1,0 +1,22 @@
+--- HEADERS FOUND ---
+0: Año
+1: Fecha Plan
+2: Fecha Cierre
+3: Ticket ID
+4: Tecnico
+5: Patente
+6: Cliente
+7: Direccion
+8: Tipo Trabajo
+9: Prioridad
+10: Accesorios
+11: Comuna
+12: Region
+13: Estado Final
+14: Motivo Fallo
+15: Hora Inicio
+16: Hora Fin
+17: Duracion Min
+18: Observacion
+19: Firmado
+---------------------

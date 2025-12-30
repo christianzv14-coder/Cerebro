@@ -259,3 +259,81 @@ def sync_expense_to_sheet(expense, tech_name):
     # TODO: Implement actual sheet sync for expenses
     pass
 
+
+def get_technician_scores(tech_name: str):
+    """
+    Retrieves score data for a specific technician from 'Puntajes' sheet.
+    Returns: dict with totals and history.
+    """
+    print(f"DEBUG [SHEETS] Fetching scores for: {tech_name}")
+    try:
+        sheet = get_sheet()
+        if not sheet: return None
+        
+        try:
+            ws = sheet.worksheet("Puntajes")
+        except:
+            print("DEBUG [SHEETS] 'Puntajes' sheet not found.")
+            return None
+            
+        all_rows = ws.get_all_values()
+        if not all_rows: return None
+        
+        headers = [h.strip().lower() for h in all_rows[0]]
+        try:
+            idx_tech = headers.index("técnico")
+            idx_date = headers.index("fecha")
+            idx_ticket = headers.index("ticket id")
+            idx_points = headers.index("puntos finales")
+            idx_money = headers.index("dinero")
+            idx_items = headers.index("items detectados")
+        except ValueError as e:
+            print(f"DEBUG [SHEETS] Missing headers in Puntajes: {e}")
+            return None
+            
+        history = []
+        total_points = 0.0
+        total_money = 0
+        
+        target_tech = tech_name.strip().lower()
+        
+        # Parse rows
+        for row in all_rows[1:]:
+            if len(row) <= idx_money: continue
+            
+            row_tech = row[idx_tech].strip().lower()
+            
+            # Loose match or exact? Usually exact from Bitacora logic.
+            if target_tech in row_tech or row_tech in target_tech:
+                try:
+                    pts = float(row[idx_points].replace(',', '.'))
+                    money = int(float(row[idx_money].replace(',', '.'))) # simple cast
+                    
+                    total_points += pts
+                    total_money += money
+                    
+                    history.append({
+                        "date": row[idx_date],
+                        "ticket_id": row[idx_ticket],
+                        "points": pts,
+                        "money": money,
+                        "items": row[idx_items]
+                    })
+                except Exception as e:
+                    print(f"DEBUG [SHEETS] Parse error row: {e}")
+                    continue
+
+        # Sort history by date desc?
+        # Date format in sheet is likely YYYY-MM-DD from update_puntajes logic
+        history.sort(key=lambda x: x["date"], reverse=True)
+
+        return {
+            "technician": tech_name,
+            "total_points": round(total_points, 2),
+            "total_money": total_money,
+            "history": history
+        }
+
+    except Exception as e:
+        print(f"ERROR [SHEETS] Get scores failed: {e}")
+        return None
