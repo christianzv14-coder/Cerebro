@@ -378,5 +378,6 @@ def send_plan_summary(stats: Dict[str, Any], df_data: Any):
     except Exception as e:
         _log_debug(f"Failed to send email: {e}")
         print(f"Failed to send email: {e}")
+        raise e # CRITICAL: Re-raise so caller knows it failed!
     finally:
         server.quit()
