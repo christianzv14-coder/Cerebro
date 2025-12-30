@@ -222,3 +222,91 @@ def fix_signatures_schema(
     except Exception as e:
         db.rollback()
         return {"status": "error", "message": str(e)}
+
+@router.post("/simulate_closure")
+def simulate_day_closure(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    DEBUG: Auto-signs for all pending techs and forces the Master Report email.
+    """
+    from datetime import date
+    from app.models.models import Activity, DaySignature
+    import pandas as pd
+    from app.services.email_service import send_plan_summary
+    
+    today = date.today()
+    
+    # 1. Identify Pending Techs
+    active_query = db.query(Activity.tecnico_nombre).filter(Activity.fecha == today).distinct().all()
+    active_techs = {r[0].strip().lower() for r in active_query if r[0]}
+    
+    signed_query = db.query(DaySignature.tecnico_nombre).filter(DaySignature.fecha == today).all()
+    signed_techs = {r[0].strip().lower() for r in signed_query if r[0]}
+    
+    pending = active_techs - signed_techs
+    
+    # 2. Auto-Sign for Pending
+    created_sigs = []
+    for tech in pending:
+        # We need the original casing for the DB? 
+        # distinct() query returns original casing.
+        # But we lowercased them for comparison.
+        # Let's find the original name from active_query
+        original_name = next((r[0] for r in active_query if r[0].strip().lower() == tech), tech)
+        
+        # Check if already signed (race condition?)
+        exists = db.query(DaySignature).filter(
+            DaySignature.tecnico_nombre == original_name,
+            DaySignature.fecha == today
+        ).first()
+        
+        if not exists:
+            new_sig = DaySignature(
+               tecnico_nombre=original_name,
+               fecha=today,
+               signature_ref="AUTO_SIMULATED_BY_ADMIN" 
+            )
+            db.add(new_sig)
+            created_sigs.append(original_name)
+    
+    if created_sigs:
+        db.commit()
+    
+    # 3. Generate Master Report
+    all_activities = db.query(Activity).filter(Activity.fecha == today).all()
+    
+    activities_data = []
+    for act in all_activities:
+        activities_data.append({
+            "tecnico_nombre": act.tecnico_nombre,
+            "ticket_id": act.ticket_id,
+            "cliente": act.cliente,
+            "tipo_trabajo": act.tipo_trabajo,
+            "direccion": act.direccion,
+            "comuna": act.comuna,
+            "estado": act.estado.value,
+            "region": act.region,
+        })
+    
+    if not activities_data:
+         return {"status": "warning", "message": "No activities found for today. No email sent."}
+
+    df_master = pd.DataFrame(activities_data)
+    
+    stats = {
+        "processed": len(activities_data),
+        "created": len([a for a in activities_data if a['estado'] == 'PENDIENTE']),
+        "updated": len([a for a in activities_data if a['estado'] != 'PENDIENTE'])
+    }
+    
+    try:
+        send_plan_summary(stats, df_master)
+        return {
+            "status": "success", 
+            "message": f"Simulated {len(created_sigs)} signatures ({', '.join(created_sigs)}). Email SENT.",
+            "pending_was": list(pending)
+        }
+    except Exception as e:
+        return {"status": "error", "message": f"Email failed: {e}"}
