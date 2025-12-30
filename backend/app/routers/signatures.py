@@ -130,9 +130,7 @@ async def _process_signature_upload(db, current_user, background_tasks: Backgrou
              recipient = fallback
 
         # 5. Sync to Sheets (Now with Email)
-        # OVERRIDE: User requested all reports to go to their personal email for now
-        # while keeping official DB emails intact for login.
-        notification_target = "christianzv14@gmail.com"
+        notification_target = recipient
         
         try:
              # Sync uses this email for the 'Firmas' column
