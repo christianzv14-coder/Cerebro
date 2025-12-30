@@ -42,7 +42,7 @@ def send_workday_summary(to_email: str, tech_name: str, workday_date: date, acti
     """
     server = _get_smtp_connection()
     if not server:
-        return
+        raise Exception("SMTP Connection Failed: Unable to connect to email server (Check Port 465/587).")
 
     msg = MIMEMultipart()
     msg['From'] = os.getenv("SMTP_USER")
@@ -194,7 +194,7 @@ def send_plan_summary(stats: Dict[str, Any], df_data: Any, to_email: str = None)
     server = _get_smtp_connection()
     if not server:
         _log_debug("Aborting send_plan_summary: No SMTP Server")
-        return
+        raise Exception("SMTP Connection Failed: Unable to connect to email server (Check Port 465/587).")
 
     # Use override or Fallback to Env
     if not to_email:
