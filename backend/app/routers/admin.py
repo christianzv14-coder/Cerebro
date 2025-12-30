@@ -223,34 +223,6 @@ def fix_signatures_schema(
         db.rollback()
         return {"status": "error", "message": str(e)}
 
-@router.get("/debug_state")
-def get_debug_state(
-    db: Session = Depends(get_db)
-):
-    from app.models.models import Activity, DaySignature
-    from datetime import date
-    
-    today = date.today()
-    
-    # 1. Active Techs
-    active_query = db.query(Activity.tecnico_nombre).filter(Activity.fecha == today).distinct().all()
-    active_techs = [r[0] for r in active_query if r[0]]
-    
-    # 2. Signed Techs
-    signed_query = db.query(DaySignature.tecnico_nombre).filter(DaySignature.fecha == today).all()
-    signed_techs = [r[0] for r in signed_query if r[0]]
-    
-    # 3. All Activities
-    all_acts = db.query(Activity.tecnico_nombre, Activity.estado).filter(Activity.fecha == today).all()
-    # Serialize enums
-    acts_summary = [{"tech": row.tecnico_nombre, "state": row.estado.value} for row in all_acts]
 
-    return {
-        "date": today,
-        "active_techs_in_plan": active_techs,
-        "signed_techs_in_db": signed_techs,
-        "pending_techs": list(set(t.strip().lower() for t in active_techs) - set(t.strip().lower() for t in signed_techs)),
-        "all_activities_summary": acts_summary
-    }
 
 
