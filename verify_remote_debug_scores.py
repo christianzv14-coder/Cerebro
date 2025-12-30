@@ -10,7 +10,7 @@ BASE_URL = "https://cerebro-production-89cc.up.railway.app"
 # Previous logs showed: "Checking health at https://cerebro-production-89cc.up.railway.app"
 
 # Endpoint
-URL = f"{BASE_URL}/api/v1/admin/debug_score_sync"
+URL = f"{BASE_URL}/debug_score_sync_direct"
 
 try:
     print(f"--- DIAGNOSTICS ---")
