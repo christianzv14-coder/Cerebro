@@ -13,7 +13,13 @@ with engine.connect() as conn:
     sql_active = text("SELECT DISTINCT tecnico_nombre FROM activities WHERE fecha = :today")
     result_active = conn.execute(sql_active, {"today": today})
     active_techs = [row[0] for row in result_active]
-    print(f"ACTIVE TECHNICIANS (Activity Table): {active_techs}")
+    print(f"ACTIVE TECHNICIANS (Activity Table - TODAY): {active_techs}")
+
+    # 1.1 Check ALL Dates
+    sql_dates = text("SELECT DISTINCT fecha FROM activities")
+    result_dates = conn.execute(sql_dates)
+    all_dates = [str(row[0]) for row in result_dates]
+    print(f"-> ALL DATES IN DB: {all_dates}")
 
     # 2. Signed Techs
     sql_signed = text("SELECT DISTINCT tecnico_nombre FROM day_signatures WHERE fecha = :today")
