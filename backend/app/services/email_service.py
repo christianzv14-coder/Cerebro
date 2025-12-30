@@ -1,53 +1,76 @@
-
 import os
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import requests
 from typing import List, Dict, Any
 from datetime import date, datetime
 from app.models.models import Activity
 
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 465
+# Resend API Configuration
+RESEND_API_URL = "https://api.resend.com/emails"
 
 def _log_debug(msg):
-    with open("email_debug.log", "a", encoding="utf-8") as f:
-        f.write(f"{datetime.now()}: {msg}\n")
-
-def _get_smtp_connection():
-    user = os.getenv("SMTP_USER")
-    password = os.getenv("SMTP_PASS")
-    
-    _log_debug(f"Connecting to SMTP as {user}...")
-    
-    if not user or not password:
-        _log_debug("WARNING: SMTP credentials not set.")
-        print("WARNING: SMTP credentials not set. Email will not be sent.")
-        return None
-        
+    # Determine the log file path relative to the current working directory or a specific location
+    # Ideally should be a persistent log or stdout in production
+    # For now ensuring it doesn't fail on path issues
     try:
-        # Use SMTP_SSL for Port 465 (Standard secure port)
-        server = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=20)
-        server.login(user, password)
-        _log_debug("SMTP Login Success")
-        return server
+        with open("email_debug.log", "a", encoding="utf-8") as f:
+            f.write(f"{datetime.now()}: {msg}\n")
+    except Exception:
+        print(f"DEBUG LOG ERROR: {msg}")
+
+def _send_via_resend(to_email: str, subject: str, html_content: str):
+    """
+    Sends email using Resend API (HTTP).
+    Bypasses SMTP port blocking.
+    """
+    api_key = os.getenv("RESEND_API_KEY")
+    if not api_key:
+        _log_debug("WARNING: RESEND_API_KEY not set.")
+        print("WARNING: RESEND_API_KEY not set. Email will not be sent.")
+        raise Exception("Configuration Error: RESEND_API_KEY is missing.")
+
+    # Sender must be verified in Resend. 
+    # For testing: 'onboarding@resend.dev' works to the registered email.
+    # For production: 'notificaciones@tudominio.com' (requires DNS setup)
+    # We'll try to use a smart default or env var.
+    sender = os.getenv("RESEND_FROM", "onboarding@resend.dev")
+    
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "from": "Cerebro <" + sender + ">",
+        "to": [to_email],
+        "subject": subject,
+        "html": html_content
+    }
+
+    _log_debug(f"Sending via Resend to {to_email}...")
+    
+    try:
+        resp = requests.post(RESEND_API_URL, json=payload, headers=headers)
+        
+        if resp.status_code in [200, 201, 202]:
+            _log_debug(f"Resend Success: {resp.json()}")
+            print(f"Email sent via Resend to {to_email}")
+            return True
+        else:
+            error_detail = resp.text
+            _log_debug(f"Resend Failed: {resp.status_code} - {error_detail}")
+            print(f"Resend Failed: {resp.status_code} - {error_detail}")
+            raise Exception(f"Resend API Error: {resp.status_code} - {error_detail}")
+            
     except Exception as e:
-        _log_debug(f"SMTP Connection Error: {e}")
-        print(f"SMTP Connection Error: {e}")
-        return None
+        _log_debug(f"Resend Exception: {e}")
+        print(f"Resend Exception: {e}")
+        raise e
 
 def send_workday_summary(to_email: str, tech_name: str, workday_date: date, activities: List[Activity]):
     """
     Sends an email with the summary of the workday activities.
     """
-    server = _get_smtp_connection()
-    if not server:
-        raise Exception("SMTP Connection Failed: Unable to connect to email server (Check Port 465/587).")
-
-    msg = MIMEMultipart()
-    msg['From'] = os.getenv("SMTP_USER")
-    msg['To'] = to_email
-    msg['Subject'] = f"✅ [INDIVIDUAL] Cierre de Jornada - {tech_name} - {workday_date}"
+    subject = f"✅ [INDIVIDUAL] Cierre de Jornada - {tech_name} - {workday_date}"
 
     # Calculate basic KPIs
     total = len(activities)
@@ -168,44 +191,28 @@ def send_workday_summary(to_email: str, tech_name: str, workday_date: date, acti
             
             <div class="footer">
                 <p>Generado automáticamente por CEREBRO SYSTEM</p>
+                <p style="font-size: 10px; margin-top: 5px;">Enviado vía App API</p>
             </div>
         </div>
     </body>
     </html>
     """
 
-    msg.attach(MIMEText(html_content, 'html'))
-    
-    try:
-        server.send_message(msg)
-        _log_debug(f"Workday Summary Email sent successfully to {to_email}")
-        print(f"Workday Summary Email sent successfully to {to_email}")
-    except Exception as e:
-        _log_debug(f"Failed to send email: {e}")
-        print(f"Failed to send email: {e}")
-    finally:
-        server.quit()
+    # Send via Resend
+    _send_via_resend(to_email, subject, html_content)
+
 
 # Function kept for compatibility if needed, using generic implementation or similar logic
 def send_plan_summary(stats: Dict[str, Any], df_data: Any, to_email: str = None):
     _log_debug("--- Starting send_plan_summary ---")
     
-    # Retrieve necessary data or just log for now if not immediately needed
-    server = _get_smtp_connection()
-    if not server:
-        _log_debug("Aborting send_plan_summary: No SMTP Server")
-        raise Exception("SMTP Connection Failed: Unable to connect to email server (Check Port 465/587).")
-
     # Use override or Fallback to Env
     if not to_email:
-        to_email = os.getenv("SMTP_TO", os.getenv("SMTP_USER"))
+        to_email = os.getenv("SMTP_TO", os.getenv("SMTP_USER")) # Legacy env var names
         
     _log_debug(f"Target Email: {to_email}")
     
-    msg = MIMEMultipart()
-    msg['From'] = os.getenv("SMTP_USER")
-    msg['To'] = to_email
-    msg['Subject'] = f"Resumen Planificación - {date.today()}"
+    subject = f"Resumen Planificación - {date.today()}"
 
     # Generate Stats
     # Assuming df_data is a DataFrame
@@ -366,21 +373,11 @@ def send_plan_summary(stats: Dict[str, Any], df_data: Any, to_email: str = None)
             
             <div class="footer">
                 <p>Generado automáticamente por CEREBRO SYSTEM © {date.today().year}</p>
+                <p>Enviado vía Resend API</p>
             </div>
         </div>
     </body>
     </html>
     """
     
-    msg.attach(MIMEText(html_content, 'html'))
-    
-    try:
-        server.send_message(msg)
-        _log_debug(f"Plan Summary Email sent successfully to {to_email}")
-        print(f"Plan Summary Email sent successfully to {to_email}")
-    except Exception as e:
-        _log_debug(f"Failed to send email: {e}")
-        print(f"Failed to send email: {e}")
-        raise e # CRITICAL: Re-raise so caller knows it failed!
-    finally:
-        server.quit()
+    _send_via_resend(to_email, subject, html_content)
