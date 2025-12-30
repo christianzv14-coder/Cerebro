@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends
 from app.schemas import UserResponse
 from app.deps import get_current_user
-from app.models.models import User
+from app.models.models import User, ActivityState
+from datetime import datetime
 
 router = APIRouter()
 
@@ -25,3 +26,35 @@ def get_my_scores(current_user: User = Depends(get_current_user)):
             "history": []
         }
     return data
+
+@router.get("/debug/email")
+def trigger_debug_email(current_user: User = Depends(get_current_user)):
+    """
+    Forces a test email to be sent to the current user (or test overrides).
+    """
+    from app.services.email_service import send_workday_summary
+    from app.models.models import Activity
+    from datetime import date
+    import os
+    
+    # Create dummy activities
+    dummy_acts = [
+        Activity(
+            tecnico_nombre="Test Tech",
+            cliente="Test Client",
+            tipo_trabajo="Test Work",
+            estado=ActivityState.EXITOSO,
+            resultado_motivo="Test Reason",
+            fecha=date.today(),
+            hora_inicio=datetime.utcnow(),
+            hora_fin=datetime.utcnow()
+        )
+    ]
+    
+    recipient = "christianzv14@gmail.com" # Force for testing
+    
+    try:
+        send_workday_summary(recipient, "Test Technician", date.today(), dummy_acts)
+        return {"status": "success", "message": f"Test email sent to {recipient}"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
