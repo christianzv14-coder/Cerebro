@@ -9,6 +9,7 @@ router = APIRouter()
 
 @router.post("/upload_excel")
 def upload_planification(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_admin), # Only Admin
     db: Session = Depends(get_db)
