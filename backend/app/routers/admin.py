@@ -226,3 +226,50 @@ def fix_signatures_schema(
 
 
 
+
+@router.get("/debug_resend")
+def debug_resend(to: str = "christianzv14@gmail.com"):
+    """
+    Test Resend API directly and return detailed logs.
+    """
+    import os
+    import requests
+    
+    api_key = os.getenv("RESEND_API_KEY")
+    masked_key = f"{api_key[:5]}..." if api_key else "NONE"
+    
+    log = []
+    log.append(f"API Key Status: {masked_key}")
+    
+    if not api_key:
+        return {"status": "error", "log": log, "detail": "Missing RESEND_API_KEY"}
+
+    url = "https://api.resend.com/emails"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "from": "Cerebro <onboarding@resend.dev>",
+        "to": [to],
+        "subject": "DEBUG TEST RESEND",
+        "html": "<p>If you see this, Resend is working.</p>"
+    }
+    
+    log.append(f"Attempting POST to {url}")
+    log.append(f"Payload To: {to}")
+    
+    try:
+        resp = requests.post(url, json=payload, headers=headers)
+        log.append(f"Response Code: {resp.status_code}")
+        log.append(f"Response Body: {resp.text}")
+        
+        if resp.ok:
+            return {"status": "success", "log": log, "data": resp.json()}
+        else:
+            return {"status": "failed", "log": log, "error": resp.text}
+            
+    except Exception as e:
+        log.append(f"Exception: {str(e)}")
+        return {"status": "exception", "log": log, "detail": str(e)}
