@@ -159,6 +159,12 @@ def update_scores_in_sheet():
         if idx_estado != -1 and len(row) > idx_estado:
             estado = row[idx_estado]
 
+        # CORE FIX: User explicitly stated: "si esq está firmado... entonces dice exitoso"
+        # Since the 'Estado' column seems empty/unreliable in inspection, we trust 'FIRMADO'.
+        # If is_signed is True, we FORCE status to 'EXITOSO' to allow point calculation.
+        if is_signed:
+            estado = "EXITOSO"
+
         tech_count = ticket_counts.get(t_id, 1)
         
         row_data = {
