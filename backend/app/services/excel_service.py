@@ -31,10 +31,8 @@ def process_excel_upload(file: IO, db: Session):
     created_count = 0
     updated_count = 0
     
-    # --- NEW STRATEGY: Backup -> Delete -> Create -> Restore ---
-    # Goal: Excel is master for Metadata. DB is master for Status.
-    
-    # 1. Gather all Ticket IDs from Excel
+    # --- NEW STRATEGY: Smart Retry & Update ---
+    # 1. Gather Excel Ticket IDs
     excel_ticket_ids = []
     if 'ticket_id' in df.columns:
         excel_ticket_ids = [str(x).strip() for x in df['ticket_id'].dropna().unique()]
@@ -42,38 +40,71 @@ def process_excel_upload(file: IO, db: Session):
     if not excel_ticket_ids:
         return {"processed": 0, "created": 0, "updated": 0}
 
-    # 2. Backup Status/History for THESE tickets
+    # 2. Analyze Existing DB Records
     existing_activities = db.query(Activity).filter(Activity.ticket_id.in_(excel_ticket_ids)).all()
-    
-    backup_map = {}
-    for act in existing_activities:
-        backup_map[act.ticket_id] = {
-            "estado": act.estado,
-            "resultado_motivo": act.resultado_motivo,
-            "observacion": act.observacion,
-            "hora_inicio": act.hora_inicio,
-            "hora_fin": act.hora_fin
-        }
-        
-    with open("upload_debug.log", "a") as f:
-        f.write(f"Backed up status for {len(backup_map)} tickets.\n")
+    db_map = {act.ticket_id: act for act in existing_activities}
 
-    # 3. Aggressive Delete by TICKET ID
-    try:
-        deleted_count = db.query(Activity).filter(Activity.ticket_id.in_(excel_ticket_ids)).delete(synchronize_session=False)
-        db.commit()
-        with open("upload_debug.log", "a") as f:
-            f.write(f"Aggressively deleted {deleted_count} rows.\n")
-    except Exception as e:
-        db.rollback()
-        raise ValueError(f"Failed to clear rows: {e}")
+    # 3. Determine Actions per Ticket
+    ids_to_delete = []
+    retry_map = {} # { "TICKET-123": "TICKET-123-R1" } mapping for Excel rows
+    backup_map = {} # For restoring state of UPDATES
 
-    # 4. Iterate & Create (Restoring Status)
     for index, row in df.iterrows():
         if pd.isna(row['ticket_id']): continue
-
-        ticket_id = str(row['ticket_id']).strip()
+        tid = str(row['ticket_id']).strip()
         
+        # Get Excel Tech Name (Approximate) to compare
+        raw_tech = row['tecnico_nombre'] if pd.notna(row['tecnico_nombre']) else "Sin Asignar"
+        excel_tech = str(raw_tech).strip().upper() # Normalize for comparison
+
+        if tid in db_map:
+            db_act = db_map[tid]
+            db_tech = str(db_act.tecnico_nombre).strip().upper()
+            is_closed = db_act.estado in [ActivityState.FALLIDO, ActivityState.EXITOSO, ActivityState.CANCELADO, ActivityState.REPROGRAMADO]
+            
+            # CONDITION A: Tech Changed AND Task was Closed -> RETRY (Split)
+            # We want to keep Pedro(Fail) and create Juan(Pending).
+            if excel_tech != db_tech and is_closed:
+                # Do NOT delete valid history.
+                # Mark this Excel row to be suffixed.
+                retry_map[tid] = tid + "-REINTENTO" # Suffix to create new UNIQUE task
+                with open("upload_debug.log", "a") as f:
+                    f.write(f"DETECTED RETRY: {tid} ({db_tech}->{excel_tech}). creating {retry_map[tid]}.\n")
+                
+            # CONDITION B: Same Tech OR Open Task -> UPDATE (Overwrite)
+            else:
+                ids_to_delete.append(tid)
+                # Backup for Restoration logic (if we want to preserve status of same tech)
+                backup_map[tid] = {
+                    "estado": db_act.estado,
+                    "resultado_motivo": db_act.resultado_motivo,
+                    "observacion": db_act.observacion,
+                    "hora_inicio": db_act.hora_inicio,
+                    "hora_fin": db_act.hora_fin
+                }
+
+    # 4. Aggressive Delete (Only the 'Updates')
+    if ids_to_delete:
+        try:
+            db.query(Activity).filter(Activity.ticket_id.in_(ids_to_delete)).delete(synchronize_session=False)
+            db.commit()
+            with open("upload_debug.log", "a") as f:
+                f.write(f"Deleted {len(ids_to_delete)} rows for Update.\n")
+        except Exception as e:
+            db.rollback()
+            raise ValueError(f"Failed to clear rows: {e}")
+
+    # 5. Iterate & Create
+    for index, row in df.iterrows():
+        if pd.isna(row['ticket_id']): continue
+        
+        original_tid = str(row['ticket_id']).strip()
+        
+        # Determine FINAL Ticket ID (Original or Retry Suffix)
+        final_ticket_id = original_tid
+        if original_tid in retry_map:
+            final_ticket_id = retry_map[original_tid]
+            
         # Tech Logic
         raw_tech = row['tecnico_nombre']
         if pd.isna(raw_tech) or str(raw_tech).strip() == "" or str(raw_tech).lower() == "nan":
@@ -85,7 +116,7 @@ def process_excel_upload(file: IO, db: Session):
         if pd.isna(fecha_val):
             from datetime import date
             fecha_val = date.today()
-        
+
         # User Provisioning (Compact)
         import unicodedata, difflib
         def normalize_str(s): return unicodedata.normalize('NFKD', s).encode('ASCII', 'ignore').decode('utf-8').lower()
@@ -109,29 +140,42 @@ def process_excel_upload(file: IO, db: Session):
             db.add(new_user); db.commit(); db.refresh(new_user); tecnico_nombre = new_user.tecnico_nombre
         else:
             tecnico_nombre = user.tecnico_nombre
-            
-        # RESTORE STATE
-        restored_state = ActivityState.PENDIENTE
-        restored_motivo = None
-        restored_obs = None
-        restored_start = None
-        restored_end = None
-        
-        if ticket_id in backup_map:
-            b = backup_map[ticket_id]
-            restored_state = b["estado"]
-            restored_motivo = b["resultado_motivo"]
-            restored_obs = b["observacion"]
-            restored_start = b["hora_inicio"]
-            restored_end = b["hora_fin"]
-            updated_count += 1
-        else:
-            created_count += 1
 
+        # STATE LOGIC
+        # If it's a Retry Suffix -> Force PENDIENTE (New Task)
+        # If it's in Backup Map -> Restore Old State (It was an Update)
+        
+        if original_tid in retry_map:
+             # RETRY CASE
+             restored_state = ActivityState.PENDIENTE
+             restored_motivo = None
+             restored_obs = None
+             restored_start = None
+             restored_end = None
+             created_count += 1
+        elif original_tid in backup_map:
+             # UPDATE CASE (Restore history)
+             b = backup_map[original_tid]
+             restored_state = b["estado"]
+             restored_motivo = b["resultado_motivo"]
+             restored_obs = b["observacion"]
+             restored_start = b["hora_inicio"]
+             restored_end = b["hora_fin"]
+             updated_count += 1
+        else:
+             # NEW CASE
+             restored_state = ActivityState.PENDIENTE
+             restored_motivo = None
+             restored_obs = None
+             restored_start = None
+             restored_end = None
+             created_count += 1
+
+        # Create
         new_act = Activity(
-            ticket_id=ticket_id,
+            ticket_id=final_ticket_id,
             fecha=fecha_val,
-            tecnico_nombre=tecnico_nombre, # EXCEL WINS
+            tecnico_nombre=tecnico_nombre, 
             patente=str(row['patente']) if pd.notna(row['patente']) else None,
             cliente=str(row['cliente']) if pd.notna(row['cliente']) else None,
             direccion=str(row['direccion']) if pd.notna(row['direccion']) else None,
@@ -142,7 +186,6 @@ def process_excel_upload(file: IO, db: Session):
             comuna=str(row['Comuna']) if 'Comuna' in df.columns and pd.notna(row['Comuna']) else None,
             region=str(row['Region']) if 'Region' in df.columns and pd.notna(row['Region']) else None,
             
-            # RESTORED VALUES
             estado=restored_state,
             resultado_motivo=restored_motivo,
             observacion=restored_obs,
