@@ -91,19 +91,15 @@ def update_scores_in_sheet():
         logger.error(f"Missing required column in Bitacora: {e}. Headers found: {headers}")
         return
 
-    # 2. Get SIGNED Days from DB
-    db = SessionLocal()
-    signed_days = set() # Set of (date_iso_str, tech_name_upper)
+    # Remove DB Signature Check
+    # We now trust the 'Firmado' column in the Sheet itself, as populated by the App.
+    
+    # Try to find 'firmado' column
+    idx_firmado = -1
     try:
-        sigs = db.query(DaySignature).filter(DaySignature.is_signed == True).all()
-        for s in sigs:
-            # Store as ISO string and Upper Case Name
-            signed_days.add((str(s.fecha), str(s.tecnico_nombre).strip().upper()))
-        logger.info(f">>> [SCORES] Loaded {len(signed_days)} signatures from DB: {list(signed_days)[:5]}...")
-    except Exception as e:
-        logger.error(f">>> [SCORES] DB Error fetching signatures: {e}")
-    finally:
-        db.close()
+        if "firmado" in headers: idx_firmado = headers.index("firmado")
+    except:
+        pass
 
     # 3. Group by Ticket ID
     ticket_counts = {}
@@ -137,38 +133,20 @@ def update_scores_in_sheet():
         tecnico = str(raw_tech).strip().upper()
         fecha_str = str(raw_date).strip()
         
-        # --- ROBUST DATE PARSING ---
-        parsed_iso = None
-        try:
-            # Common Excel/Sheet formats
-            if not fecha_str:
-                parsed_iso = None
-            elif '-' in fecha_str:
-                 # Try ISO YYYY-MM-DD first, then DD-MM-YYYY
-                 parts = fecha_str.split('-')
-                 if len(parts[0]) == 4: # YYYY-MM-DD
-                     parsed_iso = datetime.strptime(fecha_str, "%Y-%m-%d").date().isoformat()
-                 else: # DD-MM-YYYY
-                     parsed_iso = datetime.strptime(fecha_str, "%d-%m-%Y").date().isoformat()
-            elif '/' in fecha_str:
-                 # Assume DD/MM/YYYY
-                 parsed_iso = datetime.strptime(fecha_str, "%d/%m/%Y").date().isoformat()
-            else:
-                 # Maybe generic string? Try direct parse if strict format known?
-                 pass
-        except Exception as e:
-            logger.warning(f"Date parse failed for '{fecha_str}': {e}")
-            
-        # Check Signature
+        # --- CHECK SIGNATURE VIA SHEET COLUMN ---
         is_signed = False
-        if parsed_iso and (parsed_iso, tecnico) in signed_days:
-            is_signed = True
+        if idx_firmado != -1 and len(row) > idx_firmado:
+            val_firmado = str(row[idx_firmado]).strip().upper()
+            if "FIRMADO" in val_firmado:
+                is_signed = True
+        
+        # Fallback: If tech/date matching (legacy) logic is needed, we could add it back,
+        # but user specifically said "sale directo la pestaña bitacora". relying on that column is safer.
         
         if not is_signed:
             rows_skipped += 1
-            # Debug log for first few skips to diagnose
             if rows_skipped < 5:
-                logger.info(f"Skipping row {row_idx}: Tech '{tecnico}' on {parsed_iso or fecha_str} NOT SIGNED. (Key: {(parsed_iso, tecnico)})")
+                logger.debug(f"Skipping row {row_idx}: Tech '{tecnico}' NOT MARKED 'FIRMADO' in Sheet.")
             continue
             
         # If Signed, Calculate Points
