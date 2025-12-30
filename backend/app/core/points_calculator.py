@@ -37,11 +37,17 @@ POINTS_TABLE = [
     ("CABLE CAMARA", 3),
     ("CABLE IBUTTON", 3),
     ("CABLE BUZZER", 3),
-    ("CABLE SONDA", 3), # "CABLE SONDA" matches before "SONDA"
+    ("CABLE SONDA", 3), 
+    ("CABLE GPS", 3), # NEW
 
     # Sondas
     ("SONDA TEMPERATURA ADICIONAL", 5),
     ("SONDA TEMPERATURA", 15),
+    
+    # GPS / Telemetría (NEW)
+    ("GPS", 15),
+    ("AVL", 15),
+    ("TELEMETRIA", 15),
     
     # Otros Accesorios
     ("BOTON TABLERO", 9),
@@ -62,6 +68,7 @@ POINTS_TABLE = [
     ("REVISION IBUTTON", 8),
     ("REVISION BUZZER", 8),
     ("REVISION TAG", 8),
+    ("REVISION GPS", 10), # NEW
     ("REVISION BOTON PANICO", 8),
     ("Revision ADAS", 9),
     ("Revision DMS", 9),
