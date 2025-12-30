@@ -5,164 +5,134 @@ from datetime import datetime
 # (Ej: "CABLE CAMARA" vs "CAMARA").
 # Se usará búsqueda case-insensitive.
 
-POINTS_TABLE = [
-    # --- INSTALACION ---
-    # Sensores / Alta prioridad
-    ("SENSOR DE RETROCESO ADICIONAL", 30),
-    ("SENSOR DE RETROCESO", 50), # Check full match vs partial
-    ("SENSOR JCY450", 30),
-    ("SENSOR DE PUERTA", 15), # Standard
-    ("SENSOR PTA ADICIONAL", 10),
-    ("SENSOR PTA", 13), # "SENSOR PTA" (13) vs "SENSOR PTA ADICIONAL" (10) -> Order matters!
-    
-    # Camaras / MDVR
-    ("MDVR ADICIONAL", 10),
-    ("MDVR", 25),
-    ("CAMARA ADAS", 15),
-    ("ADAS", 15), # Loose match for ADAS
-    ("CAMARA DMS", 15),
-    ("DMS", 15), # Loose match for DMS
-    ("CAMARA AUXILIAR", 10),
-    ("V4", 10), # Mapped as CAMARA AUXILIAR
-    ("CAMARA BOL", 15),
-    ("CAMARA DASHCAM", 15),
-    
-    # Cables
-    ("CABLE SENSOR DE RETROCESO ADICIONAL", 3),
-    ("CABLE SENSOR DE RETROCESO", 5),
-    ("CABLE CAMARA ADAS", 3),
-    ("CABLE CAMARA DMS", 3),
-    ("CABLE CAMARA BOL", 3),
-    ("CABLE CAMARA DASHCAM", 3),
-    ("CABLE CAMARA", 3),
-    ("CABLE IBUTTON", 3),
-    ("CABLE BUZZER", 3),
-    ("CABLE SONDA", 3), 
-    ("CABLE GPS", 3), # NEW
 
-    # Sondas
-    ("SONDA TEMPERATURA ADICIONAL", 5),
-    ("SONDA TEMPERATURA", 15),
+# --- CONFIGURATION TABLES (From User Images) ---
+
+# Table 1: Base Points by Task Type
+TASK_BASE_SCORES = {
+    "REINSTALACION": 10,
+    "INSTALACION": 7,
+    "RETIRO": 5,
+    "REVISION": 3,
+    # Fallbacks/Synonyms
+    "MANTENCION": 3,
+    "SOPORTE": 3,
+    "DESINSTALACION": 5
+}
+
+# Table 2: Accessory Points
+# Order matters for partial matches? We'll use exact match preference or careful ordering.
+POINTS_TABLE = [
+    # High Value / Complex
+    ("PANEL SOLAR", 32),
+    ("CABLE RIZZO", 25),
+    ("MDVR", 25),
+    ("JC450", 20),
+    ("DASHCAM", 20),
     
-    # GPS / Telemetría (NEW)
-    ("GPS", 15),
-    ("AVL", 15),
-    ("TELEMETRIA", 15),
+    # Cameras & Sensors
+    ("CAMARA DE FRIO", 15),
+    ("CAIQUEN", 15),
+    ("ADAS", 15),
+    ("DMS", 15),
+    ("CAMARA AUXILIAR", 13),
+    ("IBUTTON", 10),
+    ("GPS CANBUS", 10),
+    ("CORTA CORRIENTE", 8),
+    ("SONDA TEMPERATURA", 8),
     
-    # Otros Accesorios
-    ("BOTON TABLERO", 9),
-    ("BOTON PANICO", 8),
-    ("CORTA CORRIENTE", 10),
-    ("IBUTTON", 12),
-    ("BUZZER", 5),
-    ("TAG", 10),
+    # GPS Unit
+    ("GPS", 8), # Value from Image
     
-    # --- REVISION ---
-    # Revisión items usually start with "REVISION" or "Revision" in the item name provided
-    ("REVISION SONDA TEMPERATURA", 10),
-    ("REVISION CAMARA ADAS", 9), # Specific before general
-    ("REVISION CAMARA DMS", 9),
-    ("REVISION CAMARA", 10),
-    ("REVISION MDVR", 15),
-    ("REVISION CORTA CORRIENTE", 8),
-    ("REVISION IBUTTON", 8),
-    ("REVISION BUZZER", 8),
-    ("REVISION TAG", 8),
-    ("REVISION GPS", 10), # NEW
-    ("REVISION BOTON PANICO", 8),
-    ("Revision ADAS", 9),
-    ("Revision DMS", 9),
-    ("Revision JC450", 14),
-    ("Revision DASHCAM", 14),
-    ("Revision SENSOR DE RETROCESO", 50),
+    # Peripherals
+    ("BOTON PISO", 6),
+    ("SENSOR PTA", 6),
+    ("JAMMER", 5),
+    ("SEÑUELO", 5),
+    ("BUZZER", 4),
+    
+    # Low Value / Cables / Additionals
+    ("SONDA TEMPERATURA ADICIONAL", 3),
+    ("SENSOR PTA ADICIONAL", 3),
+    ("BOTON TABLERO", 2),
+    
+    # Cables (Not in image but likely needed to avoid 0 if present? defaulting to low)
+    # Keeping legacy cable values for safety or removing if user implies ONLY table counts?
+    # User said: "los accesorios son fijos". I will keep common cables low just in case.
+    ("CABLE", 1), 
 ]
+
+def get_task_base_score(tipo_trabajo: str) -> int:
+    """
+    Determines the base score for the activity type.
+    """
+    if not tipo_trabajo: 
+        return 0
+    
+    tt_normalized = tipo_trabajo.strip().upper()
+    
+    # Direct lookup or substring match
+    # "Instalacion GPS" contains "INSTALACION" -> 7
+    
+    best_score = 0
+    # Priority: REINSTALACION > INSTALACION > RETIRO > REVISION
+    # Because "Reinstalacion" contains "Instalacion", check it first!
+    
+    priority_order = ["REINSTALACION", "INSTALACION", "RETIRO", "DESINSTALACION", "REVISION", "MANTENCION", "SOPORTE"]
+    
+    for key in priority_order:
+        if key in tt_normalized:
+            return TASK_BASE_SCORES.get(key, 0)
+            
+    return 0
 
 def calculate_base_points(accesorios_str, tipo_trabajo=""):
     """
-    Parses the accessories string (comma separated) and sums points.
-    If tipo_trabajo is 'SOPORTE' or 'REVISION', tries to match 'REVISION [Item]' first.
-    Returns: (total_points, list_of_items_found)
+    New Logic: 
+    Total = Task_Base_Score + Sum(Accessories)
     """
-    if not accesorios_str:
-        return 0, []
+    # 1. Calculate Task Base Score
+    task_score = get_task_base_score(tipo_trabajo)
     
-    items_raw = [x.strip() for x in accesorios_str.split(',')]
-    total_points = 0
     items_found = []
+    items_found.append(f"BASE ACTIVIDAD({task_score})")
     
-    # Analyze Work Type
-    is_review_mode = False
-    if tipo_trabajo:
-        tt_clean = tipo_trabajo.strip().upper()
-        if "SOPORTE" in tt_clean or "REVISION" in tt_clean or "MANTENCION" in tt_clean:
-            is_review_mode = True
-
-    for item in items_raw:
-        item_upper = item.upper()
-        best_match = None
-        best_points = 0
+    acc_points = 0
+    
+    # 2. Calculate Accessories Score
+    if accesorios_str:
+        items_raw = [x.strip() for x in accesorios_str.split(',')]
         
-        # If in Review/Support mode, try finding "REVISION [Item]" match first
-        match_found_as_review = False
-        if is_review_mode:
-            # Try to force a "REVISION " prefix match
-            # We look for keys in table that are "REVISION + item"
-            # But the item string might not match exactly.
-            # Strategy: Iterate table, if key starts with REVISION, check if rest of key matches item
+        for item in items_raw:
+            if not item: continue
             
+            item_upper = item.upper()
+            match_name = None
+            match_points = 0
+            
+            # Find best match in POINTS_TABLE
             for key, points in POINTS_TABLE:
-                if not key.startswith("REVISION"): continue
+                # Use strict substring match: key must be in item OR item must be in key?
+                # Usually item in excel is "GPS", key is "GPS".
+                # If Excel says "GPS Telemetria", and key is "GPS".
                 
-                # key is e.g. "REVISION MDVR"
-                # item is "MDVR"
-                # Does "REVISION MDVR" contain "MDVR"? Yes.
-                # But we want to match the ITEM against the KEY suffix.
+                # Check 1: Key inside Item (e.g. key="GPS" in item="GPS Nuevo")
+                if key in item_upper:
+                    match_name = key
+                    match_points = points
+                    break
                 
-                # Simpler: If the ITEM name is found in the KEY (which is a known REVISION key)
-                # usage: item="MDVR", key="REVISION MDVR". 
-                # check: if "MDVR" in "REVISION MDVR"? YES.
+                # Check 2: Item inside Key? (e.g. item="Solar" in key="PANEL SOLAR") - Riskier.
                 
-                # Careful: item="CABLE" vs key="REVISION CABLE..."
-                
-                if item_upper in key.upper(): 
-                    # We found a REVISION key that matches our item.
-                    best_match = key
-                    best_points = points
-                    match_found_as_review = True
-                    break # Stop looking, we found the specific revision price
-        
-        if match_found_as_review:
-             total_points += best_points
-             items_found.append(f"{best_match}({best_points})")
-             continue
-
-        # Standard Match (Iterate mapping to find match)
-        # Used if:
-        # 1. Not in review mode (Standard Installation)
-        # 2. In review mode, but no specific "REVISION X" price exists (Fallback to standard? or 0?)
-        #    Usually fallback to standard is risky (gives full price).
-        #    User said: "Soporte es lo mismo que revisión".
-        #    If no revision price, maybe it defaults to a low generic?
-        #    Let's stick to standard behavior for now if no revision specific found, 
-        #    BUT usually we should have defined all.
-        
-        for key, points in POINTS_TABLE:
-            # Skip REVISION keys if we are in Installation mode (unless item explicitly says REVISION)
-            if not is_review_mode and key.startswith("REVISION") and "REVISION" not in item_upper:
-                continue
-
-            if key.upper() in item_upper:
-                best_match = key
-                best_points = points
-                break 
-        
-        if best_match:
-            total_points += best_points
-            items_found.append(f"{best_match}({best_points})")
-        else:
-            items_found.append(f"{item}(0?)")
-            
+            if match_name:
+                acc_points += match_points
+                items_found.append(f"{match_name}({match_points})")
+            else:
+                items_found.append(f"{item}(0?)")
+    
+    total_points = task_score + acc_points
     return total_points, items_found
+
 
 def calculate_final_score(row_data, tech_count):
     """
