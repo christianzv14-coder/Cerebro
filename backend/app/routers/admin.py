@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.models import User
-from app.deps import get_current_admin
+from app.deps import get_current_admin, get_current_user
 from app.services.excel_service import process_excel_upload
 
 router = APIRouter()
@@ -187,3 +187,39 @@ def test_email_configuration(
             "network_test": network_results,
             "detail": "If ports are 'Closed/Blocked', Railway is preventing the connection."
         }
+            "detail": "If ports are 'Closed/Blocked', Railway is preventing the connection."
+        }
+
+@router.post("/fix_signatures_schema")
+def fix_signatures_schema(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user) # Allow tech to fix db for now
+):
+    """
+    Manually adds the Unique Constraint to day_signatures to prevent duplicates.
+    """
+    from sqlalchemy import text
+    try:
+        # PostgreSQL syntax
+        # 1. First, delete duplicates if any (keeping the one with min id)
+        # This acts as a cleanup before constraint
+        sql_cleanup = """
+        DELETE FROM day_signatures a USING day_signatures b
+        WHERE a.id < b.id
+        AND a.tecnico_nombre = b.tecnico_nombre
+        AND a.fecha = b.fecha;
+        """
+        db.execute(text(sql_cleanup))
+        
+        # 2. Add Constraint
+        # We use a specific name to catch if it exists
+        sql_constraint = """
+        ALTER TABLE day_signatures 
+        ADD CONSTRAINT _tech_date_uc UNIQUE (tecnico_nombre, fecha);
+        """
+        db.execute(text(sql_constraint))
+        db.commit()
+        return {"status": "success", "message": "Constraint added successfully."}
+    except Exception as e:
+        db.rollback()
+        return {"status": "error", "message": str(e)}
