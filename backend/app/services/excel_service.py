@@ -60,7 +60,7 @@ def process_excel_upload(file: IO, db: Session):
         if tid in db_map:
             db_act = db_map[tid]
             db_tech = str(db_act.tecnico_nombre).strip().upper()
-            is_closed = db_act.estado in [ActivityState.FALLIDO, ActivityState.EXITOSO, ActivityState.CANCELADO, ActivityState.REPROGRAMADO]
+            is_closed = db_act.estado in [ActivityState.FALLIDO, ActivityState.EXITOSO, ActivityState.REPROGRAMADO]
             
             # CONDITION A: Tech Changed AND Task was Closed -> RETRY (Split)
             # We want to keep Pedro(Fail) and create Juan(Pending).
