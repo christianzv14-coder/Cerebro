@@ -70,9 +70,10 @@ POINTS_TABLE = [
     ("Revision SENSOR DE RETROCESO", 50),
 ]
 
-def calculate_base_points(accesorios_str):
+def calculate_base_points(accesorios_str, tipo_trabajo=""):
     """
     Parses the accessories string (comma separated) and sums points.
+    If tipo_trabajo is 'SOPORTE' or 'REVISION', tries to match 'REVISION [Item]' first.
     Returns: (total_points, list_of_items_found)
     """
     if not accesorios_str:
@@ -82,27 +83,68 @@ def calculate_base_points(accesorios_str):
     total_points = 0
     items_found = []
     
-    # Strategy: For each raw item in the cell, find the BEST match in POINTS_TABLE.
-    # Why per item? 
-    # Example: "MDVR, Sensor Pta" -> Split -> "MDVR", "Sensor Pta".
-    # "MDVR" matches "MDVR" (25).
-    # "Sensor Pta" matches "SENSOR PTA" (13).
-    
+    # Analyze Work Type
+    is_review_mode = False
+    if tipo_trabajo:
+        tt_clean = tipo_trabajo.strip().upper()
+        if "SOPORTE" in tt_clean or "REVISION" in tt_clean or "MANTENCION" in tt_clean:
+            is_review_mode = True
+
     for item in items_raw:
         item_upper = item.upper()
         best_match = None
         best_points = 0
         
-        # Iterate mapping to find match
+        # If in Review/Support mode, try finding "REVISION [Item]" match first
+        match_found_as_review = False
+        if is_review_mode:
+            # Try to force a "REVISION " prefix match
+            # We look for keys in table that are "REVISION + item"
+            # But the item string might not match exactly.
+            # Strategy: Iterate table, if key starts with REVISION, check if rest of key matches item
+            
+            for key, points in POINTS_TABLE:
+                if not key.startswith("REVISION"): continue
+                
+                # key is e.g. "REVISION MDVR"
+                # item is "MDVR"
+                # Does "REVISION MDVR" contain "MDVR"? Yes.
+                # But we want to match the ITEM against the KEY suffix.
+                
+                # Simpler: If the ITEM name is found in the KEY (which is a known REVISION key)
+                # usage: item="MDVR", key="REVISION MDVR". 
+                # check: if "MDVR" in "REVISION MDVR"? YES.
+                
+                # Careful: item="CABLE" vs key="REVISION CABLE..."
+                
+                if item_upper in key.upper(): 
+                    # We found a REVISION key that matches our item.
+                    best_match = key
+                    best_points = points
+                    match_found_as_review = True
+                    break # Stop looking, we found the specific revision price
+        
+        if match_found_as_review:
+             total_points += best_points
+             items_found.append(f"{best_match}({best_points})")
+             continue
+
+        # Standard Match (Iterate mapping to find match)
+        # Used if:
+        # 1. Not in review mode (Standard Installation)
+        # 2. In review mode, but no specific "REVISION X" price exists (Fallback to standard? or 0?)
+        #    Usually fallback to standard is risky (gives full price).
+        #    User said: "Soporte es lo mismo que revisión".
+        #    If no revision price, maybe it defaults to a low generic?
+        #    Let's stick to standard behavior for now if no revision specific found, 
+        #    BUT usually we should have defined all.
+        
         for key, points in POINTS_TABLE:
-            # Check if key is contained in the item string (or exact match?)
-            # User said "keywords". so "MDVR 4ch" contains "MDVR".
+            # Skip REVISION keys if we are in Installation mode (unless item explicitly says REVISION)
+            if not is_review_mode and key.startswith("REVISION") and "REVISION" not in item_upper:
+                continue
+
             if key.upper() in item_upper:
-                # We found a match. Is it the 'best'?
-                # We rely on POINTS_TABLE being ordered by specificity/length roughly.
-                # However, cleaner approach: Find ALL matches, pick longest string match?
-                # or just take the first one since we ordered table?
-                # Let's rely on list order (Specific first).
                 best_match = key
                 best_points = points
                 break 
@@ -111,14 +153,13 @@ def calculate_base_points(accesorios_str):
             total_points += best_points
             items_found.append(f"{best_match}({best_points})")
         else:
-            # No match found
             items_found.append(f"{item}(0?)")
             
     return total_points, items_found
 
 def calculate_final_score(row_data, tech_count):
     """
-    row_data: dict with keys 'Accesorios', 'Region', 'Fecha Plan' (YYYY-MM-DD or standard)
+    row_data: dict with keys 'Accesorios', 'Region', 'Fecha Plan', 'Tipo Trabajo'
     tech_count: int, number of techs on this ticket
     
     Returns: dict with calculation details
@@ -126,9 +167,10 @@ def calculate_final_score(row_data, tech_count):
     accesorios = str(row_data.get('Accesorios', ''))
     region = str(row_data.get('Region', '')).upper()
     fecha_str = str(row_data.get('Fecha Plan', ''))
+    tipo_trabajo = str(row_data.get('Tipo Trabajo', '') if row_data.get('Tipo Trabajo') else row_data.get('tipo_trabajo', ''))
     
     # 1. Base Points
-    base_points, details = calculate_base_points(accesorios)
+    base_points, details = calculate_base_points(accesorios, tipo_trabajo)
     
     # 2. Multipliers
     mult_region_val = 1.0

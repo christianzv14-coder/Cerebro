@@ -120,7 +120,8 @@ def update_scores_in_sheet():
         row_data = {
             "Accesorios": accesorios,
             "Region": region,
-            "Fecha Plan": fecha
+            "Fecha Plan": fecha,
+            "Tipo Trabajo": tipo
         }
         
         res = calculate_final_score(row_data, tech_count)
