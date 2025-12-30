@@ -227,28 +227,6 @@ def fix_signatures_schema(
 
 
 
-@router.get("/debug_resend")
-def debug_resend(to: str = "christianzv14@gmail.com"):
-    """
-    Test Resend API directly and return detailed logs.
-    """
-    import os
-    import requests
-    
-    api_key = os.getenv("RESEND_API_KEY")
-    masked_key = f"{api_key[:5]}..." if api_key else "NONE"
-    
-    log = []
-    log.append(f"API Key Status: {masked_key}")
-    
-    if not api_key:
-        return {"status": "error", "log": log, "detail": "Missing RESEND_API_KEY"}
-
-    url = "https://api.resend.com/emails"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
     
     payload = {
         "from": "Cerebro <onboarding@resend.dev>",
