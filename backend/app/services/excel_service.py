@@ -2,7 +2,7 @@ import pandas as pd
 from typing import IO
 from datetime import datetime
 from sqlalchemy.orm import Session
-from app.models.models import Activity, ActivityState, User, Role, DaySignature
+from app.models.models import Activity, ActivityState, User, Role
 from app.core.security import get_password_hash
 
 REQUIRED_COLUMNS = ['fecha', 'ticket_id', 'tecnico_nombre', 'patente', 'cliente', 'direccion', 'tipo_trabajo']
@@ -15,11 +15,8 @@ def process_excel_upload(file: IO, db: Session):
         df = pd.read_excel(file)
         with open("upload_debug.log", "a") as f:
             f.write(f"DataFrame Shape: {df.shape} (Rows, Cols)\n")
-            f.write(f"Columns found: {list(df.columns)}\n")
-            f.write(f"First row: {df.iloc[0].to_dict() if not df.empty else 'EMPTY'}\n")
-            # Log all Ticket IDs to see what we got
             if 'ticket_id' in df.columns:
-                 f.write(f"Ticket IDs in file: {df['ticket_id'].tolist()}\n")
+                 f.write(f"Ticket IDs: {df['ticket_id'].tolist()}\n")
     except Exception as e:
         with open("upload_debug.log", "a") as f:
             f.write(f"ERROR reading excel: {e}\n")
@@ -34,47 +31,50 @@ def process_excel_upload(file: IO, db: Session):
     created_count = 0
     updated_count = 0
     
-    # Pre-clean logic: Delete existing PENDIENTE activities for the techs and dates in the Excel
-    # to ensure the app view matches the Excel exactly as requested.
-    try:
-        # Collect unique pairs of (date, tecnico_nombre)
-        unique_pairs = set()
-        for index, row in df.iterrows():
-            if pd.notna(row['ticket_id']) and pd.notna(row['tecnico_nombre']):
-                d = pd.to_datetime(row['fecha']).date()
-                unique_pairs.add((d, str(row['tecnico_nombre']).strip()))
+    # --- NEW STRATEGY: Backup -> Delete -> Create -> Restore ---
+    # Goal: Excel is master for Metadata. DB is master for Status.
+    
+    # 1. Gather all Ticket IDs from Excel
+    excel_ticket_ids = []
+    if 'ticket_id' in df.columns:
+        excel_ticket_ids = [str(x).strip() for x in df['ticket_id'].dropna().unique()]
+    
+    if not excel_ticket_ids:
+        return {"processed": 0, "created": 0, "updated": 0}
+
+    # 2. Backup Status/History for THESE tickets
+    existing_activities = db.query(Activity).filter(Activity.ticket_id.in_(excel_ticket_ids)).all()
+    
+    backup_map = {}
+    for act in existing_activities:
+        backup_map[act.ticket_id] = {
+            "estado": act.estado,
+            "resultado_motivo": act.resultado_motivo,
+            "observacion": act.observacion,
+            "hora_inicio": act.hora_inicio,
+            "hora_fin": act.hora_fin
+        }
         
-        for d, tech in unique_pairs:
-            with open("upload_debug.log", "a") as f:
-                f.write(f"Pre-cleaning for Tech: '{tech}', Date: '{d}'\n")
-            
-            deleted_acts = db.query(Activity).filter(
-                Activity.fecha == d,
-                Activity.tecnico_nombre == tech,
-                Activity.estado == ActivityState.PENDIENTE # FIX: Only delete PENDIENTE, preserve history
-            ).delete()
-            
-            # FIX: Do NOT delete signatures. If they signed, they signed.
-            # deleted_sigs = db.query(DaySignature)...
-            
-            with open("upload_debug.log", "a") as f:
-                f.write(f"  -> Deleted {deleted_acts} activities, {deleted_sigs} signatures.\n")
+    with open("upload_debug.log", "a") as f:
+        f.write(f"Backed up status for {len(backup_map)} tickets.\n")
 
+    # 3. Aggressive Delete by TICKET ID
+    try:
+        deleted_count = db.query(Activity).filter(Activity.ticket_id.in_(excel_ticket_ids)).delete(synchronize_session=False)
         db.commit()
-    except Exception as e:
-        print(f"DEBUG [EXCEL] Pre-cleaning failed: {e}")
         with open("upload_debug.log", "a") as f:
-            f.write(f"ERROR in Pre-cleaning: {e}\n")
+            f.write(f"Aggressively deleted {deleted_count} rows.\n")
+    except Exception as e:
         db.rollback()
+        raise ValueError(f"Failed to clear rows: {e}")
 
+    # 4. Iterate & Create (Restoring Status)
     for index, row in df.iterrows():
-        # Validate row data
-        if pd.isna(row['ticket_id']):
-             continue # Skip empty rows
+        if pd.isna(row['ticket_id']): continue
 
         ticket_id = str(row['ticket_id']).strip()
         
-        # Handle empty/NaN technician (Mantis default)
+        # Tech Logic
         raw_tech = row['tecnico_nombre']
         if pd.isna(raw_tech) or str(raw_tech).strip() == "" or str(raw_tech).lower() == "nan":
             tecnico_nombre = "Sin Asignar"
@@ -83,133 +83,82 @@ def process_excel_upload(file: IO, db: Session):
             
         fecha_val = pd.to_datetime(row['fecha']).date()
         if pd.isna(fecha_val):
-            # Default to today if missing? Or keep going
             from datetime import date
             fecha_val = date.today()
         
-        # Ensure User exists (Auto-provisioning with FUZZY MATCH)
-        # 1. Prepare DB User Map (Normalized keys for fast lookup)
+        # User Provisioning (Compact)
+        import unicodedata, difflib
+        def normalize_str(s): return unicodedata.normalize('NFKD', s).encode('ASCII', 'ignore').decode('utf-8').lower()
+        
         all_users = db.query(User).all()
-        
-        import unicodedata
-        import difflib
-        
-        def normalize_str(s):
-            return unicodedata.normalize('NFKD', s).encode('ASCII', 'ignore').decode('utf-8').lower()
-            
         user_map = {normalize_str(u.tecnico_nombre): u for u in all_users}
-        known_names_normalized = list(user_map.keys())
-        
         clean_input = normalize_str(tecnico_nombre)
         
-        # 2. Try Exact Normalized Match
         user = user_map.get(clean_input)
+        if not user:
+             matches = difflib.get_close_matches(clean_input, list(user_map.keys()), n=1, cutoff=0.75)
+             if matches:
+                 user = user_map[matches[0]]
+                 tecnico_nombre = user.tecnico_nombre
         
-        # 3. Fuzzy Match (If exact fails)
         if not user:
-            # cutoff=0.8 means 80% similarity required. "Parez" vs "Perez" is >80%.
-            matches = difflib.get_close_matches(clean_input, known_names_normalized, n=1, cutoff=0.75)
-            if matches:
-                best_match_key = matches[0]
-                user = user_map[best_match_key]
-                print(f"DEBUG [EXCEL]: Fuzzy Match! Input '{tecnico_nombre}' -> DB '{user.tecnico_nombre}'")
-                tecnico_nombre = user.tecnico_nombre # AUTO-CORRECT the name to match DB
-                
-        # 4. Create New User (If really no match)
-        if not user:
-            print(f"DEBUG [EXCEL]: No match for '{tecnico_nombre}'. creating new user.")
+            # Create new
             clean_tech_name = tecnico_nombre.replace(" ", "_").lower()
-            new_user = User(
-                email=f"{clean_tech_name}@cerebro.com", # Mock email
-                tecnico_nombre=tecnico_nombre,
-                hashed_password=get_password_hash("123456"),
-                role=Role.TECH
-            )
-            # Handle potential email collision
-            if db.query(User).filter(User.email == new_user.email).first():
-                 new_user.email = f"{new_user.email}_dup_{index}" 
-                 
-            db.add(new_user)
-            db.commit()
-            db.refresh(new_user)
-            tecnico_nombre = new_user.tecnico_nombre
+            new_user = User(email=f"{clean_tech_name}@cerebro.com", tecnico_nombre=tecnico_nombre, hashed_password=get_password_hash("123456"), role=Role.TECH)
+            if db.query(User).filter(User.email == new_user.email).first(): new_user.email = f"{new_user.email}_dup_{index}"
+            db.add(new_user); db.commit(); db.refresh(new_user); tecnico_nombre = new_user.tecnico_nombre
         else:
-            # We found the user (Exact or Fuzzy), ensure we use their OFFICIAL name
             tecnico_nombre = user.tecnico_nombre
-
-        # Merge Logic
-        activity = db.query(Activity).filter(Activity.ticket_id == ticket_id).first()
+            
+        # RESTORE STATE
+        restored_state = ActivityState.PENDIENTE
+        restored_motivo = None
+        restored_obs = None
+        restored_start = None
+        restored_end = None
         
-        if not activity:
-            # CREATE
-            new_act = Activity(
-                ticket_id=ticket_id,
-                fecha=fecha_val,
-                tecnico_nombre=tecnico_nombre,
-                patente=str(row['patente']) if pd.notna(row['patente']) else None,
-                cliente=str(row['cliente']) if pd.notna(row['cliente']) else None,
-                direccion=str(row['direccion']) if pd.notna(row['direccion']) else None,
-                tipo_trabajo=str(row['tipo_trabajo']) if pd.notna(row['tipo_trabajo']) else None,
-                
-                # New fields - Handle missing columns gracefully
-                prioridad=str(row['Prioridad']) if 'Prioridad' in df.columns and pd.notna(row['Prioridad']) else None,
-                accesorios=str(row['Accesorios']) if 'Accesorios' in df.columns and pd.notna(row['Accesorios']) else None,
-                comuna=str(row['Comuna']) if 'Comuna' in df.columns and pd.notna(row['Comuna']) else None,
-                region=str(row['Region']) if 'Region' in df.columns and pd.notna(row['Region']) else None,
-                
-                estado=ActivityState.PENDIENTE
-            )
-            db.add(new_act)
-            created_count += 1
+        if ticket_id in backup_map:
+            b = backup_map[ticket_id]
+            restored_state = b["estado"]
+            restored_motivo = b["resultado_motivo"]
+            restored_obs = b["observacion"]
+            restored_start = b["hora_inicio"]
+            restored_end = b["hora_fin"]
+            updated_count += 1
         else:
-            # UPDATE
-            # Case 2: PENDIENTE -> Full Update
-            if activity.estado == ActivityState.PENDIENTE:
-                activity.fecha = fecha_val
-                activity.tecnico_nombre = tecnico_nombre # Allow reassign
-                activity.patente = str(row['patente']) if pd.notna(row['patente']) else None
-                activity.cliente = str(row['cliente']) if pd.notna(row['cliente']) else None
-                activity.direccion = str(row['direccion']) if pd.notna(row['direccion']) else None
-                activity.tipo_trabajo = str(row['tipo_trabajo']) if pd.notna(row['tipo_trabajo']) else None
-                
-                # New fields
-                activity.prioridad = str(row['Prioridad']) if 'Prioridad' in df.columns and pd.notna(row['Prioridad']) else None
-                activity.accesorios = str(row['Accesorios']) if 'Accesorios' in df.columns and pd.notna(row['Accesorios']) else None
-                activity.comuna = str(row['Comuna']) if 'Comuna' in df.columns and pd.notna(row['Comuna']) else None
-                activity.region = str(row['Region']) if 'Region' in df.columns and pd.notna(row['Region']) else None
-                updated_count += 1
-                
-            # Case 3: NOT PENDIENTE -> Safe Update Only
-            else:
-                # FIX: User requested updates to apply even if task is closed (e.g. fixing info)
-                # We allow updating metadata. CAREFUL: This implies Excel overrides DB history for these fields.
-                activity.fecha = fecha_val
-                activity.tecnico_nombre = tecnico_nombre
-                
-                activity.patente = str(row['patente']) if pd.notna(row['patente']) else activity.patente
-                activity.cliente = str(row['cliente']) if pd.notna(row['cliente']) else activity.cliente
-                activity.direccion = str(row['direccion']) if pd.notna(row['direccion']) else activity.direccion
-                activity.tipo_trabajo = str(row['tipo_trabajo']) if pd.notna(row['tipo_trabajo']) else activity.tipo_trabajo
-                
-                # Update new fields
-                activity.prioridad = str(row['Prioridad']) if 'Prioridad' in df.columns and pd.notna(row['Prioridad']) else activity.prioridad
-                activity.accesorios = str(row['Accesorios']) if 'Accesorios' in df.columns and pd.notna(row['Accesorios']) else activity.accesorios
-                activity.comuna = str(row['Comuna']) if 'Comuna' in df.columns and pd.notna(row['Comuna']) else activity.comuna
-                activity.region = str(row['Region']) if 'Region' in df.columns and pd.notna(row['Region']) else activity.region
-                updated_count += 1
-        
+            created_count += 1
+
+        new_act = Activity(
+            ticket_id=ticket_id,
+            fecha=fecha_val,
+            tecnico_nombre=tecnico_nombre, # EXCEL WINS
+            patente=str(row['patente']) if pd.notna(row['patente']) else None,
+            cliente=str(row['cliente']) if pd.notna(row['cliente']) else None,
+            direccion=str(row['direccion']) if pd.notna(row['direccion']) else None,
+            tipo_trabajo=str(row['tipo_trabajo']) if pd.notna(row['tipo_trabajo']) else None,
+            
+            prioridad=str(row['Prioridad']) if 'Prioridad' in df.columns and pd.notna(row['Prioridad']) else None,
+            accesorios=str(row['Accesorios']) if 'Accesorios' in df.columns and pd.notna(row['Accesorios']) else None,
+            comuna=str(row['Comuna']) if 'Comuna' in df.columns and pd.notna(row['Comuna']) else None,
+            region=str(row['Region']) if 'Region' in df.columns and pd.notna(row['Region']) else None,
+            
+            # RESTORED VALUES
+            estado=restored_state,
+            resultado_motivo=restored_motivo,
+            observacion=restored_obs,
+            hora_inicio=restored_start,
+            hora_fin=restored_end
+        )
+        db.add(new_act)
         processed_count += 1
         
-        # Sync to Sheets (Planning Phase)
+        # Sheet Sync
         try:
-            from app.services.sheets_service import sync_activity_to_sheet
-            sync_activity_to_sheet(activity if activity else new_act)
-        except Exception as e:
-            print(f"DEBUG [EXCEL] Sheet sync failed for ticket {ticket_id}: {e}")
-            
-        # Periodic flush?
-        if index % 50 == 0:
-            db.commit()
+             from app.services.sheets_service import sync_activity_to_sheet
+             sync_activity_to_sheet(new_act)
+        except Exception: pass
+        
+        if index % 50 == 0: db.commit()
             
     db.commit()
     
@@ -221,23 +170,9 @@ def process_excel_upload(file: IO, db: Session):
 
     # Send Email Summary
     try:
-        with open("upload_debug.log", "a") as f:
-            f.write("Attempting to import email_service...\n")
-            
         from app.services.email_service import send_plan_summary
-        
-        with open("upload_debug.log", "a") as f:
-            f.write("Calling send_plan_summary...\n")
-            
-        # Pass stats and the ORIGINAL DataFrame (df) to calculate breakdowns
         send_plan_summary(stats, df)
-        
-        with open("upload_debug.log", "a") as f:
-            f.write("Returned from send_plan_summary.\n")
-            
     except Exception as e:
-        with open("upload_debug.log", "a") as f:
-            f.write(f"DEBUG: Failed to trigger email summary: {e}\n")
         print(f"DEBUG: Failed to trigger email summary: {e}")
     
     return stats
