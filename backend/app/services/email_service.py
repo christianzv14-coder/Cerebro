@@ -47,7 +47,7 @@ def send_workday_summary(to_email: str, tech_name: str, workday_date: date, acti
     msg = MIMEMultipart()
     msg['From'] = os.getenv("SMTP_USER")
     msg['To'] = to_email
-    msg['Subject'] = f"Cierre de Jornada - {tech_name} - {workday_date}"
+    msg['Subject'] = f"✅ [INDIVIDUAL] Cierre de Jornada - {tech_name} - {workday_date}"
 
     # Calculate basic KPIs
     total = len(activities)
