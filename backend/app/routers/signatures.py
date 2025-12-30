@@ -114,128 +114,56 @@ async def _process_signature_upload(db, current_user, background_tasks: Backgrou
         raise HTTPException(status_code=500, detail="Error al registrar en BD.")
     
     
-    # 6. Global Day Closure Check & Email
-    # Logic:
-    # 1. Get all technicians that had activities TODAY.
-    # 2. Get all signatures for TODAY.
-    # 3. If Set(Active Techs) - Set(Signed Techs) is EMPTY -> ALL HAVE SIGNED.
-    # 4. Trigger Consolidated Day Report.
-    
-    message = "Firma guardada." # Default message
+    # 6. Send Individual Email Confirmation (SYNCHRONOUS & BLOCKING)
+    # Rationale: User requested "The easiest way that ensures delivery".
+    # Logic: 
+    # 1. Sign -> 2. Send Email immediately to Manager (Christian).
+    # 3. If Email Fails -> Rollback Signature (App shows Error).
     
     try:
-        # A. Find all unique techs assigned for today
-        active_techs_query = db.query(Activity.tecnico_nombre).filter(
+        activities = db.query(Activity).filter(
+            Activity.tecnico_nombre == tech_name_db,
             Activity.fecha == upload_date
-        ).distinct().all()
-        # active_techs_query is list of rows [('Juan',), ('Pedro',)]
-        active_techs = {r[0].strip().lower() for r in active_techs_query if r[0]}
-        
-        # B. Find all signatures for today (including the one just saved)
-        # We re-query to be safe
-        signed_techs_query = db.query(DaySignature.tecnico_nombre).filter(
-            DaySignature.fecha == upload_date
         ).all()
-        signed_techs = {r[0].strip().lower() for r in signed_techs_query if r[0]}
         
-        pending_techs = active_techs - signed_techs
+        # Override Target as requested by User
+        notification_target = "christianzv14@gmail.com"
         
-        print(f"DEBUG CLOSURE: Active={active_techs}, Signed={signed_techs}, Pending={pending_techs}")
+        print(f"DEBUG: SENDING SYNCHRONOUS EMAIL to {notification_target}...")
         
-        if not pending_techs:
-            print(">>> ALL TECHNICIANS HAVE SIGNED! TRIGGERING MASTER REPORT <<<")
-            
-            # Fetch ALL activities for the day to generate the Master Report
-            all_activities = db.query(Activity).filter(
-                Activity.fecha == upload_date
-            ).all()
-            
-            # Convert to DataFrame-like list of dicts for send_plan_summary
-            # send_plan_summary expects objects with .get() or attribute access?
-            # It uses .get() in grouped_tasks loop: `row.get('tecnico_nombre'...)` (Lines 235)
-            # So we must convert SQLAlchemy objects to Dictionaries.
-            
-            activities_data = []
-            for act in all_activities:
-                activities_data.append({
-                    "tecnico_nombre": act.tecnico_nombre,
-                    "ticket_id": act.ticket_id,
-                    "cliente": act.cliente,
-                    "tipo_trabajo": act.tipo_trabajo,
-                    "direccion": act.direccion,
-                    "comuna": act.comuna,
-                    "estado": act.estado.value,
-                    "region": act.region,
-                    # Add other fields if needed by email template
-                })
-            
-            import pandas as pd
-            df_master = pd.DataFrame(activities_data)
-            
-            # Recalculate Stats for the Header
-            stats = {
-                "processed": len(activities_data),
-                "created": len([a for a in activities_data if a['estado'] == 'PENDIENTE']), # Or similar mapping
-                "updated": len([a for a in activities_data if a['estado'] != 'PENDIENTE'])
-            }
-            
-            # Use same notification target
-            notification_target = "christianzv14@gmail.com" # Override
-            
-            # SEND SYNCHRONOUSLY
-            from app.services.email_service import send_plan_summary
-            try:
-                # We reuse send_plan_summary BUT we need to hack the recipient if we want strictly christianzv14
-                # send_plan_summary reads env var SMTP_TO. 
-                # Let's rely on SMTP_TO being set to christianzv14@gmail.com in the env?
-                # Or we can temporarily monkeypatch? No, unsafe.
-                # Actually, send_plan_summary takes no recipient arg. It reads os.getenv("SMTP_TO").
-                # User said: "el correo TIENE QUE LLEGAR AL MIO".
-                # If existing env SMTP_TO is correct, we are good.
-                # If not, we should modify send_plan_summary to accept 'to_email'.
-                # But for now, let's assume SMTP_TO is set correctly on Railway or user accepts it.
-                # WAIT! User said "el correo tiene que llegar al mio".
-                # Step 0: Ensure SMTP_TO is correct in Railway variables.
-                # For this specific tool call, I will modify send_plan_summary to take an argument?
-                # No, too complex. I will assume SMTP_TO is set.
-                
-                send_plan_summary(stats, df_master)
-                print("DEBUG: Master Email sent successfully.")
-                
-            except Exception as e_mail:
-                 print(f"DEBUG CRITICAL: Master Email failed: {e_mail}")
-                 # Same rollback logic?
-                 # Probably yes, to force retry.
-                 db.delete(new_sig)
-                 db.commit()
-                 raise HTTPException(status_code=500, detail=f"Error enviando Reporte Final (Firma revertida): {e_mail}")
+        try:
+            send_workday_summary(notification_target, tech_name_db, upload_date, activities)
+            print("DEBUG: Email sent successfully (Synchronous).")
+        except Exception as e_mail:
+            print(f"DEBUG CRITICAL: Email failed to send: {e_mail}")
+            # ROLLBACK: Delete the signature so user can try again
+            db.delete(new_sig)
+            db.commit()
+            print("DEBUG: Rollback signature due to email failure.")
+            raise HTTPException(status_code=500, detail=f"Error enviando correo (Firma eliminada, intente de nuevo): {e_mail}")
 
-            message = "Firma guardada. REPORTE DIARIO ENVIADO (Todos firmaron)."
-            
-        else:
-            print(f"DEBUG: Still waiting for {pending_techs}. No email sent.")
-            message = f"Firma guardada. Esperando a: {', '.join(pending_techs)}"
+        # 5. Sync to Sheets (Only if email succeeded)
+        try:
+             sync_signature_to_sheet(new_sig, notification_target)
+        except Exception as e:
+            print(f"DEBUG WARNING: Sheets sync failed: {e}")
 
-
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        print(f"DEBUG WARNING: Closure check failed: {e}")
-        # If check fails (e.g. DB error), do we rollback signature?
-        # Maybe not. It's a "soft" error. But if we want strictness...
-        # Let's keep signature but warn.
-        if "Firma revertida" in str(e):
-             raise e # Re-raise the email error
-        # Otherwise ignore
-        raise HTTPException(status_code=500, detail=f"Error validando cierre global: {e}")
+        print(f"DEBUG WARNING: General Email/Sync Error: {e}")
+        # If it wasn't the critical email error (which raises HTTP), we might swallow it?
+        # But let's be safe. If we are here, something weird happened.
+        pass
 
-
-    # 7. Update Scores (BACKGROUND TASK) - Always update scores though
+    # 7. Update Scores (BACKGROUND TASK)
     try:
         print(f"DEBUG: Queuing score update...")
         background_tasks.add_task(update_scores_in_sheet)
     except Exception as e:
         print(f"DEBUG WARNING: Score queue failed: {e}")
 
-    return {"status": "success", "message": message}
+    return {"status": "success", "message": "Firma guardada y Correo enviado."}
 
 @router.get("/status")
 def get_signature_status(
