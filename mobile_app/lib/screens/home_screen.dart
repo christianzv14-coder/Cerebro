@@ -110,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
           : null, // Show Drawer only on main Home, not history detail
       appBar: AppBar(
         title: Text(widget.initialDate == null
-            ? 'Hola, ${user?.tecnicoNombre ?? ""} (vDrawer)'
+            ? 'Hola, ${user?.tecnicoNombre ?? ""}'
             : 'Historial: ${widget.initialDate.toString().split(" ")[0]}'),
         actions: [
           IconButton(

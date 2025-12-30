@@ -8,6 +8,7 @@ from app.models.models import DaySignature, User
 from app.deps import get_current_user
 from app.services.sheets_service import sync_signature_to_sheet
 from app.services.email_service import send_workday_summary
+from app.services.scores_service import update_scores_in_sheet
 from app.models.models import DaySignature, User, Activity
 
 router = APIRouter()
@@ -149,6 +150,13 @@ async def _process_signature_upload(db, current_user, background_tasks: Backgrou
 
     except Exception as e:
         print(f"DEBUG WARNING: Email queuing failed: {e}")
+
+    # 7. Update Scores (BACKGROUND TASK)
+    try:
+        print(f"DEBUG: Queuing score update...")
+        background_tasks.add_task(update_scores_in_sheet)
+    except Exception as e:
+        print(f"DEBUG WARNING: Score queue failed: {e}")
 
     return {"status": "success", "message": "Firma guardada. Correo en cola."}
 
