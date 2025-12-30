@@ -93,13 +93,15 @@ def update_scores_in_sheet():
 
     # 2. Get SIGNED Days from DB
     db = SessionLocal()
-    signed_days = set() # Set of (date_obj, tech_name_str)
+    signed_days = set() # Set of (date_iso_str, tech_name_upper)
     try:
         sigs = db.query(DaySignature).filter(DaySignature.is_signed == True).all()
         for s in sigs:
-            signed_days.add((s.fecha, str(s.tecnico_nombre).strip()))
+            # Store as ISO string and Upper Case Name
+            signed_days.add((str(s.fecha), str(s.tecnico_nombre).strip().upper()))
+        logger.info(f">>> [SCORES] Loaded {len(signed_days)} signatures from DB: {list(signed_days)[:5]}...")
     except Exception as e:
-        logger.error(f"DB Error fetching signatures: {e}")
+        logger.error(f">>> [SCORES] DB Error fetching signatures: {e}")
     finally:
         db.close()
 
@@ -121,8 +123,9 @@ def update_scores_in_sheet():
     output_rows.append(output_headers)
     
     total_money = 0
+    rows_skipped = 0
     
-    for row in data_rows:
+    for row_idx, row in enumerate(data_rows):
         if len(row) <= idx_ticket: continue
         
         t_id = row[idx_ticket].strip().upper()
@@ -131,37 +134,41 @@ def update_scores_in_sheet():
         raw_tech = row[idx_tecnico] if len(row) > idx_tecnico else "-"
         raw_date = row[idx_fecha] if len(row) > idx_fecha else ""
         
-        tecnico = str(raw_tech).strip()
-        fecha = str(raw_date).strip()
+        tecnico = str(raw_tech).strip().upper()
+        fecha_str = str(raw_date).strip()
         
-        # --- NEW LOGIC: CHECK SIGNATURE ---
-        # Parse date from string to date object for comparison
-        # Format in excel could be YYYY-MM-DD or DD/MM/YYYY? 
-        # Usually internal logic uses ISO YYYY-MM-DD, but excel might be varied.
-        # Let's try flexible parsing or match what DB stores.
-        # DB stores python date object.
-        # If string is '2025-01-01', we parse.
-        
-        is_signed = False
+        # --- ROBUST DATE PARSING ---
+        parsed_iso = None
         try:
-            # Try ISO first
-            if '-' in fecha:
-                d_obj = datetime.strptime(fecha, "%Y-%m-%d").date()
-            elif '/' in fecha:
-                d_obj = datetime.strptime(fecha, "%d/%m/%Y").date()
+            # Common Excel/Sheet formats
+            if not fecha_str:
+                parsed_iso = None
+            elif '-' in fecha_str:
+                 # Try ISO YYYY-MM-DD first, then DD-MM-YYYY
+                 parts = fecha_str.split('-')
+                 if len(parts[0]) == 4: # YYYY-MM-DD
+                     parsed_iso = datetime.strptime(fecha_str, "%Y-%m-%d").date().isoformat()
+                 else: # DD-MM-YYYY
+                     parsed_iso = datetime.strptime(fecha_str, "%d-%m-%Y").date().isoformat()
+            elif '/' in fecha_str:
+                 # Assume DD/MM/YYYY
+                 parsed_iso = datetime.strptime(fecha_str, "%d/%m/%Y").date().isoformat()
             else:
-                d_obj = None
+                 # Maybe generic string? Try direct parse if strict format known?
+                 pass
+        except Exception as e:
+            logger.warning(f"Date parse failed for '{fecha_str}': {e}")
             
-            if d_obj and (d_obj, tecnico) in signed_days:
-                is_signed = True
-        except:
-            pass # Date parse error, assume not signed or invalid
-            
+        # Check Signature
+        is_signed = False
+        if parsed_iso and (parsed_iso, tecnico) in signed_days:
+            is_signed = True
+        
         if not is_signed:
-            # User wants: "Cuando uno firme, los puntos de ESE tecnico aparecen"
-            # Does this mean we skip the row? Or set points to Empty?
-            # "los puntos de TODOS se rellenan... tiene que ser que cuando uno firme... aparecen"
-            # It's safer to SKIP adding the row to 'Puntajes' sheet until signed.
+            rows_skipped += 1
+            # Debug log for first few skips to diagnose
+            if rows_skipped < 5:
+                logger.info(f"Skipping row {row_idx}: Tech '{tecnico}' on {parsed_iso or fecha_str} NOT SIGNED. (Key: {(parsed_iso, tecnico)})")
             continue
             
         # If Signed, Calculate Points
