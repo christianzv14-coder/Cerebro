@@ -33,17 +33,21 @@ def test_email():
             
         print(" -> Login Successful.")
         
-        # 2. Simulate Full Closure (Admin)
-        print("2. Simulating FULL CLOSURE (Auto-sign all pending)...")
+        # 2. TRIGGER RESET (NUCLEAR OPTION)
+        print("2. TRIGGERING REMOTE RESET (Delete all plans)...")
         headers = {"Authorization": f"Bearer {token}"}
-        resp = requests.post(f"{BASE_URL}/admin/simulate_closure", headers=headers)
+        resp = requests.delete(f"{BASE_URL}/activities/reset", headers=headers)
         
-        print(f"SIMULATION STATUS: {resp.status_code}")
-        print(f"SIMULATION BODY: {resp.text}")
+        print(f"RESET STATUS: {resp.status_code}")
+        print(f"RESET BODY: {resp.text}")
 
-        # check status too
-        # resp = requests.get(f"{BASE_URL}/signatures/status", headers=headers)
-        # print(f"SIG STATUS: {resp.status_code}")
+        # 3. Simulate Full Closure (Admin) - Optional
+        # print("2. Simulating FULL CLOSURE (Auto-sign all pending)...")
+        # headers = {"Authorization": f"Bearer {token}"}
+        # resp = requests.post(f"{BASE_URL}/admin/simulate_closure", headers=headers)
+        # print(f"SIMULATION STATUS: {resp.status_code}")
+        # print(f"SIMULATION BODY: {resp.text}")
+
 
         
     except Exception as e:

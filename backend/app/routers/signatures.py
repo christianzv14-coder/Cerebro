@@ -114,47 +114,97 @@ async def _process_signature_upload(db, current_user, background_tasks: Backgrou
         raise HTTPException(status_code=500, detail="Error al registrar en BD.")
     
     
-    # 6. Send Individual Email Confirmation (SYNCHRONOUS & BLOCKING)
-    # Rationale: User requested "The easiest way that ensures delivery".
-    # Logic: 
-    # 1. Sign -> 2. Send Email immediately to Manager (Christian).
-    # 3. If Email Fails -> Rollback Signature (App shows Error).
+    # 6. Global Day Closure Check & Email (RESTORED)
+    # Logic:
+    # 1. Get all technicians that had activities TODAY.
+    # 2. Get all signatures for TODAY.
+    # 3. If Set(Active Techs) - Set(Signed Techs) is EMPTY -> ALL HAVE SIGNED.
+    # 4. Trigger Consolidated Day Report.
+    
+    import pandas as pd
+    from app.services.email_service import send_plan_summary
+    
+    message = "Firma guardada." # Default message
     
     try:
-        activities = db.query(Activity).filter(
-            Activity.tecnico_nombre == tech_name_db,
+        # A. Find all unique techs assigned for today
+        active_techs_query = db.query(Activity.tecnico_nombre).filter(
             Activity.fecha == upload_date
+        ).distinct().all()
+        # active_techs_query is list of rows [('Juan',), ('Pedro',)]
+        active_techs = {r[0].strip().lower() for r in active_techs_query if r[0]}
+        
+        # B. Find all signatures for today (including the one just saved)
+        signed_techs_query = db.query(DaySignature.tecnico_nombre).filter(
+            DaySignature.fecha == upload_date
         ).all()
+        signed_techs = {r[0].strip().lower() for r in signed_techs_query if r[0]}
         
-        # Override Target as requested by User
-        notification_target = "christianzv14@gmail.com"
+        pending_techs = active_techs - signed_techs
         
-        print(f"DEBUG: SENDING SYNCHRONOUS EMAIL to {notification_target}...")
+        print(f"DEBUG CLOSURE: Active={active_techs}, Signed={signed_techs}, Pending={pending_techs}")
         
-        try:
-            send_workday_summary(notification_target, tech_name_db, upload_date, activities)
-            print("DEBUG: Email sent successfully (Synchronous).")
-        except Exception as e_mail:
-            print(f"DEBUG CRITICAL: Email failed to send: {e_mail}")
-            # ROLLBACK: Delete the signature so user can try again
-            db.delete(new_sig)
-            db.commit()
-            print("DEBUG: Rollback signature due to email failure.")
-            raise HTTPException(status_code=500, detail=f"Error enviando correo (Firma eliminada, intente de nuevo): {e_mail}")
+        if not pending_techs:
+            print(">>> ALL TECHNICIANS HAVE SIGNED! TRIGGERING MASTER REPORT <<<")
+            
+            # Fetch ALL activities for the day to generate the Master Report
+            all_activities = db.query(Activity).filter(
+                Activity.fecha == upload_date
+            ).all()
+            
+            activities_data = []
+            for act in all_activities:
+                activities_data.append({
+                    "tecnico_nombre": act.tecnico_nombre,
+                    "ticket_id": act.ticket_id,
+                    "cliente": act.cliente,
+                    "tipo_trabajo": act.tipo_trabajo,
+                    "direccion": act.direccion,
+                    "comuna": act.comuna,
+                    "estado": act.estado.value,
+                    "region": act.region,
+                })
+            
+            df_master = pd.DataFrame(activities_data)
+            
+            # Recalculate Stats for the Header
+            stats = {
+                "processed": len(activities_data),
+                "created": len([a for a in activities_data if a['estado'] == 'PENDIENTE']),
+                "updated": len([a for a in activities_data if a['estado'] != 'PENDIENTE'])
+            }
+            
+            # SEND SYNCHRONOUSLY
+            try:
+                # send_plan_summary will read SMTP_TO from env 
+                # (which user requested to be christianzv14@gmail.com)
+                send_plan_summary(stats, df_master)
+                print("DEBUG: Master Email sent successfully.")
+                
+            except Exception as e_mail:
+                 print(f"DEBUG CRITICAL: Master Email failed: {e_mail}")
+                 # Rollback signature so they can retry the closure
+                 db.delete(new_sig)
+                 db.commit()
+                 raise HTTPException(status_code=500, detail=f"Error enviando Reporte Final (Firma revertida): {e_mail}")
 
-        # 5. Sync to Sheets (Only if email succeeded)
-        try:
-             sync_signature_to_sheet(new_sig, notification_target)
-        except Exception as e:
-            print(f"DEBUG WARNING: Sheets sync failed: {e}")
+            message = "Firma guardada. REPORTE DIARIO ENVIADO (Equipo Completo)."
+            
+        else:
+            print(f"DEBUG: Still waiting for {pending_techs}. No email sent.")
+            # We want to display names nicely. Original casing? 
+            # active_techs_query had original casing.
+            pending_display = [r[0] for r in active_techs_query if r[0].strip().lower() in pending_techs]
+            message = f"Firma guardada. Esperando a: {', '.join(pending_display)}"
 
-    except HTTPException as he:
-        raise he
+
     except Exception as e:
-        print(f"DEBUG WARNING: General Email/Sync Error: {e}")
-        # If it wasn't the critical email error (which raises HTTP), we might swallow it?
-        # But let's be safe. If we are here, something weird happened.
-        pass
+        print(f"DEBUG WARNING: Closure check failed: {e}")
+        if "Firma revertida" in str(e):
+             raise e
+        # Otherwise ignore non-critical logic errors
+        # pass
+
 
     # 7. Update Scores (BACKGROUND TASK)
     try:
@@ -163,7 +213,7 @@ async def _process_signature_upload(db, current_user, background_tasks: Backgrou
     except Exception as e:
         print(f"DEBUG WARNING: Score queue failed: {e}")
 
-    return {"status": "success", "message": "Firma guardada y Correo enviado."}
+    return {"status": "success", "message": message}
 
 @router.get("/status")
 def get_signature_status(
