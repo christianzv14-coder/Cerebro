@@ -114,6 +114,19 @@ async def _process_signature_upload(db, current_user, background_tasks: Backgrou
         raise HTTPException(status_code=500, detail="Error al registrar en BD.")
     
     
+    # 5. Sync to Sheets (Crucial Step: Always sync signature to 'Firmas' sheet immediately)
+    try:
+         # Notification target logic: 
+         # If Consolidating, we don't necessarily send an email NOW, but the Sheet needs a "target" or just logs it.
+         # sync_signature_to_sheet(sig, email_target).
+         # Let's use the user's email or a default for logging purposes.
+         sync_signature_to_sheet(new_sig, "CONSOLIDATED_WAITING") 
+    except Exception as e:
+        print(f"DEBUG WARNING: Sheets sync failed: {e}")
+        # Non-blocking? User said "bi se llenó la planilla", implying it's important.
+        # But maybe we shouldn't fail the whole closure? 
+        # Let's log it.
+
     # 6. Global Day Closure Check & Email (RESTORED)
     # Logic:
     # 1. Get all technicians that had activities TODAY.
