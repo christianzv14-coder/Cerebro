@@ -150,3 +150,21 @@ def finish_activity(
         print(f"Background Sync Error: {e}")
     
     return activity
+
+@router.delete("/reset")
+def reset_all_activities(
+    db: Session = Depends(get_db)
+):
+    """
+    NUCLEAR OPTION: Deletes ALL activities and signatures. 
+    Use with caution for testing.
+    """
+    from sqlalchemy import text
+    try:
+        db.execute(text("TRUNCATE TABLE activities CASCADE"))
+        db.execute(text("TRUNCATE TABLE day_signatures CASCADE"))
+        db.commit()
+        return {"status": "success", "message": "All activities and signatures deleted."}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
