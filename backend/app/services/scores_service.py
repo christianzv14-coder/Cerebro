@@ -42,8 +42,9 @@ def update_scores_in_sheet():
     logger.info(">>> [SCORES] Starting score update...")
     
     # Imports inside function to avoid circular deps if any
-    from app.database import SessionLocal
-    from app.models.models import DaySignature
+    # DB Imports removed as we are 100% Sheet based now
+    # from app.database import SessionLocal
+    # from app.models.models import DaySignature
     
     client = get_sheet_client()
     if not client: 
@@ -163,7 +164,7 @@ def update_scores_in_sheet():
         row_data = {
             "Accesorios": accesorios,
             "Region": region,
-            "Fecha Plan": fecha,
+            "Fecha Plan": fecha_str,
             "Tipo Trabajo": tipo,
             "Estado": estado # Passed to calculator
         }
@@ -171,7 +172,7 @@ def update_scores_in_sheet():
         res = calculate_final_score(row_data, tech_count)
         
         out_row = [
-            fecha,
+            fecha_str,
             t_id,
             tecnico,
             tipo,
