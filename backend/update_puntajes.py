@@ -107,10 +107,24 @@ def update_puntajes():
         
         tech_count = ticket_counts.get(t_id, 1)
         
+        # --- CHECK SIGNATURE VIA SHEET COLUMN ---
+        # idx_firmado detection needed
+        is_signed = False
+        val_firmado = ""
+        # We need to find idx_firmado first.
+        # This script defines headers early. Let's assume we add it.
+        pass # Placeholder as we need to update headers parsing too.
+
+        # For now, let's just use the safer logic from scores_service logic
+        # But we need row index access.
+
         row_data = {
             "Accesorios": accesorios,
             "Region": region,
-            "Fecha Plan": fecha
+            "Fecha Plan": fecha,
+            "Tipo Trabajo": tipo,
+            # We need to pass status!
+            "Estado": "PENDIENTE" 
         }
         
         # Calculate

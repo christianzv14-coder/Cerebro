@@ -190,7 +190,8 @@ def subir_archivo(ruta_excel):
             print(f"   - Actualiz.:  {stats.get('updated')}")
             
             # 3. TRIGGER LOCAL EMAIL
-            send_local_email(ruta_excel, stats)
+            # send_local_email(ruta_excel, stats) # DISABLED BY USER REQUEST
+            print("ℹ️ Email consolidado desactivado por solicitud.")
             
         else:
             print(f"❌ Error Servidor: {res.status_code} - {res.text}")

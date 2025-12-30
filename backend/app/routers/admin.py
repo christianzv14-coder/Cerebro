@@ -25,9 +25,14 @@ def upload_planification(
         # But read() might have consumed it. 
         # Let's pass the file.file directly if possible, or BytesIO.
         from io import BytesIO
-        io_file = BytesIO(contents)
+        from app.services.scores_service import update_scores_in_sheet
         
+        io_file = BytesIO(contents)
         stats = process_excel_upload(io_file, db)
+        
+        # Trigger Score Update to refresh Puntajes with new data
+        background_tasks.add_task(update_scores_in_sheet)
+        
         return {"message": "Upload successful", "stats": stats}
         
     except ValueError as e:

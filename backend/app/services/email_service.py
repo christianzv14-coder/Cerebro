@@ -204,6 +204,10 @@ def send_workday_summary(to_email: str, tech_name: str, workday_date: date, acti
 
 # Function kept for compatibility if needed, using generic implementation or similar logic
 def send_plan_summary(stats: Dict[str, Any], df_data: Any, to_email: str = None):
+    _log_debug("--- send_plan_summary DISABLED BY USER REQUEST ---")
+    return # DISABLED
+    
+    # Original logic below disabled...
     _log_debug("--- Starting send_plan_summary ---")
     
     # Use override or Fallback to Env

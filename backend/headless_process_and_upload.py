@@ -52,8 +52,9 @@ def headless_automation():
         # FORCE ASSIGNMENT TO PEDRO PASCAL
         df_renamed["tecnico_nombre"] = "Pedro Pascal"
         
-        # FORCE DATE TO TODAY (User's Timezone: 2025-12-26) to avoid UTC rollover issues
-        df_renamed["fecha"] = "2025-12-26"
+        from datetime import date
+        current_date = date.today().strftime("%Y-%m-%d")
+        df_renamed["fecha"] = current_date
             
         available = df_renamed.columns.tolist()
         for col in FINAL_COLUMNS:

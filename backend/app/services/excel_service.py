@@ -50,14 +50,12 @@ def process_excel_upload(file: IO, db: Session):
             
             deleted_acts = db.query(Activity).filter(
                 Activity.fecha == d,
-                Activity.tecnico_nombre == tech
+                Activity.tecnico_nombre == tech,
+                Activity.estado == ActivityState.PENDIENTE # FIX: Only delete PENDIENTE, preserve history
             ).delete()
             
-            # Also reset Signature for this day/tech if exists, ensuring "Sign" button resets
-            deleted_sigs = db.query(DaySignature).filter(
-                DaySignature.fecha == d,
-                DaySignature.tecnico_nombre == tech
-            ).delete()
+            # FIX: Do NOT delete signatures. If they signed, they signed.
+            # deleted_sigs = db.query(DaySignature)...
             
             with open("upload_debug.log", "a") as f:
                 f.write(f"  -> Deleted {deleted_acts} activities, {deleted_sigs} signatures.\n")

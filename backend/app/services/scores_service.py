@@ -86,6 +86,7 @@ def update_scores_in_sheet():
         # Try to find 'estado' or 'status'
         idx_estado = -1
         if "estado" in headers: idx_estado = headers.index("estado")
+        elif "estado final" in headers: idx_estado = headers.index("estado final")
         elif "status" in headers: idx_estado = headers.index("status")
         
     except ValueError as e:
@@ -162,8 +163,47 @@ def update_scores_in_sheet():
         # CORE FIX: User explicitly stated: "si esq está firmado... entonces dice exitoso"
         # Since the 'Estado' column seems empty/unreliable in inspection, we trust 'FIRMADO'.
         # If is_signed is True, we FORCE status to 'EXITOSO' to allow point calculation.
+        # Try to find 'motivo fallo' if available
+        motivo = ""
+        idx_motivo = -1
+        if "motivo fallo" in headers: idx_motivo = headers.index("motivo fallo")
+        elif "motivo_fallo" in headers: idx_motivo = headers.index("motivo_fallo")
+        
+        if idx_motivo != -1 and len(row) > idx_motivo:
+            motivo = str(row[idx_motivo]).strip().upper()
+
         if is_signed:
-            estado = "EXITOSO"
+            # FIX: Only force EXITOSO if not explicitly failed
+            # Check explicit Status OR explicit Failure Reason
+            is_failed = False
+            
+            # Check Status (Loose matching for typos)
+            est_upper = estado.upper() if estado else ""
+            
+            # DEBUG PEDRO SPECIFIC
+            if "PEDRO" in tecnico:
+                 logger.info(f"DEBUG PEDRO: State='{est_upper}', Motivo='{motivo}', Signed={is_signed}")
+
+            if any(x in est_upper for x in ["FALLI", "CANCEL", "REPRO", "NULA", "NO EXITOSO"]):
+                is_failed = True
+            
+            # Check Motivo (Fallback)
+            if not is_failed and motivo and len(motivo) > 3: 
+                is_failed = True
+                logger.info(f"Ticket {t_id}: Status '{estado}' but Motivo detected '{motivo}' -> Marking FAIL.")
+            
+            # Check Motivo (Fallback)
+            if not is_failed and motivo and len(motivo) > 3: # If there is a reason desc
+                is_failed = True
+                logger.info(f"Ticket {t_id}: Status '{estado}' but Motivo detected '{motivo}' -> Marking FAIL.")
+
+            if is_failed:
+                logger.info(f"Ticket {t_id}: Signed but Failed (St: {estado}, Mo: {motivo}) -> 0 pts.")
+                # Ensure we pass a failing status to calculator
+                if estado == "PENDIENTE" or not estado: 
+                    estado = "FALLIDO"
+            else:
+                estado = "EXITOSO"
 
         tech_count = ticket_counts.get(t_id, 1)
         

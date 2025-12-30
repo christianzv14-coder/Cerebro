@@ -1,0 +1,13 @@
+Headers: ['año', 'fecha plan', 'fecha cierre', 'ticket id', 'tecnico', 'patente', 'cliente', 'direccion', 'tipo trabajo', 'prioridad', 'accesorios', 'comuna', 'region', 'estado final', 'motivo fallo', 'hora inicio', 'hora fin', 'duracion min', 'observacion', 'firmado']
+
+>> TECH: PEDRO PASCAL | ID: 424267
+   Estado Raw: ||EXITOSO||
+   Firmado Raw: ||FIRMADO|| -> Signed: True
+  [NEW LOGIC] Signed & Not Failed -> Forced to EXITOSO
+  > Points: 28.6
+
+>> TECH: JUAN PEREZ | ID: 430947
+   Estado Raw: ||FALLIDO||
+   Firmado Raw: ||FIRMADO|| -> Signed: True
+  [NEW LOGIC] Signed but Status 'FALLIDO' -> Keeping as Fallido (0 pts)
+  > Points: 0
