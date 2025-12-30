@@ -187,8 +187,7 @@ def test_email_configuration(
             "network_test": network_results,
             "detail": "If ports are 'Closed/Blocked', Railway is preventing the connection."
         }
-            "detail": "If ports are 'Closed/Blocked', Railway is preventing the connection."
-        }
+
 
 @router.post("/fix_signatures_schema")
 def fix_signatures_schema(
