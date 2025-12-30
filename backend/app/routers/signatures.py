@@ -140,12 +140,30 @@ async def _process_signature_upload(db, current_user, background_tasks: Backgrou
             print(f"DEBUG WARNING: Sheets sync failed: {e}")
 
         # Queue the email to the SAME target
+        # Queue the email to the SAME target
         if notification_target:
-            print(f"DEBUG: Queuing confirmation email to {notification_target}...")
-            # Use BackgroundTasks
-            background_tasks.add_task(send_workday_summary, notification_target, tech_name_db, upload_date, activities)
+            print(f"DEBUG: SENDING SYNCHRONOUS EMAIL to {notification_target}...")
+            # FORCE SYNCHRONOUS SENDING (Blocking)
+            try:
+                send_workday_summary(notification_target, tech_name_db, upload_date, activities)
+                print("DEBUG: Email sent successfully (Synchronous).")
+            except Exception as e_mail:
+                print(f"DEBUG CRITICAL: Email failed to send: {e_mail}")
+                # Optional: If email is critical, we could raise error here.
+                # However, signature is already saved. Ideally we rollback?
+                # For now, let's allow it but log clearly. 
+                # User asked to "destrabarlo" -> If email fails, they might want to retry.
+                # If we raise error, the app shows error. But DB has signature. 
+                # Next retry -> "Already signed".
+                # FIX: If email fails, delete the signature from DB?
+                # Let's try to delete if email crashes.
+                 
+                db.delete(new_sig)
+                db.commit()
+                print("DEBUG: Rollback signature due to email failure.")
+                raise HTTPException(status_code=500, detail=f"Error enviando correo (Firma revertida): {e_mail}")
         else:
-             print("DEBUG: No recipient email found. Skipping email queue.")
+             print("DEBUG: No recipient email found. Skipping email.")
 
     except Exception as e:
         print(f"DEBUG WARNING: Email queuing failed: {e}")

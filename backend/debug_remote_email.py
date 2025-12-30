@@ -33,13 +33,19 @@ def test_email():
             
         print(" -> Login Successful.")
         
-        # 2. Trigger Schema Fix
-        print("2. Triggering Schema Fix (Unique Constraint)...")
+        # 2. Check Signature Status
+        print("2. Checking Signature Status for Today...")
         headers = {"Authorization": f"Bearer {token}"}
-        resp = requests.post(f"{BASE_URL}/admin/fix_signatures_schema", headers=headers)
+        resp = requests.get(f"{BASE_URL}/signatures/status", headers=headers)
         
-        print(f"RESPONSE STATUS: {resp.status_code}")
-        print(f"RESPONSE BODY: {resp.text}")
+        print(f"SIG STATUS: {resp.status_code}")
+        print(f"SIG BODY: {resp.text}")
+
+        # 3. Trigger Debug Email (Optional, can re-enable)
+        # print("3. Triggering Debug Email...")
+        # resp = requests.get(f"{BASE_URL}/users/debug/email", headers=headers)
+        # print(f"EMAIL STATUS: {resp.status_code}")
+
         
     except Exception as e:
         print(f"ERROR: {e}")
