@@ -35,10 +35,16 @@ def normalize_header(h):
 
 def update_scores_in_sheet():
     """
-    Main function to read Bitacora and update Puntajes.
-    Can be called from API as a background task.
+    Update logic with DB Access to check Signatures.
+    Only writes row if Technician has SIGNED that day.
+    Only counts points if Activity is EXITOSO (handled by calculator, passed via header 'Estado').
     """
     logger.info(">>> [SCORES] Starting score update...")
+    
+    # Imports inside function to avoid circular deps if any
+    from app.database import SessionLocal
+    from app.models.models import DaySignature
+    
     client = get_sheet_client()
     if not client: 
         logger.error(">>> [SCORES] No client, aborting.")
@@ -57,11 +63,8 @@ def update_scores_in_sheet():
     try:
         ws_bitacora = sheet.worksheet(bitacora_ws_name)
     except:
-        try:
-            ws_bitacora = sheet.worksheet("Bitacora 2024") # Fallback
-        except:
-            logger.error("Bitacora sheet not found.")
-            return
+        logger.error("Bitacora sheet not found.")
+        return
 
     all_values = ws_bitacora.get_all_values()
     if not all_values:
@@ -71,20 +74,36 @@ def update_scores_in_sheet():
     headers = [normalize_header(h) for h in all_values[0]]
     data_rows = all_values[1:]
     
+    # Find headers
     try:
         idx_ticket = headers.index("ticket id")
         idx_tecnico = headers.index("tecnico") 
-        # Fallback for tecnico variants if needed
-        
         idx_fecha = headers.index("fecha plan")
         idx_accesorios = headers.index("accesorios")
         idx_region = headers.index("region")
         idx_tipo = headers.index("tipo trabajo")
+        # Try to find 'estado' or 'status'
+        idx_estado = -1
+        if "estado" in headers: idx_estado = headers.index("estado")
+        elif "status" in headers: idx_estado = headers.index("status")
+        
     except ValueError as e:
         logger.error(f"Missing required column in Bitacora: {e}. Headers found: {headers}")
         return
 
-    # 2. Group by Ticket ID to count technicians
+    # 2. Get SIGNED Days from DB
+    db = SessionLocal()
+    signed_days = set() # Set of (date_obj, tech_name_str)
+    try:
+        sigs = db.query(DaySignature).filter(DaySignature.is_signed == True).all()
+        for s in sigs:
+            signed_days.add((s.fecha, str(s.tecnico_nombre).strip()))
+    except Exception as e:
+        logger.error(f"DB Error fetching signatures: {e}")
+    finally:
+        db.close()
+
+    # 3. Group by Ticket ID
     ticket_counts = {}
     for row in data_rows:
         if len(row) <= idx_ticket: continue
@@ -92,7 +111,7 @@ def update_scores_in_sheet():
         if not t_id: continue
         ticket_counts[t_id] = ticket_counts.get(t_id, 0) + 1
 
-    # 3. Process Rows
+    # 4. Process Rows
     output_rows = []
     output_headers = [
         "Fecha", "Ticket ID", "Técnico", "Tipo Trabajo", "Accesorios", 
@@ -109,19 +128,59 @@ def update_scores_in_sheet():
         t_id = row[idx_ticket].strip().upper()
         if not t_id: continue
         
-        tecnico = row[idx_tecnico] if len(row) > idx_tecnico else ""
-        fecha = row[idx_fecha] if len(row) > idx_fecha else ""
+        raw_tech = row[idx_tecnico] if len(row) > idx_tecnico else "-"
+        raw_date = row[idx_fecha] if len(row) > idx_fecha else ""
+        
+        tecnico = str(raw_tech).strip()
+        fecha = str(raw_date).strip()
+        
+        # --- NEW LOGIC: CHECK SIGNATURE ---
+        # Parse date from string to date object for comparison
+        # Format in excel could be YYYY-MM-DD or DD/MM/YYYY? 
+        # Usually internal logic uses ISO YYYY-MM-DD, but excel might be varied.
+        # Let's try flexible parsing or match what DB stores.
+        # DB stores python date object.
+        # If string is '2025-01-01', we parse.
+        
+        is_signed = False
+        try:
+            # Try ISO first
+            if '-' in fecha:
+                d_obj = datetime.strptime(fecha, "%Y-%m-%d").date()
+            elif '/' in fecha:
+                d_obj = datetime.strptime(fecha, "%d/%m/%Y").date()
+            else:
+                d_obj = None
+            
+            if d_obj and (d_obj, tecnico) in signed_days:
+                is_signed = True
+        except:
+            pass # Date parse error, assume not signed or invalid
+            
+        if not is_signed:
+            # User wants: "Cuando uno firme, los puntos de ESE tecnico aparecen"
+            # Does this mean we skip the row? Or set points to Empty?
+            # "los puntos de TODOS se rellenan... tiene que ser que cuando uno firme... aparecen"
+            # It's safer to SKIP adding the row to 'Puntajes' sheet until signed.
+            continue
+            
+        # If Signed, Calculate Points
         accesorios = row[idx_accesorios] if len(row) > idx_accesorios else ""
         region = row[idx_region] if len(row) > idx_region else ""
         tipo = row[idx_tipo] if len(row) > idx_tipo else ""
         
+        estado = "PENDIENTE"
+        if idx_estado != -1 and len(row) > idx_estado:
+            estado = row[idx_estado]
+
         tech_count = ticket_counts.get(t_id, 1)
         
         row_data = {
             "Accesorios": accesorios,
             "Region": region,
             "Fecha Plan": fecha,
-            "Tipo Trabajo": tipo
+            "Tipo Trabajo": tipo,
+            "Estado": estado # Passed to calculator
         }
         
         res = calculate_final_score(row_data, tech_count)
@@ -148,10 +207,19 @@ def update_scores_in_sheet():
     # 4. Write to "Puntajes"
     puntajes_ws_name = "Puntajes"
     try:
-        ws_puntajes = sheet.worksheet(puntajes_ws_name)
-        ws_puntajes.clear()
-    except:
-        ws_puntajes = sheet.add_worksheet(title=puntajes_ws_name, rows=1000, cols=20)
-    
-    ws_puntajes.update(output_rows)
-    logger.info(f">>> [SCORES] Updated {len(output_rows)-1} rows. Total: ${total_money}")
+        try:
+            ws_puntajes = sheet.worksheet(puntajes_ws_name)
+            ws_puntajes.clear()
+        except:
+             ws_puntajes = sheet.add_worksheet(title=puntajes_ws_name, rows=1000, cols=20)
+        
+        if len(output_rows) > 0:
+            ws_puntajes.update(output_rows)
+        else:
+            # If empty (no signatures), just write headers
+            ws_puntajes.update([output_headers])
+            
+        logger.info(f">>> [SCORES] Updated {len(output_rows)-1} rows. Total: ${total_money}")
+        
+    except Exception as e:
+        logger.error(f">>> [SCORES] Write failed: {e}")

@@ -136,7 +136,7 @@ def calculate_base_points(accesorios_str, tipo_trabajo=""):
 
 def calculate_final_score(row_data, tech_count):
     """
-    row_data: dict with keys 'Accesorios', 'Region', 'Fecha Plan', 'Tipo Trabajo'
+    row_data: dict with keys 'Accesorios', 'Region', 'Fecha Plan', 'Tipo Trabajo', 'Estado'
     tech_count: int, number of techs on this ticket
     
     Returns: dict with calculation details
@@ -144,7 +144,25 @@ def calculate_final_score(row_data, tech_count):
     accesorios = str(row_data.get('Accesorios', ''))
     region = str(row_data.get('Region', '')).upper()
     fecha_str = str(row_data.get('Fecha Plan', ''))
-    tipo_trabajo = str(row_data.get('Tipo Trabajo', '') if row_data.get('Tipo Trabajo') else row_data.get('tipo_trabajo', ''))
+    
+    # Handle both CamelCase and snake_case inputs just in case
+    raw_tt = row_data.get('Tipo Trabajo') or row_data.get('tipo_trabajo') or ''
+    tipo_trabajo = str(raw_tt)
+
+    raw_status = row_data.get('Estado') or row_data.get('estado') or 'PENDIENTE'
+    estado = str(raw_status).strip().upper()
+    
+    # RULE: Only EXITOSO gives points
+    if estado != "EXITOSO":
+        return {
+            "base_points": 0,
+            "items": f"Estado {estado} acts as 0 pts",
+            "mult_region": 1.0,
+            "mult_weekend": 1.0,
+            "tech_count": tech_count,
+            "final_points": 0,
+            "money": 0
+        }
     
     # 1. Base Points
     base_points, details = calculate_base_points(accesorios, tipo_trabajo)
