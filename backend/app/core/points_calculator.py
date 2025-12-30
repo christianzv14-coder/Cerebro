@@ -42,7 +42,7 @@ POINTS_TABLE = [
     ("SONDA TEMPERATURA", 8),
     
     # GPS Unit
-    ("GPS", 8), # Value from Image
+    ("GPS", 2), # Value updated per user feedback
     
     # Peripherals
     ("BOTON PISO", 6),
