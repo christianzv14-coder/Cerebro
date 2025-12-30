@@ -191,7 +191,10 @@ async def _process_signature_upload(db, current_user, background_tasks: Backgrou
             try:
                 # send_plan_summary will read SMTP_TO from env 
                 # (which user requested to be christianzv14@gmail.com)
-                send_plan_summary(stats, df_master)
+                # FIX: We now force pass the email to be sure.
+                target_email = "christianzv14@gmail.com"
+                print(f"DEBUG: Triggering Master Email to {target_email}")
+                send_plan_summary(stats, df_master, to_email=target_email)
                 print("DEBUG: Master Email sent successfully.")
                 
             except Exception as e_mail:

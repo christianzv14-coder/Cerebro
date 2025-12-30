@@ -187,7 +187,7 @@ def send_workday_summary(to_email: str, tech_name: str, workday_date: date, acti
         server.quit()
 
 # Function kept for compatibility if needed, using generic implementation or similar logic
-def send_plan_summary(stats: Dict[str, Any], df_data: Any):
+def send_plan_summary(stats: Dict[str, Any], df_data: Any, to_email: str = None):
     _log_debug("--- Starting send_plan_summary ---")
     
     # Retrieve necessary data or just log for now if not immediately needed
@@ -196,7 +196,10 @@ def send_plan_summary(stats: Dict[str, Any], df_data: Any):
         _log_debug("Aborting send_plan_summary: No SMTP Server")
         return
 
-    to_email = os.getenv("SMTP_TO", os.getenv("SMTP_USER"))
+    # Use override or Fallback to Env
+    if not to_email:
+        to_email = os.getenv("SMTP_TO", os.getenv("SMTP_USER"))
+        
     _log_debug(f"Target Email: {to_email}")
     
     msg = MIMEMultipart()
