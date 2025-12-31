@@ -205,6 +205,9 @@ def get_signature_status(
     is_signed = existing is not None
     
         # Use updated_at (Server Time) to avoid Client Clock Skew issues
+    # SMART CHECK: If signed, check if any activity was finished *AFTER* the signature
+    if is_signed and existing.timestamp:
+        # Use updated_at (Server Time) to avoid Client Clock Skew issues
         latest_activity = db.query(Activity).filter(
             Activity.tecnico_nombre == current_user.tecnico_nombre,
             Activity.fecha == target_date
