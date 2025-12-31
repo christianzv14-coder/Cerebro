@@ -1,5 +1,6 @@
 from app.database import SessionLocal
 from app.models.models import Activity, DaySignature
+import app.models.finance # Join Registry to avoid relationship errors
 from sqlalchemy import text
 
 def wipe_all_data():

@@ -1,6 +1,6 @@
 import os
 import uuid
-from datetime import date
+from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -66,8 +66,10 @@ async def _process_signature_upload(db, current_user, background_tasks: Backgrou
     existing = next((s for s in all_sigs if s.tecnico_nombre.strip().lower() == tech_clean), None)
     
     if existing:
-        print(f"DEBUG: Rejected. Signature already exists for {upload_date}: ID {existing.id}")
-        raise HTTPException(status_code=400, detail=f"La jornada del {upload_date} ya ha sido firmada.")
+        print(f"DEBUG: Signature update. Overwriting ID {existing.id} for {upload_date}")
+        # Continue execution to overwrite
+    else:
+        print(f"DEBUG: Start new signature for {upload_date}")
     
     content = None
     file_ext = "png"
@@ -97,20 +99,29 @@ async def _process_signature_upload(db, current_user, background_tasks: Backgrou
         print(f"DEBUG: Save failed: {e}")
         raise HTTPException(status_code=500, detail=f"Error al procesar archivo: {e}")
     
-    # 4. Save to Database
+    # 4. Save to Database (Upsert)
     try:
-        new_sig = DaySignature(
-            tecnico_nombre=tech_name_db,
-            fecha=upload_date,
-            signature_ref=file_path
-        )
-        db.add(new_sig)
-        db.commit()
-        db.refresh(new_sig)
-        print(f"DEBUG: DB Record created: ID {new_sig.id}")
+        if existing:
+             existing.signature_ref = file_path
+             existing.timestamp = datetime.utcnow() # Update timestamp
+             db.commit()
+             db.refresh(existing)
+             new_sig = existing # Use the updated object
+             print(f"DEBUG: DB Record UPDATED: ID {new_sig.id}")
+        else:
+             new_sig = DaySignature(
+                 tecnico_nombre=tech_name_db,
+                 fecha=upload_date,
+                 signature_ref=file_path
+             )
+             db.add(new_sig)
+             db.commit()
+             db.refresh(new_sig)
+             print(f"DEBUG: DB Record CREATED: ID {new_sig.id}")
+
     except Exception as e:
         db.rollback()
-        print(f"DEBUG: DB Insert failed: {e}")
+        print(f"DEBUG: DB Ops failed: {e}")
         raise HTTPException(status_code=500, detail="Error al registrar en BD.")
     
     
