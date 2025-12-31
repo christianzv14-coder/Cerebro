@@ -52,38 +52,16 @@ def process_excel_upload(file: IO, db: Session):
         if pd.isna(row['ticket_id']): continue
         tid = str(row['ticket_id']).strip()
         
-        # Get Excel Tech Name
-        raw_tech = row['tecnico_nombre'] if pd.notna(row['tecnico_nombre']) else "Sin Asignar"
-        excel_tech = str(raw_tech).strip() # Keep case for fuzzy match later, but generic usage here
-
         if tid in db_map:
             db_act = db_map[tid]
-            db_tech = str(db_act.tecnico_nombre).strip()
-            # Strict Closed Check
-            is_closed = db_act.estado in [ActivityState.FALLIDO, ActivityState.EXITOSO, ActivityState.REPROGRAMADO]
-            
-            # Helper to normalize for comparison
-            def norm(s): return str(s).strip().lower().replace("  ", " ")
-            tech_differs = norm(excel_tech) != norm(db_tech)
-
-            # CONDITION A: Tech Changed AND Task was Closed -> RETRY (Split)
-            if tech_differs and is_closed:
-                # We do NOT delete the old one. We map a new ID.
-                retry_map[tid] = tid + "-REINTENTO" # Simple suffix
-                with open("upload_debug.log", "a") as f:
-                    f.write(f"DETECTED RETRY: {tid} ({db_tech}->{excel_tech}). Suffixing.\n")
-                
-            # CONDITION B: Update (Delete & Restore)
-            else:
-                ids_to_delete.append(tid)
-                backup_map[tid] = {
-                    "estado": db_act.estado,
-                    "resultado_motivo": db_act.resultado_motivo,
-                    "observacion": db_act.observacion,
-                    "hora_inicio": db_act.hora_inicio,
-                    "hora_fin": db_act.hora_fin,
-                    "tecnico_original": db_act.tecnico_nombre  # CRITICAL: Save this
-                }
+            ids_to_delete.append(tid)
+            backup_map[tid] = {
+                "estado": db_act.estado,
+                "resultado_motivo": db_act.resultado_motivo,
+                "observacion": db_act.observacion,
+                "hora_inicio": db_act.hora_inicio,
+                "hora_fin": db_act.hora_fin,
+            }
 
     # 4. Delete Records to be Overwritten
     if ids_to_delete:
@@ -101,11 +79,8 @@ def process_excel_upload(file: IO, db: Session):
         original_tid = str(row['ticket_id']).strip()
         final_ticket_id = original_tid
         
-        # Are we creating a Retried Task?
+        # Strict ID logic
         is_retry = False
-        if original_tid in retry_map:
-            final_ticket_id = retry_map[original_tid]
-            is_retry = True
             
         # Resolved Tech Name
         raw_tech = row['tecnico_nombre']
@@ -147,43 +122,21 @@ def process_excel_upload(file: IO, db: Session):
         restored_end = None
         
         if is_retry:
-             # Case: Tech Changed on Closed Task -> FORCE NEW
-             restored_state = ActivityState.PENDIENTE
-             created_count += 1
+             # Cleanup specific logic
+             pass
              
-        elif original_tid in backup_map:
+        if original_tid in backup_map:
              # Case: Update on existing task.
-             # CHECK: Did tech change locally? (e.g. Activity was 'Simulado' but Tech changed in Excel)
-             # If exact same Tech -> Restore everything.
-             # If different Tech -> Force PENDIENTE (User Intent: Re-assign)
-             
+             # Strict Rule: Same Ticket ID -> Preserve Status (Do NOT add to Agenda/Pending)
              b = backup_map[original_tid]
-             old_tech_b = str(b.get("tecnico_original", "")).strip()
-             new_tech_b = str(tecnico_nombre).strip()
-             
-             if normalize_str(old_tech_b) != normalize_str(new_tech_b):
-                 # Tech Changed in an "Update" scenario
-                 with open("upload_debug.log", "a") as f:
-                     f.write(f"  [Create] Diff Tech detected: '{old_tech_b}' vs '{new_tech_b}'. Forcing PENDIENTE.\n")
-                 restored_state = ActivityState.PENDIENTE
-                 created_count += 1
-             else:
-                 # Same Tech -> Restore status
-                 # SAFETY CHECK: If for some reason normalization failed above but names look different
-                 if old_tech_b != new_tech_b and restored_state != ActivityState.PENDIENTE:
-                      with open("upload_debug.log", "a") as f:
-                          f.write(f"  [Create] Safety Trigger: '{old_tech_b}' != '{new_tech_b}' but state was {restored_state}. Forcing PENDIENTE.\n")
-                      restored_state = ActivityState.PENDIENTE
-                      created_count += 1
-                 else:
-                      restored_state = b["estado"]
-                      restored_motivo = b["resultado_motivo"]
-                      restored_obs = b["observacion"]
-                      restored_start = b["hora_inicio"]
-                      restored_end = b["hora_fin"]
-                      updated_count += 1
+             restored_state = b["estado"]
+             restored_motivo = b["resultado_motivo"]
+             restored_obs = b["observacion"]
+             restored_start = b["hora_inicio"]
+             restored_end = b["hora_fin"]
+             updated_count += 1
         else:
-             # Entirely New
+             # Entirely New Ticket ID -> Add to Agenda (PENDIENTE)
              created_count += 1
 
         new_act = Activity(
