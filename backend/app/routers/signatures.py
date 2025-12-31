@@ -202,4 +202,21 @@ def get_signature_status(
     
     existing = next((s for s in all_sigs if s.tecnico_nombre.strip().lower() == tech_clean), None)
     
-    return {"is_signed": existing is not None}
+    is_signed = existing is not None
+    
+    # SMART CHECK: If signed, check if any activity was finished *AFTER* the signature
+    if is_signed and existing.timestamp:
+        # Get latest activity for this tech/date
+        latest_activity = db.query(Activity).filter(
+            Activity.tecnico_nombre == current_user.tecnico_nombre,
+            Activity.fecha == target_date,
+            Activity.hora_fin.isnot(None)
+        ).order_by(Activity.hora_fin.desc()).first()
+        
+        if latest_activity andLatest_activity.hora_fin:
+             # Buffer of 1 minute just to be safe (or strict >)
+             if latest_activity.hora_fin > existing.timestamp:
+                 print(f"DEBUG: Smart Sign Status - Found new activity finished at {latest_activity.hora_fin} AFTER signature at {existing.timestamp}. Returning False.")
+                 is_signed = False
+                 
+    return {"is_signed": is_signed}
