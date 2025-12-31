@@ -162,18 +162,26 @@ def process_excel_upload(file: IO, db: Session):
              new_tech_b = str(tecnico_nombre).strip()
              
              if normalize_str(old_tech_b) != normalize_str(new_tech_b):
-                 # Tech Changed in an "Update" scenario (e.g. task was Pending/Simulado but re-assigned)
+                 # Tech Changed in an "Update" scenario
+                 with open("upload_debug.log", "a") as f:
+                     f.write(f"  [Create] Diff Tech detected: '{old_tech_b}' vs '{new_tech_b}'. Forcing PENDIENTE.\n")
                  restored_state = ActivityState.PENDIENTE
-                 # Drop motive/obs? Usually yes if new tech.
-                 created_count += 1 # Effectively a 'new' assignment
+                 created_count += 1
              else:
-                 # Same Tech -> Restore status (Address Correction etc)
-                 restored_state = b["estado"]
-                 restored_motivo = b["resultado_motivo"]
-                 restored_obs = b["observacion"]
-                 restored_start = b["hora_inicio"]
-                 restored_end = b["hora_fin"]
-                 updated_count += 1
+                 # Same Tech -> Restore status
+                 # SAFETY CHECK: If for some reason normalization failed above but names look different
+                 if old_tech_b != new_tech_b and restored_state != ActivityState.PENDIENTE:
+                      with open("upload_debug.log", "a") as f:
+                          f.write(f"  [Create] Safety Trigger: '{old_tech_b}' != '{new_tech_b}' but state was {restored_state}. Forcing PENDIENTE.\n")
+                      restored_state = ActivityState.PENDIENTE
+                      created_count += 1
+                 else:
+                      restored_state = b["estado"]
+                      restored_motivo = b["resultado_motivo"]
+                      restored_obs = b["observacion"]
+                      restored_start = b["hora_inicio"]
+                      restored_end = b["hora_fin"]
+                      updated_count += 1
         else:
              # Entirely New
              created_count += 1
