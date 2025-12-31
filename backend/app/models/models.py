@@ -25,7 +25,7 @@ class User(Base):
     role = Column(SqEnum(Role), default=Role.TECH)
     is_active = Column(Boolean, default=True)
 
-    # expenses = relationship("Expense", back_populates="owner")
+    expenses = relationship("Expense", back_populates="owner")
 
 class FailureReason(Base):
     __tablename__ = "failure_reasons"
