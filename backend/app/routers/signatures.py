@@ -213,7 +213,7 @@ def get_signature_status(
             Activity.hora_fin.isnot(None)
         ).order_by(Activity.hora_fin.desc()).first()
         
-        if latest_activity andLatest_activity.hora_fin:
+        if latest_activity and latest_activity.hora_fin:
              # Buffer of 1 minute just to be safe (or strict >)
              if latest_activity.hora_fin > existing.timestamp:
                  print(f"DEBUG: Smart Sign Status - Found new activity finished at {latest_activity.hora_fin} AFTER signature at {existing.timestamp}. Returning False.")
