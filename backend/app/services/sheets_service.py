@@ -509,14 +509,13 @@ def delete_category_from_sheet(section: str, category: str):
                 return False
                 
             # Find row to delete
-            # Start from 2 (index 1 in 0-based list is row 2)
             for i, row in enumerate(all_rows[1:], start=2):
                 if len(row) > max(sec_col, cat_col):
-                    r_sec = row[sec_col].strip()
-                    r_cat = row[cat_col].strip()
-                    if r_sec == section and r_cat == category:
+                    r_sec = row[sec_col].strip().lower()
+                    r_cat = row[cat_col].strip().lower()
+                    if r_sec == section.strip().lower() and r_cat == category.strip().lower():
                         ws.delete_rows(i)
-                        print(f"DEBUG [SHEETS] Deleted row {i}")
+                        print(f"DEBUG [SHEETS] Deleted row {i}: {section}/{category}")
                         return True
             
             return False # Not found
@@ -559,7 +558,9 @@ def update_category_in_sheet(section: str, category: str, new_budget: int):
             
         for i, row in enumerate(all_rows[1:], start=2):
             if len(row) > max(sec_col, cat_col):
-                if row[sec_col].strip() == section and row[cat_col].strip() == category:
+                r_sec = row[sec_col].strip().lower()
+                r_cat = row[cat_col].strip().lower()
+                if r_sec == section.strip().lower() and r_cat == category.strip().lower():
                     ws.update_cell(i, bud_col + 1, new_budget)
                     return True
         return False

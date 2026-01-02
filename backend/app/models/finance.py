@@ -10,6 +10,7 @@ class Expense(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     amount = Column(Integer, nullable=False) # Guardamos como entero (CLP suele ser sin decimales), o Float si prefiere.
     concept = Column(String, nullable=False)
+    section = Column(String, nullable=True) # COMIDAS, GASTOS FIJOS, etc.
     category = Column(String, nullable=False, default="General")
     date = Column(Date, default=date.today)
     payment_method = Column(String, nullable=True) # Débito, Crédito, Efectivo, Transferencia

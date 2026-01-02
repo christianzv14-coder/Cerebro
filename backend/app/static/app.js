@@ -352,14 +352,20 @@ class FinanceApp {
 
             item.innerHTML = `
                 <div class="subcat-header-row">
-                    <h4>${catName}</h4>
-                    <div class="subcat-actions">
-                        <button class="btn-edit-cat" data-sec="${sectionName}" data-cat="${catName}" style="background:none; border:none; color:var(--primary); cursor:pointer; font-size:1.1rem;" title="Editar">✏️</button>
-                        <button class="btn-delete-cat" data-sec="${sectionName}" data-cat="${catName}" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:1.1rem; margin-left:10px;" title="Borrar">🗑️</button>
+                    <h4 style="font-size: 1.1rem;">${catName}</h4>
+                    <div class="subcat-actions" style="display: flex; gap: 8px;">
+                        <button class="btn-edit-cat" data-sec="${sectionName}" data-cat="${catName}" 
+                            style="background:#f1f5f9; border:1px solid #cbd5e1; padding: 8px 12px; border-radius: 8px; color:var(--primary); cursor:pointer; font-size:0.85rem; font-weight: 700; display: flex; align-items:center; gap:4px;">
+                            ✏️ EDITAR
+                        </button>
+                        <button class="btn-delete-cat" data-sec="${sectionName}" data-cat="${catName}" 
+                            style="background:#fee2e2; border:1px solid #fecaca; padding: 8px; border-radius: 8px; color:#ef4444; cursor:pointer; font-size:1rem; font-weight: 700;">
+                            🗑️
+                        </button>
                     </div>
                 </div>
                  <div class="subcat-header-row">
-                    <span class="subcat-values">
+                    <span class="subcat-values" style="font-size: 1rem; color: var(--text-main); font-weight: 600;">
                         $${catData.spent.toLocaleString()} / $${catData.budget.toLocaleString()} ${!isOver ? `(${catPercent.toFixed(1)}%)` : ''}
                         ${isOver ? '<span class="over-alert small">⚠️</span>' : ''}
                     </span>
@@ -524,12 +530,17 @@ class FinanceApp {
         expenses.slice(0, 5).forEach(exp => {
             const item = document.createElement('div');
             item.className = 'expense-item';
-            const icon = icons[exp.section] || '💰';
+
+            // Try to find section from dashboard data if missing
+            let section = exp.section || "OTROS";
+            const icon = icons[section] || '💰';
+            const payMethod = exp.payment_method ? ` • ${exp.payment_method}` : '';
+
             item.innerHTML = `
                 <div class="exp-icon-box">${icon}</div>
                 <div class="exp-details">
                     <h4>${exp.concept}</h4>
-                    <p>${new Date(exp.date).toLocaleDateString()} • ${exp.category} • ${exp.payment_method}</p>
+                    <p>${new Date(exp.date).toLocaleDateString()} • ${exp.category}${payMethod}</p>
                 </div>
                 <div class="exp-amount">$${exp.amount.toLocaleString()}</div>
             `;
@@ -602,16 +613,22 @@ class FinanceApp {
             }
         });
 
-        // Update KPIs
+        // Update KPIs with higher visibility
         const debtAmtEl = document.getElementById('kpi-debt-amount');
         const debtCntEl = document.getElementById('kpi-debt-count');
-        if (debtAmtEl) debtAmtEl.textContent = `$${totalDebt.toLocaleString()}`;
-        if (debtCntEl) debtCntEl.textContent = `${countDebt} pendientes`;
+        if (debtAmtEl) {
+            debtAmtEl.textContent = `$${totalDebt.toLocaleString()}`;
+            debtAmtEl.style.color = totalDebt > 0 ? 'var(--danger)' : 'var(--text-muted)';
+        }
+        if (debtCntEl) debtCntEl.textContent = `${countDebt} items`;
 
         const loanAmtEl = document.getElementById('kpi-loan-amount');
         const loanCntEl = document.getElementById('kpi-loan-count');
-        if (loanAmtEl) loanAmtEl.textContent = `$${totalLoan.toLocaleString()}`;
-        if (loanCntEl) loanCntEl.textContent = `${countLoan} por cobrar`;
+        if (loanAmtEl) {
+            loanAmtEl.textContent = `$${totalLoan.toLocaleString()}`;
+            loanAmtEl.style.color = totalLoan > 0 ? 'var(--accent)' : 'var(--text-muted)';
+        }
+        if (loanCntEl) loanCntEl.textContent = `${countLoan} items`;
 
         const balanceAmtEl = document.getElementById('kpi-total-balance');
         const balanceDetEl = document.getElementById('kpi-balance-detail');
@@ -621,7 +638,7 @@ class FinanceApp {
             balanceAmtEl.style.color = balance >= 0 ? 'var(--accent)' : 'var(--danger)';
         }
         if (balanceDetEl) {
-            balanceDetEl.textContent = balance >= 0 ? 'A favor' : 'En contra';
+            balanceDetEl.textContent = balance > 0 ? 'A favor' : (balance < 0 ? 'En contra' : 'Equilibrado');
         }
 
         const list = document.getElementById('compromisos-list');

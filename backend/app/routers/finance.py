@@ -19,6 +19,7 @@ class ExpenseOut(BaseModel):
     amount: int
     concept: str
     category: str
+    section: Optional[str] = "OTROS"
     date: date
     payment_method: Optional[str] = None
     image_url: Optional[str] = None
@@ -65,6 +66,7 @@ def create_expense(
             amount=amount,
             concept=concept or "Gasto sin concepto",
             category=category,
+            section=section,
             payment_method=payment_method,
             date=date.today(),
             image_url=image_url
