@@ -9,9 +9,20 @@ const CONFIG = {
 
 class FinanceApp {
     constructor() {
-        this.currentView = 'stats';
+        this.currentView = 'inicio';
+        this.token = localStorage.getItem('auth_token');
+        this.sectionsData = {};
+        this.dashboardData = null;
         this.commitments = [];
         this.init();
+    }
+
+    getHeaders() {
+        const headers = {};
+        if (this.token) {
+            headers['Authorization'] = `Bearer ${this.token}`;
+        }
+        return headers;
     }
 
     init() {
@@ -19,12 +30,22 @@ class FinanceApp {
         this.setupModal();
         this.setupCamera();
         this.setupForms();
-        this.refreshData();
+        this.setupAuth();
+
+        if (this.token) {
+            this.hideLogin();
+            this.refreshData();
+        } else {
+            this.showLogin();
+        }
     }
 
     async refreshData() {
         await this.loadDashboard();
         await this.loadExpenses();
+        if (this.currentView === 'compromisos') {
+            await this.loadCompromisos();
+        }
     }
 
     setupNavigation() {
@@ -44,7 +65,7 @@ class FinanceApp {
         const target = document.getElementById(`view-${viewId}`);
         if (target) {
             target.classList.add('active');
-            this.currentView = viewId; // Update state
+            this.currentView = viewId;
 
             // FAB Context Logic
             const fab = document.getElementById('fab-add');
@@ -72,31 +93,28 @@ class FinanceApp {
         const fab = document.getElementById('fab-add');
         const modal = document.getElementById('modal-add');
         const close = document.getElementById('btn-close-modal');
-
         const detailModal = document.getElementById('modal-detail');
         const detailClose = document.getElementById('btn-close-detail');
-
         const statsModal = document.getElementById('modal-stats-detail');
         const statsClose = document.getElementById('btn-close-stats');
-
         const commModal = document.getElementById('modal-add-commitment');
         const commClose = document.getElementById('btn-close-commitment');
 
-        fab.addEventListener('click', () => {
-            if (this.currentView === 'compromisos') {
-                commModal.classList.add('active');
-            } else {
-                modal.classList.add('active');
-            }
-        });
+        if (fab) {
+            fab.addEventListener('click', () => {
+                if (this.currentView === 'compromisos') {
+                    commModal.classList.add('active');
+                } else {
+                    modal.classList.add('active');
+                }
+            });
+        }
 
-        close.addEventListener('click', () => modal.classList.remove('active'));
-
+        if (close) close.addEventListener('click', () => modal.classList.remove('active'));
         if (detailClose) detailClose.addEventListener('click', () => detailModal.classList.remove('active'));
         if (statsClose) statsClose.addEventListener('click', () => statsModal.classList.remove('active'));
         if (commClose) commClose.addEventListener('click', () => commModal.classList.remove('active'));
 
-        // Close on click outside
         window.addEventListener('click', (e) => {
             if (e.target === modal) modal.classList.remove('active');
             if (e.target === detailModal) detailModal.classList.remove('active');
@@ -108,24 +126,30 @@ class FinanceApp {
     setupCamera() {
         const btnCamera = document.getElementById('btn-camera');
         const inputUpload = document.getElementById('image-upload');
-        btnCamera.addEventListener('click', () => inputUpload.click());
-        inputUpload.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) btnCamera.textContent = '✅ Boleta Adjunta';
-        });
+        if (btnCamera && inputUpload) {
+            btnCamera.addEventListener('click', () => inputUpload.click());
+            inputUpload.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) btnCamera.textContent = '✅ Boleta Adjunta';
+            });
+        }
     }
 
     setupForms() {
         const form = document.getElementById('expense-form');
         const sectionSelect = document.getElementById('section-select');
-
-        sectionSelect.addEventListener('change', () => this.updateSubcategories());
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await this.handleExpenseSubmit();
-        });
-
         const commForm = document.getElementById('commitment-form');
+
+        if (sectionSelect) {
+            sectionSelect.addEventListener('change', () => this.updateSubcategories());
+        }
+
+        if (form) {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await this.handleExpenseSubmit();
+            });
+        }
+
         if (commForm) {
             commForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -134,17 +158,79 @@ class FinanceApp {
         }
     }
 
-    async loadDashboard() {
+    setupAuth() {
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await this.handleLogin();
+            });
+        }
+    }
+
+    showLogin() {
+        const overlay = document.getElementById('login-overlay');
+        if (overlay) overlay.classList.add('active');
+    }
+
+    hideLogin() {
+        const overlay = document.getElementById('login-overlay');
+        if (overlay) overlay.classList.remove('active');
+    }
+
+    async handleLogin() {
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        const remember = document.getElementById('login-remember').checked;
+        const errorDiv = document.getElementById('login-error');
+        const btn = document.getElementById('btn-login');
+
+        btn.disabled = true;
+        btn.textContent = 'Cargando...';
+        errorDiv.textContent = '';
+
         try {
-            const response = await fetch(`${CONFIG.API_BASE}/expenses/dashboard`);
-            console.log('Dashboard Response Status:', response.status);
+            const formData = new FormData();
+            formData.append('username', email);
+            formData.append('password', password);
+
+            const response = await fetch(`${CONFIG.API_BASE}/auth/login`, {
+                method: 'POST',
+                body: formData
+            });
+
             if (response.ok) {
                 const data = await response.json();
-                this.dashboardData = data; // Store globally for stats
-                this.renderDashboard(data);
+                this.token = data.access_token;
+                if (remember) {
+                    localStorage.setItem('auth_token', this.token);
+                }
+                this.hideLogin();
+                await this.refreshData();
             } else {
-                const errorText = await response.text();
-                console.error('Dashboard Fetch Failed:', response.status, errorText);
+                errorDiv.textContent = 'Credenciales inválidas';
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            errorDiv.textContent = 'Error de conexión';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Entrar';
+        }
+    }
+
+    async loadDashboard() {
+        try {
+            const response = await fetch(`${CONFIG.API_BASE}/expenses/dashboard`, {
+                headers: this.getHeaders()
+            });
+            if (response.ok) {
+                const data = await response.json();
+                this.dashboardData = data;
+                this.renderDashboard(data);
+            } else if (response.status === 401) {
+                this.showLogin();
+            } else {
                 document.getElementById('sync-time').textContent = `Err ${response.status}`;
             }
         } catch (error) {
@@ -154,28 +240,23 @@ class FinanceApp {
     }
 
     renderDashboard(data) {
-        const user = data.user_name || "Carlos";
-        document.getElementById('greeting-text').textContent = `Hola, ${user} 👋`;
-        document.getElementById('available-balance').textContent = `$${data.available_balance.toLocaleString()}`;
-        document.getElementById('total-budget').textContent = `$${data.monthly_budget.toLocaleString()}`;
+        const user = data.user_name || "Christian";
+        const greeting = document.getElementById('greeting-text');
+        if (greeting) greeting.textContent = `Hola, ${user} 👋`;
 
-        const now = new Date();
-        document.getElementById('sync-time').textContent = now.toLocaleTimeString();
+        const balance = document.getElementById('available-balance');
+        if (balance) balance.textContent = `$${data.available_balance.toLocaleString()}`;
+
+        const budget = document.getElementById('total-budget');
+        if (budget) budget.textContent = `$${data.monthly_budget.toLocaleString()}`;
+
+        const syncTime = document.getElementById('sync-time');
+        if (syncTime) syncTime.textContent = new Date().toLocaleTimeString();
 
         const container = document.getElementById('categories-container');
+        if (!container) return;
         container.innerHTML = '';
 
-        const icons = {
-            'GASTOS FIJOS': '🏠',
-            'COMIDAS': '🍕',
-            'TRANSPORTE': '🚗',
-            'VICIOS': '🎉',
-            'STREAM/APP': '📺',
-            'COMISIONES - SEGUROS': '🛡️',
-            'OTROS': '📦'
-        };
-
-        // Cache categories for the modal
         this.sectionsData = data.categories;
         this.updateModalCategories();
 
@@ -183,7 +264,6 @@ class FinanceApp {
             const percent = sec.budget > 0 ? (sec.spent / sec.budget) * 100 : 0;
             const remaining = sec.budget - sec.spent;
             const isOver = remaining < 0;
-
             const barColor = percent >= 90 ? 'red' : (percent >= 70 ? 'orange' : 'green');
             const icon = this.getIconForSection(name);
 
@@ -209,7 +289,6 @@ class FinanceApp {
             container.appendChild(card);
         });
 
-        // Add "New Section" Card
         const addCard = document.createElement('div');
         addCard.className = 'category-card';
         addCard.style.cssText = 'border: 2px dashed #cbd5e1; justify-content: center; align-items: center; cursor: pointer; background: rgba(255,255,255,0.5);';
@@ -236,7 +315,7 @@ class FinanceApp {
         if (n.includes('VIAJE') || n.includes('VACACION')) return '✈️';
         if (n.includes('SUPER') || n.includes('MERCADO')) return '🛒';
         if (n.includes('SEGUR') || n.includes('SEGURO')) return '🛡️';
-        return '📦'; // Default
+        return '📦';
     }
 
     showCategoryDetail(sectionName) {
@@ -265,7 +344,6 @@ class FinanceApp {
         Object.entries(sec.categories).forEach(([catName, catData]) => {
             const item = document.createElement('div');
             item.className = 'subcat-item';
-
             const catPercent = catData.budget > 0 ? (catData.spent / catData.budget) * 100 : 0;
             const remaining = catData.budget - catData.spent;
             const isOver = remaining < 0;
@@ -274,9 +352,7 @@ class FinanceApp {
             item.innerHTML = `
                 <div class="subcat-header-row">
                     <h4>${catName}</h4>
-                     <button class="btn-delete-cat" data-sec="${sectionName}" data-cat="${catName}" style="background:none; border:none; color:#ef4444; cursor:pointer;" title="Borrar Categoría">
-                        🗑️
-                    </button>
+                     <button class="btn-delete-cat" data-sec="${sectionName}" data-cat="${catName}" style="background:none; border:none; color:#ef4444; cursor:pointer;" title="Borrar Categoría">🗑️</button>
                 </div>
                  <div class="subcat-header-row">
                     <span class="subcat-values">
@@ -292,7 +368,6 @@ class FinanceApp {
                 </div>
             `;
 
-            // Delete Listener
             const delBtn = item.querySelector('.btn-delete-cat');
             delBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -302,7 +377,6 @@ class FinanceApp {
             subList.appendChild(item);
         });
 
-        // Add Category Button
         const addBtn = document.createElement('button');
         addBtn.className = 'btn-add-cat';
         addBtn.textContent = '+ Agregar Subcategoría';
@@ -310,7 +384,6 @@ class FinanceApp {
         addBtn.addEventListener('click', () => this.handleAddCategory(sectionName));
         subList.appendChild(addBtn);
 
-        // Delete Section Button (DANGER ZONE)
         const delSecBtn = document.createElement('button');
         delSecBtn.textContent = '⚠️ Eliminar Sección Completa';
         delSecBtn.style.cssText = 'width: 100%; padding: 10px; margin-top: 20px; background: none; border: 1px solid #fee2e2; border-radius: 8px; color: #ef4444; font-size: 0.8rem; cursor: pointer;';
@@ -338,258 +411,9 @@ class FinanceApp {
 
         title.textContent = config.title;
         icon.textContent = config.icon;
-
         content.innerHTML = '';
 
         if (type === 'general') {
-            if (!this.dashboardData) {
-                content.innerHTML = '<p class="placeholder-text">Sin datos disponibles. Carga el inicio primero.</p>';
-                modal.classList.add('active');
-                return;
-            }
-
-            // --- INDICATOR 1: % Budget Used ---
-            const totalBudget = this.dashboardData.monthly_budget;
-            const available = this.dashboardData.available_balance;
-            const totalSpent = totalBudget - available;
-
-            const percent = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
-
-            let colorClass = 'green';
-            let statusText = 'Vas dentro del plan.';
-
-            if (percent >= 90) {
-                colorClass = '#ef4444'; // Red
-                statusText = 'Riesgo alto de sobrepaso.';
-            } else if (percent >= 70) {
-                colorClass = '#f59e0b'; // Orange
-                statusText = 'El mes empieza a apretarse.';
-            } else {
-                colorClass = '#10b981'; // Green
-            }
-
-            const canvasContainer = document.createElement('div');
-            canvasContainer.style.height = '200px';
-            canvasContainer.style.width = '100%';
-            canvasContainer.innerHTML = '<canvas id="kpiChart"></canvas>';
-
-            const infoText = document.createElement('div');
-            infoText.className = 'subcat-footer-row';
-            infoText.style.cssText = 'color: var(--text-muted); text-align: center; margin-top: 15px; font-size: 0.9rem;';
-            infoText.textContent = statusText;
-
-            content.appendChild(canvasContainer);
-            content.appendChild(infoText);
-
-            // Initialize Chart
-            const ctx = document.getElementById('kpiChart').getContext('2d');
-
-            // Destroy existing chart if any (to prevent canvas reuse errors)
-            if (this.currentChart) {
-                this.currentChart.destroy();
-            }
-
-            this.currentChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['Gastado', 'Total Disponible'],
-                    datasets: [{
-                        label: 'Monto (CLP)',
-                        data: [totalSpent, available], // Show Spent vs What is left? Or Spent vs Total Budget?
-                        // Let's do a stacked single bar or just two bars.
-                        // User wanted "% budget used".
-                        // Best viz: Single bar with max val?
-                        // Let's do a simple comparison: Spent vs Budget.
-                        backgroundColor: [colorClass, '#e2e8f0'],
-                        borderRadius: 10,
-                        borderSkipped: false
-                    }]
-                },
-                options: {
-                    indexAxis: 'y', // Horizontal bar
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function (context) {
-                                    return `$${context.raw.toLocaleString()}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            max: totalBudget * 1.1, // Gives some breathing room
-                            grid: { display: false },
-                            ticks: { display: false }
-                        },
-                        y: {
-                            grid: { display: false }
-                        }
-                    }
-                }
-            });
-            this.currentChart.data.labels = ['Gastado', 'Presupuesto'];
-            this.currentChart.data.datasets[0].data = [totalSpent, totalBudget];
-            this.currentChart.update();
-
-            // --- INDICATOR 2: Spending Pace (Ritmo de Gasto) ---
-            const now = new Date();
-            const currentDay = now.getDate();
-            const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-            const daysRemaining = daysInMonth - currentDay;
-
-            // Avoid division by zero
-            const dailyAverage = currentDay > 0 ? totalSpent / currentDay : 0;
-            const dailyAllowed = daysRemaining > 0 ? available / daysRemaining : 0; // Available for remaining days
-
-            let paceColor = '#10b981'; // Green
-            let paceText = 'Ritmo de gasto saludable.';
-
-            if (dailyAverage > dailyAllowed) {
-                paceColor = '#ef4444'; // Red
-                paceText = 'Estás gastando más rápido de lo recomendable.';
-            }
-
-            const paceCard = document.createElement('div');
-            paceCard.className = 'subcat-item';
-            paceCard.style.marginTop = '20px';
-            paceCard.innerHTML = `
-                <div class="subcat-header-row">
-                    <h4>Ritmo de Gasto Diario</h4>
-                    <span class="subcat-values">$${Math.round(dailyAverage).toLocaleString()} / $${Math.round(dailyAllowed).toLocaleString()} (max)</span>
-                </div>
-                <div style="height: 150px; width: 100%;">
-                    <canvas id="paceChart"></canvas>
-                </div>
-                <div class="subcat-footer-row" style="color: var(--text-muted); text-align: left; margin-top: 10px;">
-                     ${paceText}
-                </div>
-            `;
-            content.appendChild(paceCard);
-
-            const ctxPace = document.getElementById('paceChart').getContext('2d');
-
-            if (this.paceChart) {
-                this.paceChart.destroy();
-            }
-
-            this.paceChart = new Chart(ctxPace, {
-                type: 'bar',
-                data: {
-                    labels: ['Promedio Real', 'Máximo Permitido'],
-                    datasets: [{
-                        label: 'Gasto Diario (CLP)',
-                        data: [dailyAverage, dailyAllowed],
-                        backgroundColor: [paceColor, '#e2e8f0'],
-                        borderRadius: 8,
-                        borderSkipped: false
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: { callbacks: { label: (c) => `$${Math.round(c.raw).toLocaleString()}` } }
-                    },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { display: false } },
-                        y: { grid: { display: false } }
-                    }
-                }
-            });
-
-            // --- INDICATOR 3: Incidents (Incumplimientos) ---
-            let incidents = 0;
-            let totalSubCats = 0;
-            let exceededNames = [];
-
-            Object.values(this.dashboardData.categories).forEach(section => {
-                if (section.categories) {
-                    Object.entries(section.categories).forEach(([subName, subCat]) => {
-                        totalSubCats++;
-                        if (subCat.spent > subCat.budget) {
-                            incidents++;
-                            exceededNames.push(subName);
-                        }
-                    });
-                }
-            });
-
-            let incColor = '#10b981'; // Green
-            let incText = 'Buen control financiero.';
-
-            if (incidents >= 2) {
-                incColor = '#ef4444'; // Red
-                incText = 'Patrón de desorden a revisar.';
-            } else if (incidents === 1) {
-                incColor = '#f59e0b'; // Orange
-                incText = 'Desviación puntual.';
-            }
-
-            const incCard = document.createElement('div');
-            incCard.className = 'subcat-item';
-            incCard.style.marginTop = '20px';
-            incCard.innerHTML = `
-                <div class="subcat-header-row">
-                    <h4>Incumplimientos del Mes</h4>
-                    <span class="subcat-values" style="color: ${incColor}; font-weight: bold;">${incidents} incidente${incidents !== 1 ? 's' : ''}</span>
-                </div>
-                <div style="height: 200px; width: 100%; display: flex; justify-content: center;">
-                    <canvas id="incidentsChart"></canvas>
-                </div>
-                <div class="subcat-footer-row" style="color: var(--text-muted); text-align: center; margin-top: 10px;">
-                     ${incText}
-                </div>
-            `;
-            content.appendChild(incCard);
-
-            const ctxInc = document.getElementById('incidentsChart').getContext('2d');
-
-            if (this.incChart) {
-                this.incChart.destroy();
-            }
-
-            this.incChart = new Chart(ctxInc, {
-                type: 'doughnut',
-                data: {
-                    labels: ['En Regla', 'Excedidas'],
-                    datasets: [{
-                        data: [totalSubCats - incidents, incidents],
-                        backgroundColor: ['#10b981', incColor],
-                        borderWidth: 0,
-                        hoverOffset: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '70%',
-                    plugins: {
-                        legend: { position: 'bottom' },
-                        tooltip: {
-                            callbacks: {
-                                label: function (context) {
-                                    const label = context.label || '';
-                                    const value = context.raw || 0;
-                                    if (label === 'Excedidas' && exceededNames.length > 0) {
-                                        return [` ${value} Subcategorías:`, ...exceededNames.map(n => ` • ${n}`)];
-                                    }
-                                    return ` ${label}: ${value}`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-
-
-
-        } else if (type === 'prediction') {
             if (!this.dashboardData) {
                 content.innerHTML = '<p class="placeholder-text">Sin datos disponibles.</p>';
                 modal.classList.add('active');
@@ -599,137 +423,56 @@ class FinanceApp {
             const totalBudget = this.dashboardData.monthly_budget;
             const available = this.dashboardData.available_balance;
             const totalSpent = totalBudget - available;
+            const percent = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
-            const now = new Date();
-            const currentDay = now.getDate();
-            const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-            const daysRemaining = daysInMonth - currentDay;
+            const canvasContainer = document.createElement('div');
+            canvasContainer.style.height = '200px';
+            canvasContainer.innerHTML = '<canvas id="kpiChart"></canvas>';
+            content.appendChild(canvasContainer);
 
-            // Math
-            const dailyAvg = currentDay > 0 ? totalSpent / currentDay : 0;
-            const projectedTotal = totalSpent + (dailyAvg * daysRemaining);
-            const deviation = projectedTotal - totalBudget;
-
-            // Survival Days
-            const survivalDays = dailyAvg > 0 ? available / dailyAvg : 999;
-
-            let statusColor = '#10b981';
-            let statusMsg = 'Tu proyección cierra dentro del presupuesto.';
-
-            if (projectedTotal > totalBudget) {
-                statusColor = '#ef4444';
-                statusMsg = `Al ritmo actual, excederás el presupuesto por $${Math.round(deviation).toLocaleString()}.`;
-            } else if (projectedTotal > totalBudget * 0.9) {
-                statusColor = '#f59e0b';
-                statusMsg = 'Proyección ajustada. Cuidado con gastos extra.';
-            }
-
-            const card = document.createElement('div');
-            card.className = 'subcat-item';
-            card.innerHTML = `
-                <div class="subcat-header-row">
-                    <h4>Proyección Fin de Mes</h4>
-                    <span class="subcat-values" style="color: ${statusColor}; font-weight: bold;">$${Math.round(projectedTotal).toLocaleString()}</span>
-                </div>
-                <div class="subcat-header-row" style="margin-top:5px;">
-                     <span class="subcat-values" style="font-size: 0.9rem; color: var(--text-muted);">Meta: $${totalBudget.toLocaleString()}</span>
-                </div>
-                <div style="height: 200px; width: 100%; margin-top: 15px;">
-                    <canvas id="predChart"></canvas>
-                </div>
-                <div class="subcat-footer-row" style="color: var(--text-muted); text-align: center; margin-top: 10px;">
-                     ${statusMsg}
-                </div>
-            `;
-            content.appendChild(card);
-
-            // Survival Alert
-            if (available > 0 && survivalDays < daysRemaining) {
-                const survivalCard = document.createElement('div');
-                survivalCard.className = 'subcat-item';
-                survivalCard.style.marginTop = '15px';
-                survivalCard.style.borderLeft = '4px solid #ef4444';
-                survivalCard.innerHTML = `
-                    <div class="subcat-header-row">
-                        <h4>☠️ Días de Supervivencia</h4>
-                        <span class="subcat-values" style="color: #ef4444; font-weight: bold;">${Math.floor(survivalDays)} días</span>
-                    </div>
-                    <div class="subcat-footer-row" style="margin-top: 5px;">
-                        Tu saldo se acabará antes de fin de mes (quedan ${daysRemaining} días). ¡Frena el gasto!
-                    </div>
-                 `;
-                content.appendChild(survivalCard);
-            }
-
-            // Chart
-            const ctx = document.getElementById('predChart').getContext('2d');
-            if (this.predChart) this.predChart.destroy();
-
-            // Generate simple data points for Line Chart
-            // Point 1: Start (0,0) - simplified
-            // Point 2: Today (Day, Spent)
-            // Point 3: End (LastDay, Projected)
-
-            this.predChart = new Chart(ctx, {
-                type: 'line',
+            const ctx = document.getElementById('kpiChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
                 data: {
-                    labels: ['Inicio', `Hoy (Día ${currentDay})`, `Fin (Día ${daysInMonth})`],
-                    datasets: [
-                        {
-                            label: 'Proyección',
-                            data: [0, totalSpent, projectedTotal],
-                            borderColor: statusColor,
-                            borderDash: [5, 5],
-                            pointRadius: 4,
-                            fill: false,
-                            tension: 0
-                        },
-                        {
-                            label: 'Presupuesto Línea Roja',
-                            data: [totalBudget, totalBudget, totalBudget],
-                            borderColor: '#94a3b8',
-                            borderWidth: 1,
-                            pointRadius: 0,
-                            fill: false
-                        }
-                    ]
+                    labels: ['Gastado', 'Presupuesto'],
+                    datasets: [{
+                        data: [totalSpent, totalBudget],
+                        backgroundColor: [percent >= 90 ? '#ef4444' : '#10b981', '#e2e8f0'],
+                        borderRadius: 10
+                    }]
                 },
                 options: {
+                    indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom' },
-                        tooltip: {
-                            callbacks: { label: (c) => `$${Math.round(c.raw).toLocaleString()}` }
-                        }
-                    },
-                    scales: {
-                        y: { beginAtZero: true }
-                    }
+                    plugins: { legend: { display: false } },
+                    scales: { x: { grid: { display: false }, ticks: { display: false } }, y: { grid: { display: false } } }
                 }
             });
-
-        } else {
-            content.innerHTML = `<p class="placeholder-text">Cargando datos de ${config.title}...</p>`;
+        } else if (type === 'prediction') {
+            if (!this.dashboardData) {
+                content.innerHTML = '<p class="placeholder-text">Sin datos disponibles.</p>';
+            } else {
+                const totalBudget = this.dashboardData.monthly_budget;
+                const totalSpent = totalBudget - this.dashboardData.available_balance;
+                const dailyAvg = new Date().getDate() > 0 ? totalSpent / new Date().getDate() : 0;
+                content.innerHTML = `<p class="placeholder-text">Proyección: $${Math.round(dailyAvg * 30).toLocaleString()}</p>`;
+            }
         }
-
         modal.classList.add('active');
     }
 
     updateModalCategories() {
         const sectionSelect = document.getElementById('section-select');
         if (!sectionSelect) return;
-
         const currentSec = sectionSelect.value;
         sectionSelect.innerHTML = '<option value="">Selecciona Sección...</option>';
-
         Object.keys(this.sectionsData).forEach(sec => {
             const opt = document.createElement('option');
             opt.value = sec;
             opt.textContent = sec;
             sectionSelect.appendChild(opt);
         });
-
         if (currentSec) sectionSelect.value = currentSec;
         this.updateSubcategories();
     }
@@ -738,9 +481,7 @@ class FinanceApp {
         const sectionSelect = document.getElementById('section-select');
         const categorySelect = document.getElementById('category');
         const selectedSec = sectionSelect.value;
-
         categorySelect.innerHTML = '<option value="">Selecciona Categoría...</option>';
-
         if (selectedSec && this.sectionsData[selectedSec]) {
             Object.keys(this.sectionsData[selectedSec].categories).forEach(cat => {
                 const opt = document.createElement('option');
@@ -753,7 +494,9 @@ class FinanceApp {
 
     async loadExpenses() {
         try {
-            const response = await fetch(`${CONFIG.API_BASE}/expenses/`);
+            const response = await fetch(`${CONFIG.API_BASE}/expenses/`, {
+                headers: this.getHeaders()
+            });
             if (response.ok) {
                 const expenses = await response.json();
                 this.renderExpenses(expenses);
@@ -765,30 +508,18 @@ class FinanceApp {
 
     renderExpenses(expenses) {
         const list = document.getElementById('expense-list');
+        if (!list) return;
         list.innerHTML = '';
-
-        const icons = {
-            'GASTOS FIJOS': '🏠',
-            'COMIDAS': '🍕',
-            'TRANSPORTE': '🚗',
-            'VICIOS': '🎉',
-            'STREAM/APP': '📺',
-            'COMISIONES - SEGUROS': '🛡️',
-            'OTROS': '📦'
-        };
-
+        const icons = { 'COMIDAS': '🍕', 'TRANSPORTE': '🚗', 'VICIOS': '🎉', 'OTROS': '📦' };
         expenses.slice(0, 5).forEach(exp => {
             const item = document.createElement('div');
             item.className = 'expense-item';
-
-            // Try to find icon by category (sub) or section, or default to generic
-            const icon = icons[exp.category] || icons[exp.section] || icons['OTROS'] || '💰';
-
+            const icon = icons[exp.section] || '💰';
             item.innerHTML = `
                 <div class="exp-icon-box">${icon}</div>
                 <div class="exp-details">
                     <h4>${exp.concept}</h4>
-                    <p>${new Date(exp.date).toLocaleDateString()} • ${exp.category} • ${exp.payment_method || 'N/A'}</p>
+                    <p>${new Date(exp.date).toLocaleDateString()} • ${exp.category}</p>
                 </div>
                 <div class="exp-amount">$${exp.amount.toLocaleString()}</div>
             `;
@@ -801,393 +532,185 @@ class FinanceApp {
         btn.disabled = true;
         btn.textContent = 'Guardando...';
 
-        const amountInput = document.getElementById('amount');
-        const conceptInput = document.getElementById('concept');
-        const sectionInput = document.getElementById('section-select');
-        const categoryInput = document.getElementById('category');
-        const paymentMethodInput = document.getElementById('payment-method');
-
         const formData = new FormData();
-        formData.append('amount', amountInput.value);
-        formData.append('concept', conceptInput.value || '');
-        formData.append('section', sectionInput.value || '');
-        formData.append('category', categoryInput.value || '');
-        formData.append('payment_method', paymentMethodInput.value);
-
+        formData.append('amount', document.getElementById('amount').value);
+        formData.append('concept', document.getElementById('concept').value || '');
+        formData.append('section', document.getElementById('section-select').value || '');
+        formData.append('category', document.getElementById('category').value || '');
+        formData.append('payment_method', document.getElementById('payment-method').value);
         const photo = document.getElementById('image-upload').files[0];
         if (photo) formData.append('image', photo);
 
-        // Normalize URL to avoid double slashes and ensure correctness
-        const url = `${CONFIG.API_BASE}/expenses/`.replace(/([^:]\/)\/+/g, "$1");
-        console.log('Posting to:', url);
-
         try {
-            const response = await fetch(url, {
+            const response = await fetch(`${CONFIG.API_BASE}/expenses/`, {
                 method: 'POST',
+                headers: this.getHeaders(),
                 body: formData
             });
-
             if (response.ok) {
                 document.getElementById('modal-add').classList.remove('active');
                 document.getElementById('expense-form').reset();
                 document.getElementById('btn-camera').textContent = '📸 Adjuntar Boleta';
                 await this.refreshData();
             } else {
-                const errorData = await response.json().catch(() => ({}));
-                console.error('Submission failed:', response.status, errorData);
-                alert(`Error ${response.status}: ${errorData.detail || 'Fallo al guardar'}`);
-            }
-        } catch (error) {
-            console.error('Fetch Error:', error);
-            alert(`Error de conexión real: ${error.message}\nURL: ${url}`);
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Guardar';
-        }
-    }
-
-    // --- Compromisos Logic ---
-
-    async loadCompromisos() {
-        const list = document.getElementById('compromisos-list');
-        list.innerHTML = '<p class="placeholder-text">Cargando compromisos...</p>';
-
-        try {
-            const response = await fetch(`${CONFIG.API_BASE}/commitments/`);
-            if (response.ok) {
-                const data = await response.json();
-                this.commitments = data;
-                this.renderCompromisos(data);
-            } else {
-                list.innerHTML = `<p class="placeholder-text">Error ${response.status}</p>`;
-            }
-        } catch (error) {
-            console.error('Error loading commitments:', error);
-            list.innerHTML = '<p class="placeholder-text">Error de conexión</p>';
-        }
-    }
-
-    renderCompromisos(data) {
-        // --- 1. Calculate and Render KPIs ---
-        // Filter out PAID for active counts if desired, or keep all?
-        // User asked for "Total de me deben con monto total y cantidad... y otro igual [Debo]".
-        // Usually "Total" implies including paid? No, usually outstanding.
-        // Let's stick to Outstanding (Active).
-
-        let totalDebt = 0;
-        let countDebt = 0;
-        let totalLoan = 0;
-        let countLoan = 0;
-
-        data.forEach(c => {
-            if (c.status !== 'PAID') {
-                const remaining = c.total_amount - c.paid_amount;
-                if (c.type === 'DEBT') {
-                    totalDebt += remaining;
-                    countDebt++;
-                }
-                if (c.type === 'LOAN') {
-                    totalLoan += remaining;
-                    countLoan++;
-                }
-            }
-        });
-
-        // KPI 1: Debo (Red)
-        const debtAmountEl = document.getElementById('kpi-debt-amount');
-        const debtCountEl = document.getElementById('kpi-debt-count');
-        debtAmountEl.textContent = `$${totalDebt.toLocaleString()}`;
-        debtAmountEl.style.color = '#ef4444';
-        debtCountEl.textContent = `${countDebt} transacción${countDebt !== 1 ? 'es' : ''}`;
-
-        // KPI 2: Me Deben (Green)
-        const loanAmountEl = document.getElementById('kpi-loan-amount');
-        const loanCountEl = document.getElementById('kpi-loan-count');
-        loanAmountEl.textContent = `$${totalLoan.toLocaleString()}`;
-        loanAmountEl.style.color = '#10b981';
-        loanCountEl.textContent = `${countLoan} transacción${countLoan !== 1 ? 'es' : ''}`;
-
-        // KPI 3: Balance (Same as before)
-        const balance = totalLoan - totalDebt;
-        const balanceEl = document.getElementById('kpi-total-balance');
-        const balanceDetail = document.getElementById('kpi-balance-detail');
-
-        balanceEl.textContent = `$${Math.abs(balance).toLocaleString()}`;
-        if (balance > 0) {
-            balanceEl.style.color = '#10b981'; // Green
-            balanceEl.textContent = `+$${balance.toLocaleString()}`;
-            balanceDetail.textContent = 'A favor';
-        } else if (balance < 0) {
-            balanceEl.style.color = '#ef4444'; // Red
-            balanceEl.textContent = `-$${Math.abs(balance).toLocaleString()}`;
-            balanceDetail.textContent = 'En contra';
-        } else {
-            balanceEl.style.color = 'var(--text-main)';
-            balanceDetail.textContent = 'Neutro';
-        }
-
-        // --- 2. Render List ---
-        const list = document.getElementById('compromisos-list');
-        list.innerHTML = '';
-
-        if (data.length === 0) {
-            list.innerHTML = '<p class="placeholder-text">No tienes compromisos activos. ¡Libertad! 🕊️</p>';
-            return;
-        }
-
-        // Sorting Logic: Overdue (> today) -> Upcoming (<= 3 days) -> Future
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-        const sortedData = [...data].sort((a, b) => {
-            // Status Priority: PENDING < PAID? No, user wants Active list mostly?
-            // "Lista única con todos los compromisos".
-            // Let's hide PAID ones or push to bottom? usually archives are hidden. Plan said "Finalizar (Archivar)".
-            // Assuming "GET /commitments" returns all, we might want to filter or show PAID differently.
-            // Request said: "Cuántos compromisos tengo activos?".
-            // Let's show active first.
-
-            if (a.status !== b.status) return a.status === 'PENDING' ? -1 : 1;
-
-            if (!a.due_date) return 1;
-            if (!b.due_date) return -1;
-            return new Date(a.due_date) - new Date(b.due_date);
-        });
-
-        sortedData.forEach(c => {
-            // Show all, including PAID (for visual feedback)
-
-            const item = document.createElement('div');
-            // Add 'paid-item' class for styling transparency/strikethrough
-            item.className = `commitment-item ${c.status === 'PAID' ? 'paid-item' : ''}`;
-
-            const isDebt = c.type === 'DEBT';
-            const remaining = c.total_amount - c.paid_amount;
-            const isPaid = c.status === 'PAID';
-
-            // Status Dot Logic
-            let dotColor = 'status-green'; // Future
-            let statusText = 'Al día';
-
-            if (c.due_date && !isPaid) {
-                const due = new Date(c.due_date);
-                const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
-                const diffTime = dueDay - today;
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                if (diffDays < 0) {
-                    dotColor = 'status-red';
-                    statusText = 'Atrasado';
-                } else if (diffDays <= 3) {
-                    dotColor = 'status-yellow';
-                    statusText = 'Próximo';
-                }
-            } else if (isPaid) {
-                statusText = 'Pagado';
-            }
-
-            item.innerHTML = `
-                <div class="commitment-icon">
-                    ${isDebt ? '🔴' : '🟢'}
-                </div>
-                <div class="commitment-details">
-                    <div class="commitment-title" style="${isPaid ? 'text-decoration: line-through; color: var(--text-muted);' : ''}">${c.title}</div>
-                    <div class="commitment-amount ${isDebt ? 'amount-debt' : 'amount-loan'}" style="${isPaid ? 'opacity: 0.5;' : ''}">
-                        ${isDebt ? 'Debo' : 'Me deben'} $${c.total_amount.toLocaleString()}
-                    </div>
-                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">
-                        ${c.due_date ? new Date(c.due_date).toLocaleDateString() : 'Sin fecha'} • ${statusText}
-                    </div>
-                </div>
-                <div class="commitment-action">
-                    <button class="btn-check ${isPaid ? 'checked' : ''}" data-id="${c.id}">
-                        ${isPaid ? '✅' : '⬜'}
-                    </button>
-                </div>
-            `;
-
-            // Interaction logic
-            const checkBtn = item.querySelector('.btn-check');
-            checkBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.toggleCommitmentStatus(c);
-            });
-
-            list.appendChild(item);
-        });
-    }
-
-    async toggleCommitmentStatus(commitment) {
-        const newStatus = commitment.status === 'PENDING' ? 'PAID' : 'PENDING';
-        // If PAID, assume full amount paid. If PENDING, revert paid to 0.
-        const newPaidAmount = newStatus === 'PAID' ? commitment.total_amount : 0;
-
-        try {
-            const response = await fetch(`${CONFIG.API_BASE}/commitments/${commitment.id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    status: newStatus,
-                    paid_amount: newPaidAmount
-                })
-            });
-
-            if (response.ok) {
-                await this.loadCompromisos();
-            } else {
-                console.error('Failed to update status');
-            }
-        } catch (e) {
-            console.error('Network error', e);
-        }
-    }
-
-    async handleCommitmentSubmit() {
-        const btn = document.getElementById('btn-submit-commitment');
-        btn.disabled = true;
-        btn.textContent = 'Guardando...';
-
-        const title = document.getElementById('comm-title').value;
-        const amount = document.getElementById('comm-amount').value;
-        const date = document.getElementById('comm-date').value;
-        const type = document.querySelector('input[name="comm-type"]:checked').value;
-
-        const payload = {
-            title: title,
-            type: type,
-            total_amount: parseInt(amount),
-            due_date: date || null,
-            status: "PENDING"
-        };
-
-        try {
-            const response = await fetch(`${CONFIG.API_BASE}/commitments/`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (response.ok) {
-                document.getElementById('modal-add-commitment').classList.remove('active');
-                document.getElementById('commitment-form').reset();
-                await this.loadCompromisos();
-            } else {
-                alert('Error al guardar compromiso');
+                alert('Fallo al guardar');
             }
         } catch (error) {
             console.error(error);
             alert('Error de conexión');
         } finally {
             btn.disabled = false;
-            btn.textContent = 'Guardar Compromiso';
+            btn.textContent = 'Guardar';
         }
     }
 
-    // --- Category Management Logic ---
+    async loadCompromisos() {
+        const list = document.getElementById('compromisos-list');
+        if (!list) return;
+        list.innerHTML = '<p class="placeholder-text">Cargando...</p>';
+        try {
+            const response = await fetch(`${CONFIG.API_BASE}/commitments/`, {
+                headers: this.getHeaders()
+            });
+            if (response.ok) {
+                const data = await response.json();
+                this.commitments = data;
+                this.renderCompromisos(data);
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+    renderCompromisos(data) {
+        let totalDebt = 0, countDebt = 0, totalLoan = 0, countLoan = 0;
+        data.forEach(c => {
+            if (c.status !== 'PAID') {
+                const rem = c.total_amount - c.paid_amount;
+                if (c.type === 'DEBT') { totalDebt += rem; countDebt++; }
+                else { totalLoan += rem; countLoan++; }
+            }
+        });
+
+        const debtAmtEl = document.getElementById('kpi-debt-amount');
+        if (debtAmtEl) debtAmtEl.textContent = `$${totalDebt.toLocaleString()}`;
+
+        const loanAmtEl = document.getElementById('kpi-loan-amount');
+        if (loanAmtEl) loanAmtEl.textContent = `$${totalLoan.toLocaleString()}`;
+
+        const list = document.getElementById('compromisos-list');
+        if (!list) return;
+        list.innerHTML = '';
+        data.forEach(c => {
+            const item = document.createElement('div');
+            item.className = `commitment-item ${c.status === 'PAID' ? 'paid-item' : ''}`;
+            const isPaid = c.status === 'PAID';
+            item.innerHTML = `
+                <div class="commitment-icon">${c.type === 'DEBT' ? '🔴' : '🟢'}</div>
+                <div class="commitment-details">
+                    <div class="commitment-title" style="${isPaid ? 'text-decoration: line-through;' : ''}">${c.title}</div>
+                    <div class="commitment-amount">$${c.total_amount.toLocaleString()}</div>
+                </div>
+                <div class="commitment-action">
+                    <button class="btn-check" data-id="${c.id}">${isPaid ? '✅' : '⬜'}</button>
+                </div>
+            `;
+            item.querySelector('.btn-check').addEventListener('click', () => this.toggleCommitmentStatus(c));
+            list.appendChild(item);
+        });
+    }
+
+    async toggleCommitmentStatus(commitment) {
+        const newStatus = commitment.status === 'PENDING' ? 'PAID' : 'PENDING';
+        try {
+            const response = await fetch(`${CONFIG.API_BASE}/commitments/${commitment.id}`, {
+                method: 'PATCH',
+                headers: { ...this.getHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus, paid_amount: newStatus === 'PAID' ? commitment.total_amount : 0 })
+            });
+            if (response.ok) await this.loadCompromisos();
+        } catch (e) { console.error(e); }
+    }
+
+    async handleCommitmentSubmit() {
+        const payload = {
+            title: document.getElementById('comm-title').value,
+            type: document.querySelector('input[name="comm-type"]:checked').value,
+            total_amount: parseInt(document.getElementById('comm-amount').value),
+            due_date: document.getElementById('comm-date').value || null,
+            status: "PENDING"
+        };
+        try {
+            const response = await fetch(`${CONFIG.API_BASE}/commitments/`, {
+                method: 'POST',
+                headers: { ...this.getHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (response.ok) {
+                document.getElementById('modal-add-commitment').classList.remove('active');
+                await this.loadCompromisos();
+            }
+        } catch (error) { console.error(error); }
+    }
 
     async handleAddCategory(section) {
         const name = prompt(`Nueva categoría para ${section}:`);
         if (!name) return;
-
-        const budgetStr = prompt(`Presupuesto mensual para ${name} (déjalo en 0 si no sabes):`, "0");
-        const budget = parseInt(budgetStr) || 0;
-
+        const budget = parseInt(prompt(`Presupuesto:`, "0")) || 0;
         try {
             const response = await fetch(`${CONFIG.API_BASE}/expenses/categories/`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ section: section, category: name, budget: budget })
+                headers: { ...this.getHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ section, category: name, budget })
             });
-
             if (response.ok) {
-                alert('Categoría agregada exitosamente');
                 document.getElementById('modal-detail').classList.remove('active');
-                await this.refreshData(); // Refresh to see new category
-            } else {
-                alert('Error al agregar categoría');
+                await this.refreshData();
             }
-        } catch (e) {
-            console.error(e);
-            alert('Error de conexión');
-        }
+        } catch (e) { console.error(e); }
     }
 
     async handleDeleteCategory(section, category) {
-        if (!confirm(`¿Seguro que quieres borrar la categoría "${category}"?`)) return;
-
+        if (!confirm(`¿Borrar "${category}"?`)) return;
         try {
             const response = await fetch(`${CONFIG.API_BASE}/expenses/categories/`, {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ section: section, category: category })
+                headers: { ...this.getHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ section, category })
             });
-
             if (response.ok) {
-                alert('Categoría eliminada');
                 document.getElementById('modal-detail').classList.remove('active');
                 await this.refreshData();
-            } else {
-                alert('Error al eliminar categoría');
             }
-        } catch (e) {
-            console.error(e);
-            alert('Error de conexión');
-        }
+        } catch (e) { console.error(e); }
     }
 
     async handleAddSection() {
-        const name = prompt("Nombre de la Nueva Sección (ej. EDUCACIÓN):");
+        const name = prompt("Nombre Sección:");
         if (!name) return;
-        const subCat = prompt(`Agrega la primera subcategoría para ${name} (ej. Mensualidad):`);
+        const subCat = prompt("Primera Subcategoría:");
         if (!subCat) return;
-
-        const budgetStr = prompt(`Presupuesto mensual para ${subCat}:`, "0");
-        const budget = parseInt(budgetStr) || 0;
-
-        // Backend expects same structure: appends row with Section, Category, Budget
+        const budget = parseInt(prompt("Presupuesto:", "0")) || 0;
         try {
-            const response = await fetch(`${CONFIG.API_BASE}/expenses/categories/`, {
+            await fetch(`${CONFIG.API_BASE}/expenses/categories/`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ section: name.toUpperCase(), category: subCat, budget: budget })
+                headers: { ...this.getHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ section: name.toUpperCase(), category: subCat, budget })
             });
-
-            if (response.ok) {
-                alert('Sección creada exitosamente');
-                await this.refreshData();
-            } else {
-                alert('Error al crear sección');
-            }
-        } catch (e) {
-            console.error(e);
-        }
+            await this.refreshData();
+        } catch (e) { console.error(e); }
     }
 
     async handleDeleteSection(sectionName) {
-        if (!confirm(`⚠️ ¿ESTÁS SEGURO? \n\nEsto eliminará TODAS las subcategorías de "${sectionName}". \n\nEsta acción no se puede deshacer.`)) return;
-
-        const secData = this.sectionsData[sectionName];
-        if (!secData) return;
-
-        const subCats = Object.keys(secData.categories);
-        let successCount = 0;
-
-        alert(`Eliminando ${subCats.length} elementos... por favor espera.`);
-
+        if (!confirm(`¿Eliminar Sección "${sectionName}"?`)) return;
+        const subCats = Object.keys(this.sectionsData[sectionName].categories);
         for (const cat of subCats) {
-            try {
-                await fetch(`${CONFIG.API_BASE}/expenses/categories/`, {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ section: sectionName, category: cat })
-                });
-                successCount++;
-            } catch (e) {
-                console.error(e);
-            }
+            await fetch(`${CONFIG.API_BASE}/expenses/categories/`, {
+                method: 'DELETE',
+                headers: { ...this.getHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ section: sectionName, category: cat })
+            });
         }
-
-        alert(`Sección eliminada (${successCount}/${subCats.length} items).`);
         document.getElementById('modal-detail').classList.remove('active');
         await this.refreshData();
     }

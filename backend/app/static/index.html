@@ -14,11 +14,39 @@
 
 <body>
     <div id="app">
+        <!-- Login Overlay -->
+        <div id="login-overlay" class="login-overlay active">
+            <div class="login-box">
+                <div class="login-header">
+                    <img src="icon-512.png" alt="Cerebro Logo" class="login-logo">
+                    <h2>Finanzas Cerebro</h2>
+                    <p>Ingresa para gestionar tus activos</p>
+                </div>
+                <form id="login-form">
+                    <div class="input-group">
+                        <label>E-mail</label>
+                        <input type="email" id="login-email" placeholder="tu@cerebro.com" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Contraseña</label>
+                        <input type="password" id="login-password" placeholder="••••••" required>
+                    </div>
+                    <div class="remember-group">
+                        <input type="checkbox" id="login-remember" checked>
+                        <label for="login-remember">Recordar contraseña</label>
+                    </div>
+                    <div id="login-error" class="error-text"></div>
+                    <button type="submit" class="btn-submit" id="btn-login">Entrar</button>
+                    <p class="login-footer">¿No puedes entrar? Contacta a Soporte Antigravity</p>
+                </form>
+            </div>
+        </div>
+
         <!-- Dashboard View (Inicio) -->
         <section id="view-inicio" class="view">
             <header class="dashboard-header">
                 <div class="user-greeting">
-                    <span id="greeting-text">Hola, Carlos 👋</span>
+                    <span id="greeting-text">Hola, Christian 👋</span>
                 </div>
                 <div class="balance-section">
                     <p class="label">Saldo disponible</p>
@@ -148,10 +176,6 @@
                         <input type="number" id="amount" placeholder="0" required inputmode="numeric">
                     </div>
                     <div class="input-group">
-                        <label>Comentario (Opcional)</label>
-                        <input type="text" id="concept" placeholder="¿Algún detalle extra?">
-                    </div>
-                    <div class="input-group">
                         <label>Sección</label>
                         <select id="section-select" required>
                             <option value="">Selecciona Sección...</option>
@@ -172,6 +196,10 @@
                             <option value="Efectivo">Efectivo</option>
                             <option value="Transferencia">Transferencia</option>
                         </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Comentario (Opcional)</label>
+                        <input type="text" id="concept" placeholder="¿Algún detalle extra?">
                     </div>
                     <div class="photo-section">
                         <button type="button" class="btn-photo" id="btn-camera">📸 Adjuntar Boleta</button>
@@ -265,13 +293,13 @@
         </div>
 
         <nav class="bottom-nav">
-            <button class="nav-item" data-view="inicio">
-                <img src="https://img.icons8.com/material-rounded/24/94a3b8/home.png" alt="Home" class="nav-icon">
+            <button class="nav-item active" data-view="inicio">
+                <img src="https://img.icons8.com/material-rounded/24/94a3b8/home.png" alt="Home"
+                    class="nav-icon active-icon">
                 <span class="label">Inicio</span>
             </button>
-            <button class="nav-item active" data-view="stats">
-                <img src="https://img.icons8.com/material-rounded/24/94a3b8/bar-chart.png" alt="Stats"
-                    class="nav-icon active-icon">
+            <button class="nav-item" data-view="stats">
+                <img src="https://img.icons8.com/material-rounded/24/94a3b8/bar-chart.png" alt="Stats" class="nav-icon">
                 <span class="label">Estadísticas</span>
             </button>
             <button class="nav-item" data-view="compromisos">
