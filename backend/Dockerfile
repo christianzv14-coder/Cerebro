@@ -1,4 +1,4 @@
-# Build v3.0.0
+# Build v3.0.1 - HOTFIX
 FROM python:3.9-slim-buster
 
 WORKDIR /app

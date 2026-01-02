@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0';
+const CACHE_NAME = 'cerebro-v3.0.1';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -16,30 +16,20 @@ class FinanceApp {
         this.dashboardData = null;
         this.commitments = [];
         this.init();
-        this.setupModalObserver();
     }
 
-    setupModalObserver() {
-        // Fallback for browsers that don't support CSS :has()
-        // Adds 'body-modal-open' class when any modal is active
-        const observer = new MutationObserver((mutations) => {
-            let active = false;
-            document.querySelectorAll('.modal, .login-overlay').forEach(el => {
-                if (el.classList.contains('active')) active = true;
-            });
+    /* REMOVED MUTATION OBSERVER TO PPREVENT FREEZE */
 
-            if (active) {
-                document.body.classList.add('body-modal-open');
-                const fab = document.querySelector('.fab');
-                if (fab) fab.style.display = 'none'; // Force hiding directly
-            } else {
-                document.body.classList.remove('body-modal-open');
-                const fab = document.querySelector('.fab');
-                if (fab) fab.style.display = 'flex'; // Force showing directly
-            }
-        });
-
-        observer.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['class'] });
+    toggleBodyModal(isOpen) {
+        if (isOpen) {
+            document.body.classList.add('body-modal-open');
+            const fab = document.querySelector('.fab');
+            if (fab) fab.style.display = 'none';
+        } else {
+            document.body.classList.remove('body-modal-open');
+            const fab = document.querySelector('.fab');
+            if (fab) fab.style.display = 'flex';
+        }
     }
 
     getHeaders() {
@@ -152,13 +142,9 @@ class FinanceApp {
     setupModal() {
         const fab = document.getElementById('fab-add');
         const modal = document.getElementById('modal-add');
-        const close = document.getElementById('btn-close-modal');
         const detailModal = document.getElementById('modal-detail');
-        const detailClose = document.getElementById('btn-close-detail');
         const statsModal = document.getElementById('modal-stats-detail');
-        const statsClose = document.getElementById('btn-close-stats');
         const commModal = document.getElementById('modal-add-commitment');
-        const commClose = document.getElementById('btn-close-commitment');
 
         if (fab) {
             fab.addEventListener('click', () => {
@@ -167,19 +153,26 @@ class FinanceApp {
                 } else {
                     modal.classList.add('active');
                 }
+                this.toggleBodyModal(true);
             });
         }
 
-        if (close) close.addEventListener('click', () => modal.classList.remove('active'));
-        if (detailClose) detailClose.addEventListener('click', () => detailModal.classList.remove('active'));
-        if (statsClose) statsClose.addEventListener('click', () => statsModal.classList.remove('active'));
-        if (commClose) commClose.addEventListener('click', () => commModal.classList.remove('active'));
+        const closeBtns = document.querySelectorAll('.modal .btn-close-modal, .modal .btn-close-detail, .modal .btn-close-stats, .modal .btn-close-commitment');
+        closeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.closest('.modal').classList.remove('active');
+                this.toggleBodyModal(false);
+            });
+        });
 
-        window.addEventListener('click', (e) => {
-            if (e.target === modal) modal.classList.remove('active');
-            if (e.target === detailModal) detailModal.classList.remove('active');
-            if (e.target === statsModal) statsModal.classList.remove('active');
-            if (e.target === commModal) commModal.classList.remove('active');
+        // Close when clicking outside content
+        document.querySelectorAll('.modal').forEach(m => {
+            m.addEventListener('click', (e) => {
+                if (e.target === m) {
+                    m.classList.remove('active');
+                    this.toggleBodyModal(false);
+                }
+            });
         });
     }
 
@@ -230,12 +223,18 @@ class FinanceApp {
 
     showLogin() {
         const overlay = document.getElementById('login-overlay');
-        if (overlay) overlay.classList.add('active');
+        if (overlay) {
+            overlay.classList.add('active');
+            this.toggleBodyModal(true);
+        }
     }
 
     hideLogin() {
         const overlay = document.getElementById('login-overlay');
-        if (overlay) overlay.classList.remove('active');
+        if (overlay) {
+            overlay.classList.remove('active');
+            this.toggleBodyModal(false);
+        }
     }
 
     async handleLogin() {
@@ -466,6 +465,7 @@ class FinanceApp {
         subList.appendChild(delSecBtn);
 
         modal.classList.add('active');
+        this.toggleBodyModal(true);
     }
 
     showStatDetail(type) {
@@ -492,13 +492,13 @@ class FinanceApp {
             if (!this.dashboardData) {
                 content.innerHTML = '<p class="placeholder-text">Sin datos disponibles.</p>';
                 modal.classList.add('active');
+                this.toggleBodyModal(true);
                 return;
             }
 
             const totalBudget = this.dashboardData.monthly_budget;
+            const totalSpent = totalBudget - this.dashboardData.available_balance;
             const available = this.dashboardData.available_balance;
-            const totalSpent = totalBudget - available;
-            const percent = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
             const barContainer = document.createElement('div');
             barContainer.style.height = '120px';
@@ -517,6 +517,7 @@ class FinanceApp {
             content.appendChild(pieContainer);
 
             modal.classList.add('active');
+            this.toggleBodyModal(true);
 
             setTimeout(() => {
                 // 1. Bar Chart (Spent vs Available)
@@ -575,6 +576,7 @@ class FinanceApp {
             }
         }
         modal.classList.add('active');
+        this.toggleBodyModal(true);
     }
 
     updateModalCategories() {
@@ -669,6 +671,7 @@ class FinanceApp {
             });
             if (response.ok) {
                 document.getElementById('modal-add').classList.remove('active');
+                this.toggleBodyModal(false);
                 document.getElementById('expense-form').reset();
                 document.getElementById('btn-camera').textContent = '📸 Adjuntar Boleta';
                 await this.refreshData();
@@ -791,6 +794,7 @@ class FinanceApp {
             });
             if (response.ok) {
                 document.getElementById('modal-add-commitment').classList.remove('active');
+                this.toggleBodyModal(false);
                 await this.loadCompromisos();
             }
         } catch (error) { console.error(error); }
@@ -808,6 +812,7 @@ class FinanceApp {
             });
             if (response.ok) {
                 document.getElementById('modal-detail').classList.remove('active');
+                this.toggleBodyModal(false);
                 await this.refreshData();
             }
         } catch (e) { console.error(e); }
@@ -837,8 +842,9 @@ class FinanceApp {
                 });
                 if (response.ok) {
                     alert('✅ Presupuesto actualizado');
-                    await this.refreshData();
                     document.getElementById('modal-detail').classList.remove('active');
+                    this.toggleBodyModal(false);
+                    await this.refreshData();
                 } else {
                     const err = await response.json();
                     alert(`❌ Error del servidor: ${err.detail || 'No se pudo actualizar'}`);
@@ -863,6 +869,7 @@ class FinanceApp {
             if (response.ok) {
                 alert('🗑️ Categoría eliminada');
                 document.getElementById('modal-detail').classList.remove('active');
+                this.toggleBodyModal(false);
                 await this.refreshData();
             } else {
                 const err = await response.json();
@@ -876,6 +883,8 @@ class FinanceApp {
 
     async handleAddSection() {
         const name = prompt("Nombre Nueva Sección (ej: HOGAR):");
+        // Prompt blocks execution, but technically doesn't open a DOM modal unless we used a custom one.
+        // If using custom modal later, call toggleBodyModal(true).
         if (!name) return;
         const subCat = prompt("Nombre Primera Subcategoría (ej: Arriendo):");
         if (!subCat) return;
