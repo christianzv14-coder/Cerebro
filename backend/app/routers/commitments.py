@@ -60,10 +60,13 @@ def create_commitment(
     """
     Create a new commitment.
     """
-    # Fallback/Find default user
-    user = db.query(User).filter(User.tecnico_nombre == "Carlos").first()
+    # Fallback/Find default user (Christian)
+    user = db.query(User).filter(User.email == "christian.zv@cerebro.com").first()
     if not user:
-        # Should not happen ideally if app is initialized, but handling just in case
+        # Fallback to any user if Christian is not found (e.g. dev env)
+        user = db.query(User).first()
+        
+    if not user:
         raise HTTPException(status_code=404, detail="Default user not found")
 
     new_commitment = Commitment(

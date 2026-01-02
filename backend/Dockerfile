@@ -1,4 +1,4 @@
-# Build v3.0.3 - HOTFIX (Commitment Alert & CSS Visibility)
+# Build v3.0.4 - HOTFIX (Backend User Logic)
 FROM python:3.9-slim-buster
 
 WORKDIR /app

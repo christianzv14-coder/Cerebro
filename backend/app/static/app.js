@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0.3';
+const CACHE_NAME = 'cerebro-v3.0.4';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -809,6 +809,7 @@ class FinanceApp {
                 await this.loadCompromisos();
             } else {
                 const err = await response.json();
+                console.error("Server Error:", err); // Extra debug
                 alert(`❌ Error al guardar: ${err.detail || 'Intenta de nuevo'}`);
             }
         } catch (error) {
