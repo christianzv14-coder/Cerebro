@@ -593,13 +593,30 @@ class FinanceApp {
             }
         });
 
+        // Update KPIs
         const debtAmtEl = document.getElementById('kpi-debt-amount');
+        const debtCntEl = document.getElementById('kpi-debt-count');
         if (debtAmtEl) debtAmtEl.textContent = `$${totalDebt.toLocaleString()}`;
+        if (debtCntEl) debtCntEl.textContent = `${countDebt} pendientes`;
 
         const loanAmtEl = document.getElementById('kpi-loan-amount');
+        const loanCntEl = document.getElementById('kpi-loan-count');
         if (loanAmtEl) loanAmtEl.textContent = `$${totalLoan.toLocaleString()}`;
+        if (loanCntEl) loanCntEl.textContent = `${countLoan} por cobrar`;
+
+        const balanceAmtEl = document.getElementById('kpi-total-balance');
+        const balanceDetEl = document.getElementById('kpi-balance-detail');
+        const balance = totalLoan - totalDebt;
+        if (balanceAmtEl) {
+            balanceAmtEl.textContent = `$${Math.abs(balance).toLocaleString()}`;
+            balanceAmtEl.style.color = balance >= 0 ? 'var(--accent)' : 'var(--danger)';
+        }
+        if (balanceDetEl) {
+            balanceDetEl.textContent = balance >= 0 ? 'A favor' : 'En contra';
+        }
 
         const list = document.getElementById('compromisos-list');
+
         if (!list) return;
         list.innerHTML = '';
         data.forEach(c => {
