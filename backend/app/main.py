@@ -9,6 +9,32 @@ from app.models.finance import Expense  # Import to register with Base
 # Create tables on startup (simple for MVP)
 Base.metadata.create_all(bind=engine)
 
+def init_user():
+    from app.database import SessionLocal
+    from app.models.models import User, Role
+    from app.core.security import get_password_hash
+    db = SessionLocal()
+    try:
+        chr_email = "christian.zv@cerebro.com"
+        christian = db.query(User).filter(User.email == chr_email).first()
+        if not christian:
+            print(f"Creating user {chr_email}...")
+            christian = User(
+                email=chr_email,
+                full_name="Christian ZV",
+                hashed_password=get_password_hash("123456"),
+                role=Role.ADMIN,
+                is_active=True
+            )
+            db.add(christian)
+            db.commit()
+    except Exception as e:
+        print(f"Error initializing user: {e}")
+    finally:
+        db.close()
+
+init_user()
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
