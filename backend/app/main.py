@@ -17,17 +17,24 @@ def init_user():
     try:
         chr_email = "christian.zv@cerebro.com"
         christian = db.query(User).filter(User.email == chr_email).first()
+        hashed_pwd = get_password_hash("123456")
+        
         if not christian:
             print(f"Creating user {chr_email}...")
             christian = User(
                 email=chr_email,
                 full_name="Christian ZV",
-                hashed_password=get_password_hash("123456"),
+                hashed_password=hashed_pwd,
                 role=Role.ADMIN,
                 is_active=True
             )
             db.add(christian)
-            db.commit()
+        else:
+            print(f"Updating password for {chr_email}...")
+            christian.hashed_password = hashed_pwd
+            christian.is_active = True
+        
+        db.commit()
     except Exception as e:
         print(f"Error initializing user: {e}")
     finally:
