@@ -1,3 +1,4 @@
+const CACHE_NAME = 'cerebro-v4';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -442,7 +443,7 @@ class FinanceApp {
             const percent = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
             const canvasContainer = document.createElement('div');
-            canvasContainer.style.height = '250px';
+            canvasContainer.style.height = '150px';
             canvasContainer.style.width = '100%';
             canvasContainer.innerHTML = '<canvas id="statsChart"></canvas>';
             content.appendChild(canvasContainer);
@@ -463,10 +464,11 @@ class FinanceApp {
                         }]
                     },
                     options: {
+                        indexAxis: 'y',
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: { legend: { display: false } },
-                        scales: { y: { beginAtZero: true } }
+                        scales: { x: { beginAtZero: true } }
                     }
                 });
             }, 100);
@@ -720,6 +722,32 @@ class FinanceApp {
         } catch (e) { console.error(e); }
     }
 
+    async handleUpdateCategory(section, category, currentBudget) {
+        setTimeout(() => {
+            const newBudgetStr = prompt(`Nuevo presupuesto para "${category}":`, currentBudget);
+            if (newBudgetStr === null || newBudgetStr.trim() === "") return;
+
+            const newBudget = parseInt(newBudgetStr.trim());
+            if (isNaN(newBudget)) {
+                alert('Monto no válido');
+                return;
+            }
+
+            fetch(`${CONFIG.API_BASE}/expenses/categories/`, {
+                method: 'PATCH',
+                headers: { ...this.getHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ section, category, new_budget: newBudget })
+            }).then(r => {
+                if (r.ok) {
+                    alert('✅ Actualizado');
+                    this.refreshData();
+                    document.getElementById('modal-detail').classList.remove('active');
+                } else {
+                    alert('❌ Fallo al actualizar');
+                }
+            });
+        }, 100);
+    }
     async handleDeleteCategory(section, category) {
         if (!confirm(`¿Borrar "${category}"?`)) return;
         try {
@@ -729,30 +757,17 @@ class FinanceApp {
                 body: JSON.stringify({ section, category })
             });
             if (response.ok) {
+                alert('🗑️ Categoría eliminada');
                 document.getElementById('modal-detail').classList.remove('active');
                 await this.refreshData();
             } else {
                 const err = await response.json();
-                alert(err.detail || 'Fallo al borrar');
+                alert(`❌ Error: ${err.detail || 'No se pudo borrar'}`);
             }
-        } catch (e) { console.error(e); }
-    }
-
-    async handleUpdateCategory(section, category, currentBudget) {
-        const newBudget = prompt(`Nuevo presupuesto para "${category}":`, currentBudget);
-        if (newBudget === null || newBudget === "") return;
-        try {
-            const response = await fetch(`${CONFIG.API_BASE}/expenses/categories/`, {
-                method: 'PATCH',
-                headers: { ...this.getHeaders(), 'Content-Type': 'application/json' },
-                body: JSON.stringify({ section, category, new_budget: parseInt(newBudget) })
-            });
-            if (response.ok) {
-                document.getElementById('modal-detail').classList.remove('active');
-                await this.refreshData();
-                alert('Presupuesto actualizado');
-            }
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+            alert('⚠️ Error de conexión');
+        }
     }
 
     async handleAddSection() {

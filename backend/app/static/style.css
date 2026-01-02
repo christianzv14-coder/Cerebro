@@ -757,64 +757,59 @@ input[type="radio"]:checked+.toggle-btn.loan {
 #view-compromisos .compromisos-main {
     flex: 1;
     overflow-y: auto;
-    padding: 20px;
-    padding-bottom: 160px;
-    /* Space for KPI and Nav */
+    padding: 0;
+    padding-bottom: 80px;
 }
 
-#view-compromisos .kpi-container.fixed-bottom-kpi {
-    position: fixed;
-    bottom: 75px;
-    /* Above fixed nav */
-    left: 50%;
-    transform: translateX(-50%);
+#view-compromisos .kpi-container.compromisos-kpi-top {
+    position: relative;
+    bottom: 0;
+    left: 0;
+    transform: none;
     width: 100%;
-    max-width: 500px;
-    padding: 10px 5px;
-    background: #ffffff;
-    border-top: 1px solid #e2e8f0;
+    max-width: none;
+    padding: 15px;
+    background: var(--bg-main);
+    border-bottom: 1px solid #e2e8f0;
+    border-top: none;
     display: flex;
-    justify-content: space-around;
-    gap: 4px;
-    box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.05);
-    z-index: 900;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: none;
+    z-index: 1;
 }
 
 #view-compromisos .kpi-card {
     flex: 1;
-    padding: 6px 2px;
-    background: #f8fafc;
-    border-radius: 10px;
-    text-align: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background: #ffffff;
+    border-radius: 15px;
+    text-align: left;
     border: 1px solid #f1f5f9;
-    min-width: 0;
-    /* Allow shrinking */
+    box-shadow: var(--shadow-sm);
 }
 
 #view-compromisos .kpi-card h3 {
-    font-size: 0.9rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 1.25rem;
+    color: var(--text-main);
+    margin: 0;
 }
 
 #view-compromisos .kpi-label {
-    font-size: 0.7rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
 }
 
 #view-compromisos .kpi-subtext {
-    font-size: 0.65rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
 }
 
-#view-compromisos .kpi-card {
-    padding: 10px;
-    /* Compact padding */
-}
-
-#view-compromisos .kpi-card h3 {
-    font-size: 1rem;
-    /* Smaller font for 3-col */
-}
+/* Removing duplicate or old card rules */
 
 /* Check Button & Actions */
 .commitment-action {

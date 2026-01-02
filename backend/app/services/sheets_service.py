@@ -485,11 +485,14 @@ def delete_category_from_sheet(section: str, category: str):
     print(f"DEBUG [SHEETS] Deleting category '{category}' from section '{section}'")
     try:
         sheet = get_sheet()
-        if not sheet: return False
+        if not sheet: 
+            print("ERROR [SHEETS] No sheet access")
+            return False
         
         try:
             ws = sheet.worksheet("Presupuesto")
-        except:
+        except Exception as e:
+            print(f"ERROR [SHEETS] Worksheet 'Presupuesto' not found: {e}")
             return False
 
         all_rows = ws.get_all_values()
@@ -506,18 +509,23 @@ def delete_category_from_sheet(section: str, category: str):
                 if c in headers: cat_col = headers.index(c); break
                 
             if sec_col == -1 or cat_col == -1:
+                print(f"ERROR [SHEETS] Cols not found: sec={sec_col}, cat={cat_col}")
                 return False
                 
+            target_sec = section.strip().lower()
+            target_cat = category.strip().lower()
+
             # Find row to delete
             for i, row in enumerate(all_rows[1:], start=2):
                 if len(row) > max(sec_col, cat_col):
                     r_sec = row[sec_col].strip().lower()
                     r_cat = row[cat_col].strip().lower()
-                    if r_sec == section.strip().lower() and r_cat == category.strip().lower():
+                    if r_sec == target_sec and r_cat == target_cat:
                         ws.delete_rows(i)
                         print(f"DEBUG [SHEETS] Deleted row {i}: {section}/{category}")
                         return True
             
+            print(f"DEBUG [SHEETS] No match found for '{target_sec}' / '{target_cat}'")
             return False # Not found
             
         except Exception as e:
@@ -556,13 +564,19 @@ def update_category_in_sheet(section: str, category: str, new_budget: int):
         if sec_col == -1 or cat_col == -1 or bud_col == -1:
             return False
             
+        target_sec = section.strip().lower()
+        target_cat = category.strip().lower()
+
         for i, row in enumerate(all_rows[1:], start=2):
             if len(row) > max(sec_col, cat_col):
                 r_sec = row[sec_col].strip().lower()
                 r_cat = row[cat_col].strip().lower()
-                if r_sec == section.strip().lower() and r_cat == category.strip().lower():
+                if r_sec == target_sec and r_cat == target_cat:
                     ws.update_cell(i, bud_col + 1, new_budget)
+                    print(f"DEBUG [SHEETS] Updated row {i} budget to {new_budget}")
                     return True
+        
+        print(f"DEBUG [SHEETS] No match for update: '{target_sec}' / '{target_cat}'")
         return False
     except Exception as e:
         print(f"ERROR [SHEETS] Update category failed: {e}")
