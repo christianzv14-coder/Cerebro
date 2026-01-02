@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Finanzas - Cerebro</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div id="app">
+        <!-- Dashboard View (Inicio) -->
+        <section id="view-inicio" class="view">
+            <header class="dashboard-header">
+                <div class="user-greeting">
+                    <span id="greeting-text">Hola, Carlos 👋</span>
+                </div>
+                <div class="balance-section">
+                    <p class="label">Saldo disponible</p>
+                    <h1 id="available-balance">$0</h1>
+                    <p class="monthly-budget">Presupuesto mensual: <span id="total-budget">$0</span></p>
+                    <p class="last-update">Actualizado: <span id="sync-time">-</span></p>
+                </div>
+            </header>
+
+            <main class="dashboard-main">
+                <div class="categories-grid" id="categories-container">
+                    <!-- Dynamic Category Cards -->
+                    <div class="category-card skeleton"></div>
+                    <div class="category-card skeleton"></div>
+                    <div class="category-card skeleton"></div>
+                    <div class="category-card skeleton"></div>
+                </div>
+
+                <div class="recent-section">
+                    <div class="section-header">
+                        <h3>Gastos recientes</h3>
+                    </div>
+                    <div id="expense-list" class="expense-list">
+                        <!-- Items dynamically loaded -->
+                    </div>
+                </div>
+            </main>
+        </section>
+
+        <!-- Other views placeholders -->
+        <section id="view-stats" class="view active">
+            <header class="dashboard-header">
+                <h1>Estadísticas 📊</h1>
+            </header>
+            <main class="stats-menu-grid">
+                <!-- 1. Indicadores Generales -->
+                <div class="stat-card" onclick="app.showStatDetail('general')">
+                    <div class="stat-icon">⚡</div>
+                    <div class="stat-info">
+                        <h3>Indicadores Generales</h3>
+                        <p>Resumen de salud financiera</p>
+                    </div>
+                </div>
+
+                <!-- 2. Predicción de Gastos -->
+                <div class="stat-card" onclick="app.showStatDetail('prediction')">
+                    <div class="stat-icon">🔮</div>
+                    <div class="stat-info">
+                        <h3>Predicción de Gastos</h3>
+                        <p>Proyección IA fin de mes</p>
+                    </div>
+                </div>
+
+                <!-- 3. Comparación Mes Anterior -->
+                <div class="stat-card" onclick="app.showStatDetail('comparison')">
+                    <div class="stat-icon">⚖️</div>
+                    <div class="stat-info">
+                        <h3>Comparación Mes Anterior</h3>
+                        <p>Balance vs mes pasado</p>
+                    </div>
+                </div>
+
+                <!-- 4. Proyección Ahorro -->
+                <div class="stat-card" onclick="app.showStatDetail('savings')">
+                    <div class="stat-icon">🐖</div>
+                    <div class="stat-info">
+                        <h3>Proyección Ahorro</h3>
+                        <p>Metas y capacidad futura</p>
+                    </div>
+                </div>
+            </main>
+        </section>
+
+        <section id="view-compromisos" class="view view-compromisos-layout">
+            <header class="dashboard-header">
+                <h1>Compromisos 🤝</h1>
+            </header>
+            <main class="compromisos-main">
+                <div id="compromisos-list" class="compromisos-list">
+                    <p class="placeholder-text">Cargando compromisos...</p>
+                </div>
+            </main>
+            <div class="kpi-container fixed-bottom-kpi">
+                <div class="kpi-card" id="kpi-card-debt">
+                    <span class="kpi-label">Debo</span>
+                    <h3 id="kpi-debt-amount">$0</h3>
+                    <p id="kpi-debt-count" class="kpi-subtext">0 items</p>
+                </div>
+                <div class="kpi-card" id="kpi-card-loan">
+                    <span class="kpi-label">Me Deben</span>
+                    <h3 id="kpi-loan-amount">$0</h3>
+                    <p id="kpi-loan-count" class="kpi-subtext">0 items</p>
+                </div>
+                <div class="kpi-card" id="kpi-card-balance">
+                    <span class="kpi-label">Balance</span>
+                    <h3 id="kpi-total-balance">$0</h3>
+                    <p id="kpi-balance-detail" class="kpi-subtext">Neutro</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-mas" class="view">
+            <header class="dashboard-header">
+                <h1>Más ⚙️</h1>
+            </header>
+            <main style="padding: 20px; text-align: center; color: var(--text-muted);">
+                <p>Configuración próximamente...</p>
+            </main>
+        </section>
+
+        <!-- Floating Action Button -->
+        <button class="fab" id="fab-add">
+            <span class="icon">+</span>
+            <span class="label">Agregar Gasto</span>
+        </button>
+
+        <!-- Modal for adding expense -->
+        <div id="modal-add" class="modal">
+            <div class="modal-content">
+                <header class="modal-header">
+                    <h2>Nuevo Gasto</h2>
+                    <button class="btn-close" id="btn-close-modal">&times;</button>
+                </header>
+                <form id="expense-form">
+                    <div class="input-group">
+                        <label>Monto (CLP)</label>
+                        <input type="number" id="amount" placeholder="0" required inputmode="numeric">
+                    </div>
+                    <div class="input-group">
+                        <label>Comentario (Opcional)</label>
+                        <input type="text" id="concept" placeholder="¿Algún detalle extra?">
+                    </div>
+                    <div class="input-group">
+                        <label>Sección</label>
+                        <select id="section-select" required>
+                            <option value="">Selecciona Sección...</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Categoría</label>
+                        <select id="category" required>
+                            <option value="">Selecciona Categoría...</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Método de Pago</label>
+                        <select id="payment-method" required>
+                            <option value="">Selecciona Método...</option>
+                            <option value="Débito">Débito</option>
+                            <option value="Crédito">Crédito</option>
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Transferencia">Transferencia</option>
+                        </select>
+                    </div>
+                    <div class="photo-section">
+                        <button type="button" class="btn-photo" id="btn-camera">📸 Adjuntar Boleta</button>
+                        <input type="file" id="image-upload" accept="image/*" capture="environment"
+                            style="display: none;">
+                    </div>
+                    <button type="submit" class="btn-submit" id="btn-submit-expense">Guardar</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal for category detail -->
+        <div id="modal-detail" class="modal">
+            <div class="modal-content detail-content">
+                <header class="modal-header">
+                    <div class="header-content">
+                        <span id="detail-icon" class="category-icon">📁</span>
+                        <h2 id="detail-title">Detalle</h2>
+                    </div>
+                    <button class="btn-close" id="btn-close-detail">&times;</button>
+                </header>
+                <div class="detail-overview">
+                    <div class="overview-item">
+                        <span class="label">Gastado</span>
+                        <span id="detail-spent" class="value">$0</span>
+                    </div>
+                    <div class="overview-item">
+                        <span class="label">Presupuesto</span>
+                        <span id="detail-budget" class="value">$0</span>
+                    </div>
+                </div>
+                <div class="progress-container large">
+                    <div id="detail-progress-bar" class="progress-bar"></div>
+                </div>
+                <div id="detail-subcategories" class="subcategory-list">
+                    <!-- Subcategories will be injected here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal for statistics detail -->
+        <div id="modal-stats-detail" class="modal">
+            <div class="modal-content detail-content">
+                <header class="modal-header">
+                    <div class="header-content">
+                        <span id="stats-detail-icon" class="category-icon">📊</span>
+                        <h2 id="stats-detail-title">Estadística</h2>
+                    </div>
+                    <button class="btn-close" id="btn-close-stats">&times;</button>
+                </header>
+                <div id="stats-detail-content" class="stats-body">
+                    <!-- Dynamic charts and numbers here -->
+                    <p class="placeholder-text">Cargando datos...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal for adding commitment -->
+        <div id="modal-add-commitment" class="modal">
+            <div class="modal-content">
+                <header class="modal-header">
+                    <h2>Nuevo Compromiso</h2>
+                    <button class="btn-close" id="btn-close-commitment">&times;</button>
+                </header>
+                <form id="commitment-form">
+                    <div class="input-group">
+                        <label>Título (Persona/Entidad)</label>
+                        <input type="text" id="comm-title" placeholder="Ej: Juan Pérez" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Tipo</label>
+                        <div class="toggle-group">
+                            <input type="radio" name="comm-type" id="type-debt" value="DEBT" checked>
+                            <label for="type-debt" class="toggle-btn debt">Debo 🔴</label>
+
+                            <input type="radio" name="comm-type" id="type-loan" value="LOAN">
+                            <label for="type-loan" class="toggle-btn loan">Me Deben 🟢</label>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label>Monto Total</label>
+                        <input type="number" id="comm-amount" placeholder="0" required inputmode="numeric">
+                    </div>
+                    <div class="input-group">
+                        <label>Vencimiento (Opcional)</label>
+                        <input type="date" id="comm-date">
+                    </div>
+                    <button type="submit" class="btn-submit" id="btn-submit-commitment">Guardar Compromiso</button>
+                </form>
+            </div>
+        </div>
+
+        <nav class="bottom-nav">
+            <button class="nav-item" data-view="inicio">
+                <img src="https://img.icons8.com/material-rounded/24/94a3b8/home.png" alt="Home" class="nav-icon">
+                <span class="label">Inicio</span>
+            </button>
+            <button class="nav-item active" data-view="stats">
+                <img src="https://img.icons8.com/material-rounded/24/94a3b8/bar-chart.png" alt="Stats"
+                    class="nav-icon active-icon">
+                <span class="label">Estadísticas</span>
+            </button>
+            <button class="nav-item" data-view="compromisos">
+                <img src="https://img.icons8.com/material-rounded/24/94a3b8/handshake.png" alt="Compromisos"
+                    class="nav-icon">
+                <span class="label">Compromisos</span>
+            </button>
+            <button class="nav-item" data-view="mas">
+                <img src="https://img.icons8.com/material-rounded/24/94a3b8/menu.png" alt="Más" class="nav-icon">
+                <span class="label">Más</span>
+            </button>
+        </nav>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>

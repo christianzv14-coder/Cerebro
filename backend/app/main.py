@@ -3,7 +3,7 @@ import os
 from app.core.config import settings
 from app.database import engine, Base
 from fastapi.staticfiles import StaticFiles
-from app.routers import auth, users, activities, admin, signatures, finance
+from app.routers import auth, users, activities, admin, signatures, finance, commitments
 from app.models.finance import Expense  # Import to register with Base
 
 # Create tables on startup (simple for MVP)
@@ -29,11 +29,19 @@ app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["aut
 app.include_router(users.router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
 app.include_router(activities.router, prefix=f"{settings.API_V1_STR}/activities", tags=["activities"])
 app.include_router(signatures.router, prefix=f"{settings.API_V1_STR}/signatures", tags=["signatures"])
+app.include_router(finance.router, prefix=f"{settings.API_V1_STR}/expenses", tags=["finance"])
+app.include_router(commitments.router, prefix=f"{settings.API_V1_STR}/commitments", tags=["commitments"])
 app.include_router(admin.router, prefix=f"{settings.API_V1_STR}/admin", tags=["admin"])
 
+from fastapi.responses import FileResponse
+
+# Serve Static Files (Frontend) using absolute path to be safe in Docker
+# "app/static" relative to where uvicorn is run (usually /app)
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
 @app.get("/")
-def root():
-    return {"status": "online", "version": "3.1-EMERGENCY-DEBUG", "message": "Cerebro Patio API is running"}
+def read_root():
+    return FileResponse("app/static/index.html")
 
 
 

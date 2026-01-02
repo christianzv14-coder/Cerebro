@@ -254,10 +254,126 @@ def sync_signature_to_sheet(signature, user_email=None):
     except Exception as e:
         print(f"ERROR [SHEETS] Signature sync failed: {e}")
 
-def sync_expense_to_sheet(expense, tech_name):
-    print(f"DEBUG [SHEETS] Syncing expense (STUB): {expense.concept} - {expense.amount}")
-    # TODO: Implement actual sheet sync for expenses
-    pass
+def sync_expense_to_sheet(expense, tech_name, section=None):
+    """Appends an expense row to the 'Gastos' sheet."""
+    print(f"\n>>> [SHEETS START] Syncing expense {expense.concept}...")
+    try:
+        sheet = get_sheet()
+        if not sheet: return
+
+        try:
+            ws = sheet.worksheet("Gastos")
+        except gspread.WorksheetNotFound:
+            ws = sheet.add_worksheet(title="Gastos", rows=1000, cols=8)
+            ws.append_row(["Fecha", "Concepto", "Sección", "Categoría", "Monto", "Método Pago", "Usuario", "Imagen URL"])
+
+        new_row = [
+            str(expense.date),
+            expense.concept,
+            section or "OTROS",
+            expense.category,
+            expense.amount,
+            expense.payment_method or "N/A",
+            tech_name,
+            expense.image_url or ""
+        ]
+        ws.append_row(new_row)
+        print(f"DEBUG [SHEETS] Expense appended to 'Gastos'.")
+    except Exception as e:
+        print(f"ERROR [SHEETS] Expense sync failed: {e}")
+
+def get_dashboard_data(tech_name: str):
+    """
+    Retrieves balance, budget, and category spending from 'Config', 'Presupuesto' and 'Gastos' sheets.
+    """
+    try:
+        sheet = get_sheet()
+        if not sheet: return None
+
+        # 1. Get Config (Name, Global Budget)
+        config = {"name": "Usuario", "monthly_budget": 0}
+        try:
+            ws_config = sheet.worksheet("Config")
+            data = ws_config.get_all_records()
+            for row in data:
+                key = str(row.get("Key", "")).lower()
+                if "nombre" in key or "name" in key: config["name"] = row.get("Value", "Carlos")
+                if "presupuesto" in key or "budget" in key: config["monthly_budget"] = int(row.get("Value", 0))
+        except: pass
+
+        # 2. Get Budgets per Section (Hierarchical)
+        sections = {}
+        # category_to_section is useful for mapping expenses that only have category
+        category_to_section = {}
+        try:
+            ws_budget = sheet.worksheet("Presupuesto")
+            data = ws_budget.get_all_records()
+            for row in data:
+                sec = str(row.get("Sección") or "OTROS").strip()
+                cat = str(row.get("Categoría") or row.get("Category") or "General").strip()
+                bud = int(row.get("Presupuesto") or row.get("Budget") or 0)
+                
+                category_to_section[cat] = sec
+                
+                if sec not in sections:
+                    sections[sec] = {"budget": 0, "spent": 0, "categories": {}}
+                
+                sections[sec]["budget"] += bud
+                sections[sec]["categories"][cat] = {"budget": bud, "spent": 0}
+        except: pass
+
+        # 3. Calculate Spent per Category/Section (current month)
+        try:
+            ws_gastos = sheet.worksheet("Gastos")
+            data = ws_gastos.get_all_records()
+            from datetime import date
+            current_month = date.today().month
+            current_year = date.today().year
+            
+            total_spent = 0
+            for row in data:
+                try:
+                    fecha_str = str(row.get("Fecha", ""))
+                    from datetime import datetime
+                    d = None
+                    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"):
+                        try: d = datetime.strptime(fecha_str, fmt); break
+                        except: continue
+                    
+                    if d and d.month == current_month and d.year == current_year:
+                        sec = str(row.get("Sección", "")).strip()
+                        cat = str(row.get("Categoría") or row.get("Category", "")).strip()
+                        monto = int(row.get("Monto") or row.get("Amount") or 0)
+                        
+                        total_spent += monto
+                        
+                        # Use section from row if available, else map from category
+                        if not sec and cat in category_to_section:
+                            sec = category_to_section[cat]
+                        
+                        if not sec: sec = "OTROS"
+                        
+                        if sec not in sections:
+                            sections[sec] = {"budget": 0, "spent": 0, "categories": {}}
+                        
+                        sections[sec]["spent"] += monto
+                        if cat:
+                            if cat not in sections[sec]["categories"]:
+                                sections[sec]["categories"][cat] = {"budget": 0, "spent": 0}
+                            sections[sec]["categories"][cat]["spent"] += monto
+                except: continue
+        except: pass
+
+        return {
+            "user_name": config["name"],
+            "available_balance": config["monthly_budget"] - total_spent,
+            "monthly_budget": config["monthly_budget"],
+            "categories": sections, # Frontend will now receive sections as the top-level
+            "total_spent": total_spent
+        }
+    except Exception as e:
+        print(f"ERROR [SHEETS] get_dashboard_data failed: {e}")
+        return None
 
 
 def get_technician_scores(tech_name: str):
@@ -337,3 +453,156 @@ def get_technician_scores(tech_name: str):
     except Exception as e:
         print(f"ERROR [SHEETS] Get scores failed: {e}")
         return None
+
+def add_category_to_sheet(section: str, category: str, budget: int = 0):
+    """
+    Adds a new category (subcategory) to the 'Presupuesto' sheet.
+    """
+    print(f"DEBUG [SHEETS] Adding category '{category}' to section '{section}'")
+    try:
+        sheet = get_sheet()
+        if not sheet: return False
+        
+        try:
+            ws = sheet.worksheet("Presupuesto")
+        except gspread.WorksheetNotFound:
+            ws = sheet.add_worksheet(title="Presupuesto", rows=100, cols=3)
+            ws.append_row(["Sección", "Categoría", "Presupuesto"])
+
+        # Check for duplicates?
+        # Ideally yes, but for MVP let's just append.
+        # Structure: Sección, Categoría, Presupuesto
+        ws.append_row([section, category, budget])
+        return True
+    except Exception as e:
+        print(f"ERROR [SHEETS] Add category failed: {e}")
+        return False
+
+def delete_category_from_sheet(section: str, category: str):
+    """
+    Deletes a category from the 'Presupuesto' sheet.
+    """
+    print(f"DEBUG [SHEETS] Deleting category '{category}' from section '{section}'")
+    try:
+        sheet = get_sheet()
+        if not sheet: return False
+        
+        try:
+            ws = sheet.worksheet("Presupuesto")
+        except:
+            return False
+
+        all_rows = ws.get_all_values()
+        if not all_rows: return False
+        
+        headers = [h.strip().lower() for h in all_rows[0]]
+        try:
+            sec_col = -1
+            cat_col = -1
+            for c in ["sección", "seccion", "section"]:
+                if c in headers: sec_col = headers.index(c); break
+                
+            for c in ["categoría", "categoria", "category"]:
+                if c in headers: cat_col = headers.index(c); break
+                
+            if sec_col == -1 or cat_col == -1:
+                return False
+                
+            # Find row to delete
+            # Start from 2 (index 1 in 0-based list is row 2)
+            for i, row in enumerate(all_rows[1:], start=2):
+                if len(row) > max(sec_col, cat_col):
+                    r_sec = row[sec_col].strip()
+                    r_cat = row[cat_col].strip()
+                    if r_sec == section and r_cat == category:
+                        ws.delete_rows(i)
+                        print(f"DEBUG [SHEETS] Deleted row {i}")
+                        return True
+            
+            return False # Not found
+            
+        except Exception as e:
+            print(f"ERROR [SHEETS] Delete finding row failed: {e}")
+            return False
+
+    except Exception as e:
+        print(f"ERROR [SHEETS] Delete category failed: {e}")
+        return False
+
+def sync_commitment_to_sheet(commitment, user_name="Carlos"):
+    """
+    Syncs a commitment to 'Compromisos' sheet (Append or Update).
+    """
+    print(f"DEBUG [SHEETS] Syncing commitment {commitment.id} - {commitment.title}")
+    try:
+        sheet = get_sheet()
+        if not sheet: return
+
+        try:
+            ws = sheet.worksheet("Compromisos")
+        except gspread.WorksheetNotFound:
+            ws = sheet.add_worksheet(title="Compromisos", rows=1000, cols=9)
+            ws.append_row(["ID", "Fecha Creación", "Título", "Tipo", "Monto Total", "Monto Pagado", "Vencimiento", "Estado", "Usuario"])
+
+        # Prepare row data
+        # ID, Created, Title, Type, Total, Paid, Due, Status, User
+        row_data = [
+            str(commitment.id),
+            str(commitment.created_at.date()) if commitment.created_at else "",
+            commitment.title,
+            commitment.type, # DEBT / LOAN
+            commitment.total_amount,
+            commitment.paid_amount,
+            str(commitment.due_date) if commitment.due_date else "",
+            commitment.status,
+            user_name
+        ]
+
+        # Find if ID exists (Column 1)
+        found_cell = None
+        try:
+            found_cell = ws.find(str(commitment.id), in_column=1)
+        except:
+            pass
+
+        if found_cell:
+            # Update existing row
+            # gspread's update method: ws.update(range_name, values=List[List])
+            # Row index is found_cell.row
+            # We want to update columns A to I (1 to 9)
+            cell_range = f"A{found_cell.row}:I{found_cell.row}"
+            ws.update(cell_range, [row_data])
+            print(f"DEBUG [SHEETS] Updated existing commitment row {found_cell.row}")
+        else:
+            # Append
+            ws.append_row(row_data)
+            print(f"DEBUG [SHEETS] Appended new commitment.")
+
+    except Exception as e:
+        print(f"ERROR [SHEETS] Commitment sync failed: {e}")
+
+def delete_commitment_from_sheet(commitment_id: int):
+    """
+    Deletes a commitment row from sheet by ID.
+    """
+    print(f"DEBUG [SHEETS] Deleting commitment {commitment_id}")
+    try:
+        sheet = get_sheet()
+        if not sheet: return
+
+        try:
+            ws = sheet.worksheet("Compromisos")
+        except:
+            return
+
+        try:
+            found_cell = ws.find(str(commitment_id), in_column=1)
+            if found_cell:
+                ws.delete_rows(found_cell.row)
+                print(f"DEBUG [SHEETS] Deleted commitment row {found_cell.row}")
+        except:
+            print("DEBUG [SHEETS] Commitment ID not found for deletion.")
+            pass
+
+    except Exception as e:
+        print(f"ERROR [SHEETS] Delete commitment failed: {e}")

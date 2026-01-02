@@ -1,79 +1,81 @@
 from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile
 from sqlalchemy.orm import Session
-from typing import List
-from pydantic import BaseModel
+from typing import List, Optional
+from pydantic import BaseModel, ConfigDict
 from datetime import date
 from app.database import get_db
-from app.models.models import User
+from app.models.models import User, Role
 from app.models.finance import Expense
 from app.deps import get_current_user
-from app.services.sheets_service import sync_expense_to_sheet
+from app.services.sheets_service import sync_expense_to_sheet, get_dashboard_data
 
-router = APIRouter(prefix="/expenses", tags=["finance"])
+router = APIRouter(tags=["finance"])
 
 # --- Pydantic Schemas ---
-class ExpenseCreate(BaseModel):
-    amount: int
-    concept: str
-    category: str
-    date: date
-    image_url: str = None
-
 class ExpenseOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     amount: int
     concept: str
     category: str
     date: date
-    image_url: str = None
-    
-    class Config:
-        orm_mode = True
+    payment_method: Optional[str] = None
+    image_url: Optional[str] = None
 
 # --- Endpoints ---
 
 @router.post("/", response_model=ExpenseOut)
 def create_expense(
     amount: int = Form(...),
-    concept: str = Form(...),
+    concept: str = Form(None),
     category: str = Form(...),
+    payment_method: str = Form(...),
+    section: str = Form(None),
     image: UploadFile = File(None),
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Create a new expense with optional receipt image.
+    Create a new expense with optional receipt image. Public version.
     """
     try:
+        # Fallback to Carlos user
+        user = db.query(User).filter(User.tecnico_nombre == "Carlos").first()
+        if not user:
+            user = User(
+                email="carlos@example.com", 
+                tecnico_nombre="Carlos", 
+                hashed_password="---",
+                role=Role.ADMIN
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
         image_url = None
         if image:
-            # Save the image
             import os
             import shutil
             from datetime import datetime
             
-            # Create directory if not exists
             upload_dir = "uploads/receipts"
             os.makedirs(upload_dir, exist_ok=True)
             
-            # Generate filename
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"{current_user.tecnico_nombre}_{timestamp}_{image.filename}"
+            filename = f"{user.tecnico_nombre}_{timestamp}_{image.filename}"
             file_path = f"{upload_dir}/{filename}"
             
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(image.file, buffer)
             
-            # Construct URL (assuming static mount at /uploads)
-            # We need to access settings.BASE_URL or build it dynamically
-            # For now, store relative path or assume a domain
             image_url = f"/uploads/receipts/{filename}"
 
         new_expense = Expense(
-            user_id=current_user.id,
+            user_id=user.id,
             amount=amount,
-            concept=concept,
+            concept=concept or "Gasto sin concepto",
             category=category,
+            payment_method=payment_method,
             date=date.today(),
             image_url=image_url
         )
@@ -83,7 +85,7 @@ def create_expense(
         
         # Trigger Sync to Sheets
         try:
-           sync_expense_to_sheet(new_expense, current_user.tecnico_nombre)
+           sync_expense_to_sheet(new_expense, user.tecnico_nombre, section=section)
         except Exception as e:
             print(f"WARNING: Failed to sync expense to sheet: {e}")
         
@@ -95,10 +97,51 @@ def create_expense(
 
 @router.get("/", response_model=List[ExpenseOut])
 def get_my_expenses(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """
-    Get all expenses for the current user, ordered by date desc.
+    Get all expenses. Public for testing.
     """
-    return db.query(Expense).filter(Expense.user_id == current_user.id).order_by(Expense.date.desc(), Expense.id.desc()).all()
+    return db.query(Expense).order_by(Expense.date.desc(), Expense.id.desc()).all()
+
+@router.get("/dashboard")
+def get_finance_dashboard():
+    """
+    Get dashboard summary data. Public for initial testing.
+    """
+    data = get_dashboard_data("Carlos")
+    if not data:
+        raise HTTPException(status_code=500, detail="Failed to fetch dashboard data from sheets")
+    return data
+
+# --- Category Management ---
+from app.services.sheets_service import add_category_to_sheet, delete_category_from_sheet
+
+class CategoryCreate(BaseModel):
+    section: str
+    category: str
+    budget: int = 0
+
+class CategoryDelete(BaseModel):
+    section: str
+    category: str
+
+@router.post("/categories/")
+def create_category_endpoint(payload: CategoryCreate):
+    """
+    Add a new subcategory to a section in Sheets.
+    """
+    success = add_category_to_sheet(payload.section, payload.category, payload.budget)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to add category to Sheets")
+    return {"message": "Category added successfully"}
+
+@router.delete("/categories/")
+def delete_category_endpoint(payload: CategoryDelete):
+    """
+    Delete a subcategory from Sheets.
+    """
+    success = delete_category_from_sheet(payload.section, payload.category)
+    if not success:
+        raise HTTPException(status_code=404, detail="Category not found or failed to delete")
+    return {"message": "Category deleted successfully"}
