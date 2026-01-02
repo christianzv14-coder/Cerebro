@@ -33,24 +33,14 @@ def create_expense(
     payment_method: str = Form(...),
     section: str = Form(None),
     image: UploadFile = File(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Create a new expense with optional receipt image. Public version.
+    Create a new expense linked to the authenticated user.
     """
     try:
-        # Fallback to Carlos user
-        user = db.query(User).filter(User.tecnico_nombre == "Carlos").first()
-        if not user:
-            user = User(
-                email="carlos@example.com", 
-                tecnico_nombre="Carlos", 
-                hashed_password="---",
-                role=Role.ADMIN
-            )
-            db.add(user)
-            db.commit()
-            db.refresh(user)
+        user = current_user
 
         image_url = None
         if image:
@@ -105,11 +95,12 @@ def get_my_expenses(
     return db.query(Expense).order_by(Expense.date.desc(), Expense.id.desc()).all()
 
 @router.get("/dashboard")
-def get_finance_dashboard():
+def get_finance_dashboard(current_user: User = Depends(get_current_user)):
     """
-    Get dashboard summary data. Public for initial testing.
+    Get dashboard summary data for the authenticated user.
     """
-    data = get_dashboard_data("Carlos")
+    # Use the tecnico_nombre from the authenticated user
+    data = get_dashboard_data(current_user.tecnico_nombre)
     if not data:
         raise HTTPException(status_code=500, detail="Failed to fetch dashboard data from sheets")
     return data
