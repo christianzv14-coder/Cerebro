@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Finanzas - Cerebro</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=8">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0f172a">
     <link rel="apple-touch-icon" href="icon-512.png">
@@ -81,6 +81,7 @@
                 <h1>Estadísticas 📊</h1>
             </header>
             <main class="stats-menu-grid">
+                <div id="stats-main-chart-container" style="height: 200px; width: 100%; margin-bottom: 25px;"></div>
                 <!-- 1. Indicadores Generales -->
                 <div class="stat-card" onclick="app.showStatDetail('general')">
                     <div class="stat-icon">⚡</div>
@@ -314,14 +315,51 @@
         </nav>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/static/app.js?v=6"></script>
+    <script src="/static/app.js?v=8"></script>
     <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
-                    .then(reg => console.log('SW Registered'))
-                    .catch(err => console.log('SW Error', err));
+        const CURRENT_VERSION = 'v8';
+        const storedVersion = localStorage.getItem('app_version');
+
+        if (storedVersion !== CURRENT_VERSION) {
+            console.warn(`Version mismatch! Stored: ${storedVersion}, Current: ${CURRENT_VERSION}. NUKING CACHE.`);
+
+            // 1. Unregister all SWs
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function (registrations) {
+                    for (let registration of registrations) {
+                        registration.unregister();
+                        console.log('Unregistered SW:', registration);
+                    }
+                });
+            }
+
+            // 2. Clear all caches
+            caches.keys().then(names => {
+                for (let name of names) {
+                    caches.delete(name);
+                    console.log('Deleted cache:', name);
+                }
             });
+
+            // 3. Update version and reload
+            localStorage.setItem('app_version', CURRENT_VERSION);
+            // Force reload from server, ignoring cache
+            setTimeout(() => {
+                window.location.reload(true);
+            }, 500);
+        } else {
+            // Normal registration
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('/static/sw.js')
+                        .then(registration => {
+                            console.log('SW registered: ', registration);
+                        })
+                        .catch(registrationError => {
+                            console.log('SW registration failed: ', registrationError);
+                        });
+                });
+            }
         }
     </script>
 </body>

@@ -90,3 +90,4 @@ def get_icon():
 
 
 
+print("--- STARTING CEREBRO v8 NUCLEAR ---")
