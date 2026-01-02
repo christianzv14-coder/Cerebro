@@ -723,33 +723,46 @@ class FinanceApp {
     }
 
     async handleUpdateCategory(section, category, currentBudget) {
-        setTimeout(() => {
+        console.log(`[ACTION] Update Category: ${section}/${category}`);
+        // Small delay to ensure browser focus
+        setTimeout(async () => {
             const newBudgetStr = prompt(`Nuevo presupuesto para "${category}":`, currentBudget);
-            if (newBudgetStr === null || newBudgetStr.trim() === "") return;
-
-            const newBudget = parseInt(newBudgetStr.trim());
-            if (isNaN(newBudget)) {
-                alert('Monto no válido');
+            if (newBudgetStr === null || newBudgetStr.trim() === "") {
+                console.log("[ACTION] Update cancelled or empty");
                 return;
             }
 
-            fetch(`${CONFIG.API_BASE}/expenses/categories/`, {
-                method: 'PATCH',
-                headers: { ...this.getHeaders(), 'Content-Type': 'application/json' },
-                body: JSON.stringify({ section, category, new_budget: newBudget })
-            }).then(r => {
-                if (r.ok) {
-                    alert('✅ Actualizado');
-                    this.refreshData();
+            const newBudget = parseInt(newBudgetStr.trim());
+            if (isNaN(newBudget)) {
+                alert('⚠️ Monto no válido. Ingrese solo números.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${CONFIG.API_BASE}/expenses/categories/`, {
+                    method: 'PATCH',
+                    headers: { ...this.getHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ section, category, new_budget: newBudget })
+                });
+                if (response.ok) {
+                    alert('✅ Presupuesto actualizado');
+                    await this.refreshData();
                     document.getElementById('modal-detail').classList.remove('active');
                 } else {
-                    alert('❌ Fallo al actualizar');
+                    const err = await response.json();
+                    alert(`❌ Error del servidor: ${err.detail || 'No se pudo actualizar'}`);
                 }
-            });
-        }, 100);
+            } catch (e) {
+                console.error("[ACTION] Update failed:", e);
+                alert('⚠️ Error de red. Intenta de nuevo.');
+            }
+        }, 300);
     }
+
     async handleDeleteCategory(section, category) {
-        if (!confirm(`¿Borrar "${category}"?`)) return;
+        if (!confirm(`¿Estás seguro de ELIMINAR "${category}"?`)) return;
+        console.log(`[ACTION] Delete Category: ${section}/${category}`);
+
         try {
             const response = await fetch(`${CONFIG.API_BASE}/expenses/categories/`, {
                 method: 'DELETE',

@@ -236,25 +236,28 @@ body {
     font-size: 1rem;
 }
 
-/* FAB */
+/* FAB - Forced Visibility */
 .fab {
-    position: fixed;
-    bottom: 90px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #7ecb47;
-    color: white;
+    position: fixed !important;
+    bottom: 95px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    background: #7ecb47 !important;
+    color: white !important;
     border: none;
     border-radius: 50px;
     padding: 12px 24px;
-    display: flex;
+    display: flex !important;
     align-items: center;
     gap: 8px;
     font-family: inherit;
-    font-weight: 600;
-    box-shadow: 0 10px 25px rgba(126, 203, 71, 0.4);
-    z-index: 100;
+    font-weight: 700;
+    box-shadow: 0 8px 30px rgba(126, 203, 71, 0.5);
+    z-index: 10000 !important;
+    /* Above everything but modals */
     cursor: pointer;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
 .fab .icon {
@@ -763,20 +766,48 @@ input[type="radio"]:checked+.toggle-btn.loan {
 
 #view-compromisos .kpi-container.compromisos-kpi-top {
     position: relative;
-    bottom: 0;
-    left: 0;
-    transform: none;
     width: 100%;
-    max-width: none;
-    padding: 15px;
-    background: var(--bg-main);
-    border-bottom: 1px solid #e2e8f0;
-    border-top: none;
+    padding: 15px 10px;
+    background: #ffffff;
+    border-bottom: 1px solid #f1f5f9;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    z-index: 10;
+}
+
+#view-compromisos .kpi-card {
+    background: #f8fafc;
+    padding: 12px 4px;
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid #e2e8f0;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    box-shadow: none;
-    z-index: 1;
+    justify-content: center;
+    min-width: 0;
+}
+
+#view-compromisos .kpi-card h3 {
+    font-size: 0.9rem;
+    color: var(--text-main);
+    margin: 4px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#view-compromisos .kpi-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    font-weight: 700;
+}
+
+#view-compromisos .kpi-subtext {
+    font-size: 0.6rem;
+    color: var(--text-muted);
 }
 
 #view-compromisos .kpi-card {
