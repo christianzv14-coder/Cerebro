@@ -36,6 +36,7 @@ class FinanceApp {
             this.hideLogin();
             this.refreshData();
         } else {
+            this.switchView('inicio'); // Default view when login is active but background is hidden
             this.showLogin();
         }
     }
