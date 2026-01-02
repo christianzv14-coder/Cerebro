@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0.1';
+const CACHE_NAME = 'cerebro-v3.0.2';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -157,7 +157,7 @@ class FinanceApp {
             });
         }
 
-        const closeBtns = document.querySelectorAll('.modal .btn-close-modal, .modal .btn-close-detail, .modal .btn-close-stats, .modal .btn-close-commitment');
+        const closeBtns = document.querySelectorAll('.btn-close');
         closeBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 btn.closest('.modal').classList.remove('active');

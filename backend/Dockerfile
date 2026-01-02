@@ -1,4 +1,4 @@
-# Build v3.0.1 - HOTFIX
+# Build v3.0.2 - HOTFIX (Close Buttons)
 FROM python:3.9-slim-buster
 
 WORKDIR /app
