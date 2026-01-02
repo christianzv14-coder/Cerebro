@@ -1,4 +1,4 @@
-# Build v3.0.2 - HOTFIX (Close Buttons)
+# Build v3.0.3 - HOTFIX (Commitment Alert & CSS Visibility)
 FROM python:3.9-slim-buster
 
 WORKDIR /app

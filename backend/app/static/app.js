@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0.2';
+const CACHE_NAME = 'cerebro-v3.0.3';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -779,13 +779,22 @@ class FinanceApp {
     }
 
     async handleCommitmentSubmit() {
+        const titleVal = document.getElementById('comm-title').value;
+        const amountVal = document.getElementById('comm-amount').value;
+
+        if (!titleVal || !amountVal) {
+            alert('⚠️ Por favor completa el título y el monto.');
+            return;
+        }
+
         const payload = {
-            title: document.getElementById('comm-title').value,
+            title: titleVal,
             type: document.querySelector('input[name="comm-type"]:checked').value,
-            total_amount: parseInt(document.getElementById('comm-amount').value),
+            total_amount: parseInt(amountVal),
             due_date: document.getElementById('comm-date').value || null,
             status: "PENDING"
         };
+
         try {
             const response = await fetch(`${CONFIG.API_BASE}/commitments/`, {
                 method: 'POST',
@@ -793,11 +802,19 @@ class FinanceApp {
                 body: JSON.stringify(payload)
             });
             if (response.ok) {
+                alert('✅ Compromiso guardado correctamente');
                 document.getElementById('modal-add-commitment').classList.remove('active');
                 this.toggleBodyModal(false);
+                document.getElementById('commitment-form').reset(); // Clear form
                 await this.loadCompromisos();
+            } else {
+                const err = await response.json();
+                alert(`❌ Error al guardar: ${err.detail || 'Intenta de nuevo'}`);
             }
-        } catch (error) { console.error(error); }
+        } catch (error) {
+            console.error(error);
+            alert('⚠️ Error de conexión al guardar el compromiso.');
+        }
     }
 
     async handleAddCategory(section) {
