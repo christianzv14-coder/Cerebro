@@ -1,4 +1,4 @@
-# Build v3.0.5 - HOTFIX (Backend GET User Fix)
+# Build v3.0.6 - HOTFIX (Backend Consistent User Lookup)
 FROM python:3.9-slim-buster
 
 WORKDIR /app

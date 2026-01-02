@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0.5';
+const CACHE_NAME = 'cerebro-v3.0.6';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -802,10 +802,15 @@ class FinanceApp {
                 body: JSON.stringify(payload)
             });
             if (response.ok) {
-                alert('✅ Compromiso guardado correctamente');
+                const resData = await response.json();
+                // Alert with debug info
+                alert(`✅ Compromiso guardado!\nID: ${resData.id}\nUserID: ${resData.user_id}`);
+
                 document.getElementById('modal-add-commitment').classList.remove('active');
                 this.toggleBodyModal(false);
                 document.getElementById('commitment-form').reset(); // Clear form
+
+                // Force reload of compromisos
                 await this.loadCompromisos();
             } else {
                 const err = await response.json();

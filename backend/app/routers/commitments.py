@@ -46,11 +46,12 @@ def get_commitments(
     Get all commitments for the default user (Carlos).
     """
     # For MVP, assuming user 'Carlos'
-    # For MVP, assuming user 'Christian'
     user = db.query(User).filter(User.email == "christian.zv@cerebro.com").first()
     if not user:
-        # Fallback to any user
-        user = db.query(User).first()
+        user = db.query(User).filter(User.tecnico_nombre == "Christian").first()
+    if not user:
+        # Fallback to FIRST user, ordered by ID for stability
+        user = db.query(User).order_by(User.id).first()
         
     if not user:
         return []
@@ -68,8 +69,10 @@ def create_commitment(
     # Fallback/Find default user (Christian)
     user = db.query(User).filter(User.email == "christian.zv@cerebro.com").first()
     if not user:
-        # Fallback to any user if Christian is not found (e.g. dev env)
-        user = db.query(User).first()
+        user = db.query(User).filter(User.tecnico_nombre == "Christian").first()
+    if not user:
+        # Fallback to FIRST user, ordered by ID for stability
+        user = db.query(User).order_by(User.id).first()
         
     if not user:
         raise HTTPException(status_code=404, detail="Default user not found")
