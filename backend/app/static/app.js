@@ -352,20 +352,20 @@ class FinanceApp {
 
             item.innerHTML = `
                 <div class="subcat-header-row">
-                    <h4 style="font-size: 1.1rem;">${catName}</h4>
-                    <div class="subcat-actions" style="display: flex; gap: 8px;">
+                    <h4 style="font-size: 1rem;">${catName}</h4>
+                    <div class="subcat-actions" style="display: flex; gap: 6px;">
                         <button class="btn-edit-cat" data-sec="${sectionName}" data-cat="${catName}" 
-                            style="background:#f1f5f9; border:1px solid #cbd5e1; padding: 8px 12px; border-radius: 8px; color:var(--primary); cursor:pointer; font-size:0.85rem; font-weight: 700; display: flex; align-items:center; gap:4px;">
-                            ✏️ EDITAR
+                            style="background:#f1f5f9; border:1px solid #cbd5e1; padding: 6px 8px; border-radius: 6px; color:var(--primary); cursor:pointer; font-size:0.75rem; font-weight: 700; display: flex; align-items:center; gap:3px;">
+                            ✏️ VER
                         </button>
                         <button class="btn-delete-cat" data-sec="${sectionName}" data-cat="${catName}" 
-                            style="background:#fee2e2; border:1px solid #fecaca; padding: 8px; border-radius: 8px; color:#ef4444; cursor:pointer; font-size:1rem; font-weight: 700;">
+                            style="background:#fee2e2; border:1px solid #fecaca; padding: 6px; border-radius: 6px; color:#ef4444; cursor:pointer; font-size:0.9rem;">
                             🗑️
                         </button>
                     </div>
                 </div>
                  <div class="subcat-header-row">
-                    <span class="subcat-values" style="font-size: 1rem; color: var(--text-main); font-weight: 600;">
+                    <span class="subcat-values" style="font-size: 0.9rem; color: var(--text-main); font-weight: 500;">
                         $${catData.spent.toLocaleString()} / $${catData.budget.toLocaleString()} ${!isOver ? `(${catPercent.toFixed(1)}%)` : ''}
                         ${isOver ? '<span class="over-alert small">⚠️</span>' : ''}
                     </span>
@@ -442,29 +442,35 @@ class FinanceApp {
             const percent = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
             const canvasContainer = document.createElement('div');
-            canvasContainer.style.height = '200px';
-            canvasContainer.innerHTML = '<canvas id="kpiChart"></canvas>';
+            canvasContainer.style.height = '250px';
+            canvasContainer.style.width = '100%';
+            canvasContainer.innerHTML = '<canvas id="statsChart"></canvas>';
             content.appendChild(canvasContainer);
 
-            const ctx = document.getElementById('kpiChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['Gastado', 'Presupuesto'],
-                    datasets: [{
-                        data: [totalSpent, totalBudget],
-                        backgroundColor: [percent >= 90 ? '#ef4444' : '#10b981', '#e2e8f0'],
-                        borderRadius: 10
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { x: { grid: { display: false }, ticks: { display: false } }, y: { grid: { display: false } } }
-                }
-            });
+            modal.classList.add('active');
+
+            setTimeout(() => {
+                const ctx = document.getElementById('statsChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Gastado', 'Disponible'],
+                        datasets: [{
+                            label: 'Salud Financiera',
+                            data: [totalSpent, available],
+                            backgroundColor: ['#ef4444', '#10b981'],
+                            borderRadius: 10
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+            }, 100);
+            return;
         } else if (type === 'prediction') {
             if (!this.dashboardData) {
                 content.innerHTML = '<p class="placeholder-text">Sin datos disponibles.</p>';
@@ -734,7 +740,7 @@ class FinanceApp {
 
     async handleUpdateCategory(section, category, currentBudget) {
         const newBudget = prompt(`Nuevo presupuesto para "${category}":`, currentBudget);
-        if (newBudget === null) return;
+        if (newBudget === null || newBudget === "") return;
         try {
             const response = await fetch(`${CONFIG.API_BASE}/expenses/categories/`, {
                 method: 'PATCH',
@@ -744,23 +750,29 @@ class FinanceApp {
             if (response.ok) {
                 document.getElementById('modal-detail').classList.remove('active');
                 await this.refreshData();
+                alert('Presupuesto actualizado');
             }
         } catch (e) { console.error(e); }
     }
 
     async handleAddSection() {
-        const name = prompt("Nombre Sección:");
+        const name = prompt("Nombre Nueva Sección (ej: HOGAR):");
         if (!name) return;
-        const subCat = prompt("Primera Subcategoría:");
+        const subCat = prompt("Nombre Primera Subcategoría (ej: Arriendo):");
         if (!subCat) return;
-        const budget = parseInt(prompt("Presupuesto:", "0")) || 0;
+        const budget = parseInt(prompt("Monto Presupuesto para esta subcategoría:", "0")) || 0;
         try {
-            await fetch(`${CONFIG.API_BASE}/expenses/categories/`, {
+            const response = await fetch(`${CONFIG.API_BASE}/expenses/categories/`, {
                 method: 'POST',
                 headers: { ...this.getHeaders(), 'Content-Type': 'application/json' },
-                body: JSON.stringify({ section: name.toUpperCase(), category: subCat, budget })
+                body: JSON.stringify({ section: name.trim().toUpperCase(), category: subCat.trim(), budget })
             });
-            await this.refreshData();
+            if (response.ok) {
+                await this.refreshData();
+                alert('Sección creada con éxito');
+            } else {
+                alert('Fallo al crear sección');
+            }
         } catch (e) { console.error(e); }
     }
 

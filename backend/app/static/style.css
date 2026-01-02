@@ -770,22 +770,40 @@ input[type="radio"]:checked+.toggle-btn.loan {
     transform: translateX(-50%);
     width: 100%;
     max-width: 500px;
-    padding: 12px 10px;
+    padding: 10px 5px;
     background: #ffffff;
     border-top: 1px solid #e2e8f0;
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 8px;
+    display: flex;
+    justify-content: space-around;
+    gap: 4px;
     box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.05);
     z-index: 900;
 }
 
 #view-compromisos .kpi-card {
-    padding: 10px 5px;
+    flex: 1;
+    padding: 6px 2px;
     background: #f8fafc;
-    border-radius: 12px;
+    border-radius: 10px;
     text-align: center;
     border: 1px solid #f1f5f9;
+    min-width: 0;
+    /* Allow shrinking */
+}
+
+#view-compromisos .kpi-card h3 {
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#view-compromisos .kpi-label {
+    font-size: 0.7rem;
+}
+
+#view-compromisos .kpi-subtext {
+    font-size: 0.65rem;
 }
 
 #view-compromisos .kpi-card {
