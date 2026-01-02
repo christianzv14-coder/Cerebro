@@ -43,5 +43,17 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 def read_root():
     return FileResponse("app/static/index.html")
 
+@app.get("/manifest.json")
+def get_manifest():
+    return FileResponse("app/static/manifest.json")
+
+@app.get("/sw.js")
+def get_sw():
+    return FileResponse("app/static/sw.js")
+
+@app.get("/icon-512.png")
+def get_icon():
+    return FileResponse("app/static/icon-512.png")
+
 
 
