@@ -2,8 +2,8 @@ const CACHE_NAME = 'cerebro-v1';
 const ASSETS = [
     '/',
     '/index.html',
-    '/style.css',
-    '/app.js',
+    '/static/style.css',
+    '/static/app.js',
     '/manifest.json',
     '/icon-512.png'
 ];
