@@ -46,7 +46,12 @@ def get_commitments(
     Get all commitments for the default user (Carlos).
     """
     # For MVP, assuming user 'Carlos'
-    user = db.query(User).filter(User.tecnico_nombre == "Carlos").first()
+    # For MVP, assuming user 'Christian'
+    user = db.query(User).filter(User.email == "christian.zv@cerebro.com").first()
+    if not user:
+        # Fallback to any user
+        user = db.query(User).first()
+        
     if not user:
         return []
     

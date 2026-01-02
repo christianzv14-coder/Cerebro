@@ -1,4 +1,4 @@
-# Build v3.0.4 - HOTFIX (Backend User Logic)
+# Build v3.0.5 - HOTFIX (Backend GET User Fix)
 FROM python:3.9-slim-buster
 
 WORKDIR /app
