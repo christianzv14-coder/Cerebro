@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
     
     # Database
-    DATABASE_URL: str = "postgresql://user:password@localhost:5432/cerebro_db"
+    DATABASE_URL: str = "sqlite:///./sql_app.db"
 
     # Google Sheets
     GOOGLE_SHEETS_CREDENTIALS_JSON: str = ""
