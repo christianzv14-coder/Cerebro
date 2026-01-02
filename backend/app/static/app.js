@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v4';
+const CACHE_NAME = 'cerebro-v3.0';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -16,6 +16,30 @@ class FinanceApp {
         this.dashboardData = null;
         this.commitments = [];
         this.init();
+        this.setupModalObserver();
+    }
+
+    setupModalObserver() {
+        // Fallback for browsers that don't support CSS :has()
+        // Adds 'body-modal-open' class when any modal is active
+        const observer = new MutationObserver((mutations) => {
+            let active = false;
+            document.querySelectorAll('.modal, .login-overlay').forEach(el => {
+                if (el.classList.contains('active')) active = true;
+            });
+
+            if (active) {
+                document.body.classList.add('body-modal-open');
+                const fab = document.querySelector('.fab');
+                if (fab) fab.style.display = 'none'; // Force hiding directly
+            } else {
+                document.body.classList.remove('body-modal-open');
+                const fab = document.querySelector('.fab');
+                if (fab) fab.style.display = 'flex'; // Force showing directly
+            }
+        });
+
+        observer.observe(document.body, { attributes: true, subtree: true, attributeFilter: ['class'] });
     }
 
     getHeaders() {
@@ -87,8 +111,42 @@ class FinanceApp {
     }
 
     loadStatistics() {
-        console.log('Loading statistics...');
-        // Placeholder for future logic
+        console.log('Loading statistics dashboard...');
+        const container = document.getElementById('stats-main-chart-container');
+        if (!container || !this.dashboardData) return;
+
+        container.innerHTML = '<canvas id="mainDashboardChart"></canvas>';
+
+        const totalBudget = this.dashboardData.monthly_budget;
+        const available = this.dashboardData.available_balance;
+        const totalSpent = totalBudget - available;
+
+        setTimeout(() => {
+            const ctx = document.getElementById('mainDashboardChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Gastado', 'Disponible'],
+                    datasets: [{
+                        data: [totalSpent, available],
+                        backgroundColor: ['#ef4444', '#10b981'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    cutout: '70%',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: {
+                        padding: { top: 10, bottom: 10 }
+                    },
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { family: 'Outfit', size: 11, weight: 'bold' }, padding: 15 } }
+                    }
+                }
+            });
+        }, 100);
     }
 
     setupModal() {
@@ -356,11 +414,11 @@ class FinanceApp {
                     <h4 style="font-size: 1rem;">${catName}</h4>
                     <div class="subcat-actions" style="display: flex; gap: 6px;">
                         <button class="btn-edit-cat" data-sec="${sectionName}" data-cat="${catName}" 
-                            style="background:#f1f5f9; border:1px solid #cbd5e1; padding: 6px 8px; border-radius: 6px; color:var(--primary); cursor:pointer; font-size:0.75rem; font-weight: 700; display: flex; align-items:center; gap:3px;">
-                            ✏️ VER
+                            style="background:#f1f5f9; border:1px solid #cbd5e1; padding: 3px 5px; border-radius: 5px; color:var(--primary); cursor:pointer; font-size:0.5rem; font-weight: 700; display: flex; align-items:center; gap:2px;">
+                            ✏️ EDITAR
                         </button>
                         <button class="btn-delete-cat" data-sec="${sectionName}" data-cat="${catName}" 
-                            style="background:#fee2e2; border:1px solid #fecaca; padding: 6px; border-radius: 6px; color:#ef4444; cursor:pointer; font-size:0.9rem;">
+                            style="background:#fee2e2; border:1px solid #fecaca; padding: 3px; border-radius: 5px; color:#ef4444; cursor:pointer; font-size:0.55rem;">
                             🗑️
                         </button>
                     </div>
@@ -442,25 +500,35 @@ class FinanceApp {
             const totalSpent = totalBudget - available;
             const percent = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
-            const canvasContainer = document.createElement('div');
-            canvasContainer.style.height = '150px';
-            canvasContainer.style.width = '100%';
-            canvasContainer.innerHTML = '<canvas id="statsChart"></canvas>';
-            content.appendChild(canvasContainer);
+            const barContainer = document.createElement('div');
+            barContainer.style.height = '120px';
+            barContainer.style.width = '100%';
+            barContainer.style.marginBottom = '20px';
+            barContainer.innerHTML = '<canvas id="statsChartBar"></canvas>';
+            content.appendChild(barContainer);
+
+            const pieContainer = document.createElement('div');
+            pieContainer.style.height = '180px';
+            pieContainer.style.width = '100%';
+            pieContainer.style.marginTop = '10px';
+            pieContainer.innerHTML = '<canvas id="statsChartPie"></canvas>';
+            pieContainer.style.borderTop = '1px solid #f1f5f9';
+            pieContainer.style.paddingTop = '15px';
+            content.appendChild(pieContainer);
 
             modal.classList.add('active');
 
             setTimeout(() => {
-                const ctx = document.getElementById('statsChart').getContext('2d');
-                new Chart(ctx, {
+                // 1. Bar Chart (Spent vs Available)
+                const ctxBar = document.getElementById('statsChartBar').getContext('2d');
+                new Chart(ctxBar, {
                     type: 'bar',
                     data: {
                         labels: ['Gastado', 'Disponible'],
                         datasets: [{
-                            label: 'Salud Financiera',
                             data: [totalSpent, available],
                             backgroundColor: ['#ef4444', '#10b981'],
-                            borderRadius: 10
+                            borderRadius: 6
                         }]
                     },
                     options: {
@@ -469,6 +537,29 @@ class FinanceApp {
                         maintainAspectRatio: false,
                         plugins: { legend: { display: false } },
                         scales: { x: { beginAtZero: true } }
+                    }
+                });
+
+                // 2. Pie Chart (Spending by Section)
+                const ctxPie = document.getElementById('statsChartPie').getContext('2d');
+                const secLabels = Object.keys(this.sectionsData);
+                const secSpent = Object.values(this.sectionsData).map(s => s.spent);
+
+                new Chart(ctxPie, {
+                    type: 'pie',
+                    data: {
+                        labels: secLabels,
+                        datasets: [{
+                            data: secSpent,
+                            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'],
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'right', labels: { font: { family: 'Outfit', size: 9 } } }
+                        }
                     }
                 });
             }, 100);

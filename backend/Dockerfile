@@ -1,4 +1,5 @@
-FROM python:3.10-slim
+# Build v3.0.0
+FROM python:3.9-slim-buster
 
 WORKDIR /app
 
