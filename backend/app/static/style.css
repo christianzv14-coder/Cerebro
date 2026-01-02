@@ -106,8 +106,8 @@ body {
 
 .category-card {
     background: white;
-    border-radius: 20px;
-    padding: 15px;
+    border-radius: 18px;
+    padding: 12px;
     border: 1px solid #edf2f7;
     box-shadow: var(--shadow);
     cursor: pointer;
@@ -132,13 +132,13 @@ body {
 
 .cat-title {
     font-weight: 600;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
 }
 
 .cat-values {
-    font-size: 0.85rem;
-    font-weight: 500;
-    margin-bottom: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 6px;
     color: var(--text-main);
 }
 
@@ -767,25 +767,27 @@ input[type="radio"]:checked+.toggle-btn.loan {
 #view-compromisos .kpi-container.compromisos-kpi-top {
     position: relative;
     width: 100%;
-    padding: 15px 10px;
+    padding: 12px 6px;
     background: #ffffff;
-    border-bottom: 1px solid #f1f5f9;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    z-index: 10;
+    border-bottom: 2px solid #f1f5f9;
+    display: flex !important;
+    justify-content: space-between;
+    align-items: stretch;
+    gap: 6px;
+    z-index: 100;
 }
 
 #view-compromisos .kpi-card {
     background: #f8fafc;
-    padding: 12px 4px;
+    padding: 8px 2px;
     border-radius: 12px;
     text-align: center;
     border: 1px solid #e2e8f0;
-    display: flex;
+    display: flex !important;
+    flex: 1;
+    min-width: 0;
     flex-direction: column;
     justify-content: center;
-    min-width: 0;
 }
 
 #view-compromisos .kpi-card h3 {
