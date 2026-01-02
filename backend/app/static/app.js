@@ -353,7 +353,10 @@ class FinanceApp {
             item.innerHTML = `
                 <div class="subcat-header-row">
                     <h4>${catName}</h4>
-                     <button class="btn-delete-cat" data-sec="${sectionName}" data-cat="${catName}" style="background:none; border:none; color:#ef4444; cursor:pointer;" title="Borrar Categoría">🗑️</button>
+                    <div class="subcat-actions">
+                        <button class="btn-edit-cat" data-sec="${sectionName}" data-cat="${catName}" style="background:none; border:none; color:var(--primary); cursor:pointer; font-size:1.1rem;" title="Editar">✏️</button>
+                        <button class="btn-delete-cat" data-sec="${sectionName}" data-cat="${catName}" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:1.1rem; margin-left:10px;" title="Borrar">🗑️</button>
+                    </div>
                 </div>
                  <div class="subcat-header-row">
                     <span class="subcat-values">
@@ -373,6 +376,12 @@ class FinanceApp {
             delBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.handleDeleteCategory(sectionName, catName);
+            });
+
+            const editBtn = item.querySelector('.btn-edit-cat');
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.handleUpdateCategory(sectionName, catName, catData.budget);
             });
 
             subList.appendChild(item);
@@ -520,7 +529,7 @@ class FinanceApp {
                 <div class="exp-icon-box">${icon}</div>
                 <div class="exp-details">
                     <h4>${exp.concept}</h4>
-                    <p>${new Date(exp.date).toLocaleDateString()} • ${exp.category}</p>
+                    <p>${new Date(exp.date).toLocaleDateString()} • ${exp.category} • ${exp.payment_method}</p>
                 </div>
                 <div class="exp-amount">$${exp.amount.toLocaleString()}</div>
             `;
@@ -695,6 +704,25 @@ class FinanceApp {
                 method: 'DELETE',
                 headers: { ...this.getHeaders(), 'Content-Type': 'application/json' },
                 body: JSON.stringify({ section, category })
+            });
+            if (response.ok) {
+                document.getElementById('modal-detail').classList.remove('active');
+                await this.refreshData();
+            } else {
+                const err = await response.json();
+                alert(err.detail || 'Fallo al borrar');
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    async handleUpdateCategory(section, category, currentBudget) {
+        const newBudget = prompt(`Nuevo presupuesto para "${category}":`, currentBudget);
+        if (newBudget === null) return;
+        try {
+            const response = await fetch(`${CONFIG.API_BASE}/expenses/categories/`, {
+                method: 'PATCH',
+                headers: { ...this.getHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ section, category, new_budget: parseInt(newBudget) })
             });
             if (response.ok) {
                 document.getElementById('modal-detail').classList.remove('active');

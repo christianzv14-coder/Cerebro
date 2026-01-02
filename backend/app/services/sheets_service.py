@@ -529,6 +529,44 @@ def delete_category_from_sheet(section: str, category: str):
         print(f"ERROR [SHEETS] Delete category failed: {e}")
         return False
 
+def update_category_in_sheet(section: str, category: str, new_budget: int):
+    """
+    Updates a category's budget in the 'Presupuesto' sheet.
+    """
+    print(f"DEBUG [SHEETS] Updating category '{category}' budget to {new_budget}")
+    try:
+        sheet = get_sheet()
+        if not sheet: return False
+        
+        ws = sheet.worksheet("Presupuesto")
+        all_rows = ws.get_all_values()
+        if not all_rows: return False
+        
+        headers = [h.strip().lower() for h in all_rows[0]]
+        sec_col = -1
+        cat_col = -1
+        bud_col = -1
+        
+        for c in ["sección", "seccion", "section"]:
+            if c in headers: sec_col = headers.index(c); break
+        for c in ["categoría", "categoria", "category"]:
+            if c in headers: cat_col = headers.index(c); break
+        for c in ["presupuesto", "budget"]:
+            if c in headers: bud_col = headers.index(c); break
+            
+        if sec_col == -1 or cat_col == -1 or bud_col == -1:
+            return False
+            
+        for i, row in enumerate(all_rows[1:], start=2):
+            if len(row) > max(sec_col, cat_col):
+                if row[sec_col].strip() == section and row[cat_col].strip() == category:
+                    ws.update_cell(i, bud_col + 1, new_budget)
+                    return True
+        return False
+    except Exception as e:
+        print(f"ERROR [SHEETS] Update category failed: {e}")
+        return False
+
 def sync_commitment_to_sheet(commitment, user_name="Carlos"):
     """
     Syncs a commitment to 'Compromisos' sheet (Append or Update).

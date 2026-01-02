@@ -263,16 +263,21 @@ body {
 
 /* Bottom Nav */
 .bottom-nav {
-    position: absolute;
+    position: fixed;
     bottom: 0;
-    left: 0;
-    right: 0;
-    height: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 500px;
+    height: 75px;
     background: white;
     border-top: 1px solid #f1f5f9;
     display: flex;
     justify-content: space-around;
-    padding: 10px 0;
+    padding: 12px 0 25px 0;
+    /* Extra bottom padding for iOS home bar */
+    z-index: 1000;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
 }
 
 .nav-item {
@@ -758,17 +763,25 @@ input[type="radio"]:checked+.toggle-btn.loan {
 
 #view-compromisos .kpi-container.fixed-bottom-kpi {
     flex-shrink: 0;
-    padding: 15px 10px;
-    /* Reduced padding for more space */
-    background: #f8fafc;
+    padding: 12px 8px;
+    background: #ffffff;
     border-top: 1px solid #e2e8f0;
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    /* 3 Columns */
-    gap: 8px;
-    /* Tighter gap */
-    box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.03);
     z-index: 10;
+    margin-bottom: 75px;
+    /* Stay ABOVE fixed nav */
+}
+
+#view-compromisos .kpi-card {
+    flex: 1;
+    padding: 8px 4px;
+    background: #f8fafc;
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid #f1f5f9;
 }
 
 #view-compromisos .kpi-card {

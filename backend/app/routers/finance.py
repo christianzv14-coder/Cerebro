@@ -128,11 +128,33 @@ def create_category_endpoint(payload: CategoryCreate):
     return {"message": "Category added successfully"}
 
 @router.delete("/categories/")
-def delete_category_endpoint(payload: CategoryDelete):
+def delete_category_endpoint(payload: CategoryDelete, db: Session = Depends(get_db)):
     """
-    Delete a subcategory from Sheets.
+    Delete a subcategory from Sheets, but only if it has no expenses.
     """
+    # Check if category has expenses in local DB
+    has_expenses = db.query(Expense).filter(Expense.category == payload.category).first()
+    if has_expenses:
+        raise HTTPException(status_code=400, detail="No se puede borrar: tiene gastos asociados")
+
     success = delete_category_from_sheet(payload.section, payload.category)
     if not success:
         raise HTTPException(status_code=404, detail="Category not found or failed to delete")
     return {"message": "Category deleted successfully"}
+
+class CategoryUpdate(BaseModel):
+    section: str
+    category: str
+    new_budget: int
+
+@router.patch("/categories/")
+def update_category_endpoint(payload: CategoryUpdate):
+    """
+    Update a subcategory's budget in Sheets.
+    """
+    # Assuming add_category_to_sheet also updates if it exists or we need a new service
+    from app.services.sheets_service import update_category_in_sheet
+    success = update_category_in_sheet(payload.section, payload.category, payload.new_budget)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to update category")
+    return {"message": "Category updated successfully"}
