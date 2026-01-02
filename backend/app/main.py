@@ -23,7 +23,7 @@ def init_user():
             print(f"Creating user {chr_email}...")
             christian = User(
                 email=chr_email,
-                full_name="Christian ZV",
+                tecnico_nombre="Christian ZV",
                 hashed_password=hashed_pwd,
                 role=Role.ADMIN,
                 is_active=True
