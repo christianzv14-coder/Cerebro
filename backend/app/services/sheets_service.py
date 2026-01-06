@@ -20,6 +20,11 @@ def get_sheet():
             creds_json = creds_json[1:-1]
         
         creds_dict = json.loads(creds_json)
+        
+        # FIX: Handle escaped newlines in private_key (common in Railway/Heroku)
+        if "private_key" in creds_dict:
+            creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
         client = gspread.authorize(creds)
