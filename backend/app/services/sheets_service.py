@@ -309,13 +309,15 @@ def get_dashboard_data(tech_name: str):
         if not sheet: return None
 
         # 1. Get Config (Name, Global Budget)
-        config = {"name": "Usuario", "monthly_budget": 0}
+        config = {"name": tech_name if tech_name else "Usuario", "monthly_budget": 0}
         try:
             ws_config = sheet.worksheet("Config")
             data = ws_config.get_all_records()
             for row in data:
                 key = str(row.get("Key", "")).lower()
-                if "nombre" in key or "name" in key: config["name"] = row.get("Value", "Carlos")
+                # Only overwrite name if tech_name wasn't provided (fallback)
+                if ("nombre" in key or "name" in key) and not tech_name: 
+                    config["name"] = row.get("Value", "Carlos")
                 if "presupuesto" in key or "budget" in key: config["monthly_budget"] = int(row.get("Value", 0))
         except: pass
 

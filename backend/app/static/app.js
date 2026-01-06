@@ -355,7 +355,7 @@ class FinanceApp {
     }
 
     renderDashboard(data) {
-        const user = "Christian";
+        const user = data.user_name || "Usuario";
         const greeting = document.getElementById('greeting-text');
         if (greeting) greeting.textContent = `Hola, ${user} 👋`;
 
