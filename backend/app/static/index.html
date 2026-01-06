@@ -18,7 +18,7 @@
             <div class="login-header">
                 <img src="icon-512.png" alt="Cerebro Logo" class="login-logo">
                 <h2>Finanzas Cerebro</h2>
-                <p>Ingresa para gestionar tus activos <small style="display:block; opacity: 0.5;">v3.0.0</small></p>
+                <p>Ingresa para gestionar tus activos <small style="display:block; opacity: 0.5;">v3.0.11</small></p>
             </div>
             <form id="login-form">
                 <div class="input-group">
@@ -152,39 +152,42 @@
             <header class="dashboard-header">
                 <h1>Más ⚙️</h1>
             </header>
-            <main class="settings-container">
-                <div class="setting-card">
-                    <div class="setting-header">
-                        <span class="setting-icon">💰</span>
+
+            <div class="settings-container">
+                <!-- Card: Configuración de Presupuesto -->
+                <div class="card setting-card">
+                    <div class="card-header">
                         <h3>Presupuesto Mensual</h3>
+                        <span class="card-icon">💰</span>
                     </div>
-                    <p class="setting-desc">Define tu límite de gasto total para el mes.</p>
-                    <div class="setting-control">
-                        <div class="input-wrapper">
+                    <div class="card-body">
+                        <p class="setting-desc">Define tu límite de gasto mensual global.</p>
+                        <div class="input-row">
                             <span class="currency-symbol">$</span>
-                            <input type="number" id="setting-budget-input" placeholder="Ej: 500000">
+                            <input type="number" id="global-budget-input" placeholder="0">
                         </div>
-                        <button id="btn-save-budget" class="btn-save-setting">Guardar</button>
+                        <button id="btn-save-budget" class="btn-primary-outline" style="width:100%; margin-top:10px;">
+                            Guardar Nuevo Presupuesto
+                        </button>
                     </div>
                 </div>
 
-                <div class="setting-card">
-                    <div class="setting-header">
-                        <span class="setting-icon">🤖</span>
-                        <h3>Modo Automático IA</h3>
+                <!-- More settings placeholders -->
+                <div class="card setting-card" style="opacity: 0.6;">
+                    <div class="card-header">
+                        <h3>Modo Oscuro</h3>
+                        <span class="card-icon">🌙</span>
                     </div>
-                    <p class="setting-desc">Detectar categorías automáticamente (Pronto).</p>
-                    <label class="switch">
-                        <input type="checkbox" disabled>
-                        <span class="slider round"></span>
-                    </label>
+                    <div class="card-body">
+                        <p class="setting-desc">Próximamente...</p>
+                    </div>
                 </div>
 
-                <div class="app-info">
-                    <p>Cerebro Finanzas <span id="app-version-display">v3.0.7</span></p>
-                    <p class="copyright">by Antigravity</p>
+                <div class="app-version"
+                    style="text-align: center; margin-top: 30px; color: var(--text-muted); font-size: 0.8rem;">
+                    Cerebro App v3.0.11
                 </div>
-            </main>
+            </div>
         </section>
 
         <!-- Floating Action Button -->
@@ -363,10 +366,10 @@
         </nav>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/static/app.js?v=3.0.10"></script>
+    <script src="/static/app.js?v=3.0.11"></script>
     </script>
     <script>
-        const CURRENT_VERSION = 'v3.0.10';
+        const CURRENT_VERSION = 'v3.0.11';
         const storedVersion = localStorage.getItem('app_version');
 
         if (storedVersion !== CURRENT_VERSION) {
@@ -400,7 +403,8 @@
             // Normal registration
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
-                    navigator.serviceWorker.register('/static/sw.js')
+                    // Force new worker URL to trigger immediate update
+                    navigator.serviceWorker.register('/static/sw.js?v=3.0.12')
                         .then(registration => {
                             console.log('SW registered: ', registration);
                         })
