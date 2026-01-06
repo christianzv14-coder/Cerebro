@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0.19';
+const CACHE_NAME = 'cerebro-v3.0.20';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 

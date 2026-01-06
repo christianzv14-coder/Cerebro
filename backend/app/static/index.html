@@ -32,10 +32,7 @@
             pointer-events: none !important;
         }
 
-        /* Hide app content when login is active to prevent leaks */
-        body.body-modal-open #app {
-            display: none !important;
-        }
+        /* REMOVED: body.body-modal-open #app { display: none !important; } - This was hiding normal modals! */
     </style>
 </head>
 
@@ -46,7 +43,7 @@
                 <img src="icon-512.png" alt="Cerebro Logo" class="login-logo"
                     style="width: 60px; height: 60px; margin: 0 auto 20px auto; display: block; border-radius: 12px;">
                 <h2>Finanzas Cerebro</h2>
-                <p>Ingresa para gestionar tus activos <small style="display:block; opacity: 0.5;">v3.0.19</small></p>
+                <p>Ingresa para gestionar tus activos <small style="display:block; opacity: 0.5;">v3.0.20</small></p>
             </div>
             <form id="login-form">
                 <div class="input-group">
@@ -496,7 +493,7 @@
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
                     // NUCLEAR UPDATE: New filename to break cache
-                    navigator.serviceWorker.register('/static/service-worker.js?v=3.0.19')
+                    navigator.serviceWorker.register('/static/service-worker.js?v=3.0.20')
                         .then(registration => {
                             console.log('SW registered: ', registration);
                         })
