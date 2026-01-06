@@ -260,6 +260,11 @@ class FinanceApp {
         if (budgetBtn) {
             budgetBtn.addEventListener('click', async () => await this.handleUpdateBudget());
         }
+
+        const btnSaveEdit = document.getElementById('btn-save-edit-cat');
+        if (btnSaveEdit) {
+            btnSaveEdit.addEventListener('click', async () => await this.submitEditCategory());
+        }
     }
 
     setupAuth() {
@@ -462,13 +467,13 @@ class FinanceApp {
             item.innerHTML = `
                 <div class="subcat-header-row">
                     <h4 style="font-size: 1rem;">${catName}</h4>
-                    <div class="subcat-actions" style="display: flex; gap: 6px;">
+                    <div class="subcat-actions" style="display: flex; gap: 10px;">
                         <button class="btn-edit-cat" data-sec="${sectionName}" data-cat="${catName}" 
-                            style="background:#f1f5f9; border:1px solid #cbd5e1; padding: 3px 5px; border-radius: 5px; color:var(--primary); cursor:pointer; font-size:0.5rem; font-weight: 700; display: flex; align-items:center; gap:2px;">
+                            style="background:#f1f5f9; border:1px solid #cbd5e1; padding: 8px 12px; border-radius: 8px; color:var(--primary); cursor:pointer; font-size:0.8rem; font-weight: 700; display: flex; align-items:center; gap:5px;">
                             ✏️ EDITAR
                         </button>
                         <button class="btn-delete-cat" data-sec="${sectionName}" data-cat="${catName}" 
-                            style="background:#fee2e2; border:1px solid #fecaca; padding: 3px; border-radius: 5px; color:#ef4444; cursor:pointer; font-size:0.55rem;">
+                            style="background:#fee2e2; border:1px solid #fecaca; padding: 8px 12px; border-radius: 8px; color:#ef4444; cursor:pointer; font-size:0.8rem;">
                             🗑️
                         </button>
                     </div>
@@ -939,42 +944,72 @@ class FinanceApp {
         } catch (e) { console.error(e); }
     }
 
-    async handleUpdateCategory(section, category, currentBudget) {
-        console.log(`[ACTION] Update Category: ${section}/${category}`);
-        // Small delay to ensure browser focus
-        setTimeout(async () => {
-            const newBudgetStr = prompt(`Nuevo presupuesto para "${category}":`, currentBudget);
-            if (newBudgetStr === null || newBudgetStr.trim() === "") {
-                console.log("[ACTION] Update cancelled or empty");
-                return;
-            }
+    openEditModal(section, category, currentBudget) {
+        this.editTarget = { section, category };
+        const modal = document.getElementById('modal-edit-budget');
+        const nameEl = document.getElementById('edit-cat-name');
+        const input = document.getElementById('edit-cat-amount');
 
-            const newBudget = parseInt(newBudgetStr.trim());
-            if (isNaN(newBudget)) {
-                alert('⚠️ Monto no válido. Ingrese solo números.');
-                return;
-            }
+        nameEl.textContent = `${category} (${section})`;
+        input.value = currentBudget;
 
-            try {
-                const response = await fetch(`${CONFIG.API_BASE}/expenses/categories/`, {
-                    method: 'PATCH',
-                    headers: { ...this.getHeaders(), 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ section, category, new_budget: newBudget })
-                });
-                if (response.ok) {
-                    alert('✅ Presupuesto actualizado');
-                    document.getElementById('modal-detail').classList.remove('active');
-                    this.toggleBodyModal(false);
-                    await this.refreshData();
-                } else {
-                    const err = await response.json();
-                    alert(`❌ Error del servidor: ${err.detail || 'No se pudo actualizar'}`);
+        modal.classList.add('active');
+        this.toggleBodyModal(true);
+        setTimeout(() => input.focus(), 100);
+    }
+
+    async submitEditCategory() {
+        if (!this.editTarget) return;
+
+        const input = document.getElementById('edit-cat-amount');
+        const newBudget = parseInt(input.value);
+
+        if (isNaN(newBudget) || newBudget < 0) {
+            alert('⚠️ Ingresa un monto válido');
+            return;
+        }
+
+        const btn = document.getElementById('btn-save-edit-cat');
+        btn.textContent = 'Guardando...';
+        btn.disabled = true;
+
+        try {
+            const { section, category } = this.editTarget;
+            const response = await fetch(`${CONFIG.API_BASE}/expenses/categories/`, {
+                method: 'PATCH',
+                headers: { ...this.getHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ section, category, new_budget: newBudget })
+            });
+
+            if (response.ok) {
+                document.getElementById('modal-edit-budget').classList.remove('active');
+                this.toggleBodyModal(false);
+                await this.refreshData(); // This refreshes the detail modal too if logic supports it, or we need to close detail?
+                // Actually refreshData refreshes dashboardData.
+                // We should also close the detail modal to force user to re-open and see new data, or re-render detail.
+                // For simplicity, let's close all modals or just refresh.
+                // But wait, if Detail Modal is open, we need to update it.
+                // Simplest: Close Edit Modal, and call showCategoryDetail again?
+                // refreshData() updates this.sectionsData.
+                // Then we need to re-render the detail view if it's open.
+                if (document.getElementById('modal-detail').classList.contains('active')) {
+                    this.showCategoryDetail(section);
                 }
-            } catch (e) {
-                console.error("[ACTION] Update failed:", e);
-                alert('⚠️ Error de red. Intenta de nuevo.');
+            } else {
+                alert('❌ Error al actualizar');
             }
-        }, 300);
+        } catch (e) {
+            console.error(e);
+            alert('Error de conexión');
+        } finally {
+            btn.textContent = 'Guardar Cambios';
+            btn.disabled = false;
+        }
+    }
+
+    // Old handleUpdateCategory replaced by openEditModal call
+    handleUpdateCategory(section, category, currentBudget) {
+        this.openEditModal(section, category, currentBudget);
     }
 
     async handleDeleteCategory(section, category) {

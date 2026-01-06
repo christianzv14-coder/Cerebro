@@ -159,9 +159,6 @@ def update_category_endpoint(payload: CategoryUpdate):
     success = update_category_in_sheet(payload.section, payload.category, payload.new_budget)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to update category")
-    success = update_category_in_sheet(payload.section, payload.category, payload.new_budget)
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to update category")
     return {"message": "Category updated successfully"}
 
 class UpdateBudgetSchema(BaseModel):

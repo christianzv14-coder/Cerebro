@@ -270,6 +270,25 @@
             </div>
         </div>
 
+        <!-- Custom Modal for Editing Budget -->
+        <div id="modal-edit-budget" class="modal">
+            <div class="modal-content small-modal">
+                <span class="btn-close">&times;</span>
+                <div class="modal-header">
+                    <h3>Editar Presupuesto</h3>
+                </div>
+                <div class="modal-body">
+                    <p id="edit-cat-name" style="margin-bottom:15px; font-weight:500; color:var(--text-muted)"></p>
+                    <div class="form-group">
+                        <label>Nuevo Monto</label>
+                        <input type="number" id="edit-cat-amount" placeholder="0">
+                    </div>
+                    <button id="btn-save-cat-edit" class="btn-primary" style="width:100%; margin-top:10px;">Guardar
+                        Cambios</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Modal for statistics detail -->
         <div id="modal-stats-detail" class="modal">
             <div class="modal-content detail-content">
