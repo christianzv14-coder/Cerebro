@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0.6';
+const CACHE_NAME = 'cerebro-v3.0.14';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -116,9 +116,11 @@ class FinanceApp {
         document.getElementById('app-version-display').textContent = CURRENT_VERSION;
 
         // Restore toggle states
-        document.getElementById('toggle-dark-mode').checked = localStorage.getItem('theme') === 'dark';
-        document.getElementById('toggle-smart-alerts').checked = localStorage.getItem('smart_alerts') !== 'false';
-        document.getElementById('toggle-auto-cat').checked = localStorage.getItem('auto_cat') !== 'false';
+        const themeToggle = document.getElementById('toggle-dark-mode');
+        if (themeToggle) themeToggle.checked = localStorage.getItem('theme') === 'dark';
+
+        const alertToggle = document.getElementById('toggle-smart-alerts');
+        if (alertToggle) alertToggle.checked = localStorage.getItem('smart_alerts') !== 'false';
     }
 
     setupSettings() {
@@ -154,6 +156,28 @@ class FinanceApp {
         if (autoCatToggle) {
             autoCatToggle.addEventListener('change', (e) => {
                 localStorage.setItem('auto_cat', e.target.checked);
+            });
+        }
+
+        // Hard Reset Button
+        const btnReset = document.getElementById('btn-hard-reset');
+        if (btnReset) {
+            btnReset.addEventListener('click', async () => {
+                if (confirm('¿Seguro que quieres borrar todos los datos locales y reiniciar la app? Esto solucionará problemas de actualización.')) {
+                    // 1. Unregister SW
+                    if ('serviceWorker' in navigator) {
+                        const registrations = await navigator.serviceWorker.getRegistrations();
+                        for (let registration of registrations) {
+                            await registration.unregister();
+                        }
+                    }
+                    // 2. Clear Storage
+                    localStorage.clear();
+                    sessionStorage.clear();
+
+                    // 3. Reload from server
+                    window.location.reload(true);
+                }
             });
         }
     }

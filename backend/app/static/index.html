@@ -197,49 +197,46 @@
                 </div>
 
                 <!-- 3. IA & Automatización -->
-                <h3 class="setting-section-title">IA & Automatización</h3>
+                <h3 class="setting-section-title">IA & Automatización (Próximamente)</h3>
 
-                <div class="card setting-card row-card">
+                <div class="card setting-card row-card" style="opacity: 0.7;">
                     <div class="row-info">
                         <h3>Categorías Automáticas</h3>
                         <p>IA predice según el nombre</p>
                     </div>
-                    <label class="switch">
-                        <input type="checkbox" id="toggle-auto-cat" checked>
-                        <span class="slider round"></span>
-                    </label>
+                    <span class="badge-coming-soon">Pronto</span>
                 </div>
 
-                <div class="card setting-card">
+                <div class="card setting-card" style="opacity: 0.7;">
                     <div class="card-header">
                         <h3>Scanner de Boletas</h3>
                         <span class="card-icon">📸</span>
                     </div>
                     <div class="card-body">
-                        <p class="setting-desc">Usa <strong>Gemini Vision</strong> para leer recibos.</p>
-                        <button class="btn-secondary"
-                            onclick="alert('✅ Gemini Vision está activo por defecto en el botón +')">
-                            Configurar Gemini
-                        </button>
+                        <p class="setting-desc">Usará <strong>Gemini Vision</strong> para leer recibos automáticamente.
+                        </p>
                     </div>
                 </div>
 
-                <div class="card setting-card">
+                <div class="card setting-card" style="opacity: 0.7;">
                     <div class="card-header">
                         <h3>Lectura de Correos</h3>
                         <span class="card-icon">📧</span>
                     </div>
                     <div class="card-body">
-                        <p class="setting-desc">Busca recibos en Gmail y los agrega.</p>
-                        <button class="btn-secondary" onclick="alert('🔗 Conector de Gmail en Próxima Actualización')">
-                            Conectar cuenta
-                        </button>
+                        <p class="setting-desc">Buscará recibos de compras en tu Gmail.</p>
                     </div>
                 </div>
 
+                <!-- Zona de Peligro / Mantenimiento -->
+                <h3 class="setting-section-title">Mantenimiento</h3>
+                <button id="btn-hard-reset" class="btn-danger-outline" style="width:100%;">
+                    🔄 Restablecer App (Forzar Actualización)
+                </button>
+
                 <div class="app-version"
                     style="text-align: center; margin-top: 30px; color: var(--text-muted); font-size: 0.8rem;">
-                    Cerebro App v3.0.13
+                    Cerebro App v3.0.14
                 </div>
             </div>
         </section>
@@ -251,45 +248,35 @@
         </button>
 
         <!-- Modal for adding expense -->
-        <div id="modal-add" class="modal">
+        <div class="modal" id="modal-add">
             <div class="modal-content">
-                <header class="modal-header">
-                    <h2>Nuevo Gasto</h2>
-                    <button class="btn-close" id="btn-close-modal">&times;</button>
-                </header>
+                <div class="modal-header">
+                    <div class="header-content">
+                        <div class="category-icon" id="modal-cat-icon">✨</div>
+                        <h2 id="modal-title">Nuevo Gasto</h2>
+                    </div>
+                    <button class="btn-close">&times;</button>
+                </div>
                 <form id="expense-form">
                     <div class="input-group">
-                        <label>Monto (CLP)</label>
-                        <input type="number" id="amount" placeholder="0" required inputmode="numeric">
+                        <label>Monto</label>
+                        <input type="number" id="expense-amount" placeholder="$0" required inputmode="numeric">
                     </div>
+
+                    <div class="input-group">
+                        <label>Concepto</label>
+                        <input type="text" id="expense-desc" placeholder="¿Qué compraste?" required>
+                    </div>
+
                     <div class="input-group">
                         <label>Sección</label>
                         <select id="section-select" required>
-                            <option value="">Selecciona Sección...</option>
+                            <!-- Populated by JS -->
                         </select>
                     </div>
+
                     <div class="input-group">
                         <label>Categoría</label>
-                        <select id="category" required>
-                            <option value="">Selecciona Categoría...</option>
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label>Método de Pago</label>
-                        <select id="payment-method" required>
-                            <option value="">Selecciona Método...</option>
-                            <option value="Débito">Débito</option>
-                            <option value="Crédito">Crédito</option>
-                            <option value="Efectivo">Efectivo</option>
-                            <option value="Transferencia">Transferencia</option>
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label>Comentario (Opcional)</label>
-                        <input type="text" id="concept" placeholder="¿Algún detalle extra?">
-                    </div>
-                    <div class="photo-section">
-                        <button type="button" class="btn-photo" id="btn-camera">📸 Adjuntar Boleta</button>
                         <input type="file" id="image-upload" accept="image/*" capture="environment"
                             style="display: none;">
                     </div>
@@ -458,7 +445,7 @@
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
                     // Force new worker URL to trigger immediate update
-                    navigator.serviceWorker.register('/static/sw.js?v=3.0.12')
+                    navigator.serviceWorker.register('/static/sw.js?v=3.0.14')
                         .then(registration => {
                             console.log('SW registered: ', registration);
                         })
