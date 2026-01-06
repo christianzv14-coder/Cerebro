@@ -45,6 +45,7 @@ class FinanceApp {
         this.setupModal();
         this.setupCamera();
         this.setupForms();
+        this.setupSettings();
         this.setupAuth();
 
         this.setupAuth();
@@ -109,10 +110,52 @@ class FinanceApp {
 
     loadSettings() {
         if (this.dashboardData) {
-            const input = document.getElementById('setting-budget-input');
+            const input = document.getElementById('global-budget-input');
             if (input) input.value = this.dashboardData.monthly_budget;
         }
         document.getElementById('app-version-display').textContent = CURRENT_VERSION;
+
+        // Restore toggle states
+        document.getElementById('toggle-dark-mode').checked = localStorage.getItem('theme') === 'dark';
+        document.getElementById('toggle-smart-alerts').checked = localStorage.getItem('smart_alerts') !== 'false';
+        document.getElementById('toggle-auto-cat').checked = localStorage.getItem('auto_cat') !== 'false';
+    }
+
+    setupSettings() {
+        // Dark Mode
+        const themeToggle = document.getElementById('toggle-dark-mode');
+        if (themeToggle) {
+            // Check saved theme on load
+            if (localStorage.getItem('theme') === 'dark') {
+                document.body.classList.add('dark-mode');
+                themeToggle.checked = true;
+            }
+
+            themeToggle.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    document.body.classList.add('dark-mode');
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    document.body.classList.remove('dark-mode');
+                    localStorage.setItem('theme', 'light');
+                }
+            });
+        }
+
+        // Other Toggles (Mock persistence)
+        const alertToggle = document.getElementById('toggle-smart-alerts');
+        if (alertToggle) {
+            alertToggle.addEventListener('change', (e) => {
+                localStorage.setItem('smart_alerts', e.target.checked);
+            });
+        }
+
+        const autoCatToggle = document.getElementById('toggle-auto-cat');
+        if (autoCatToggle) {
+            autoCatToggle.addEventListener('change', (e) => {
+                localStorage.setItem('auto_cat', e.target.checked);
+            });
+        }
     }
 
     async handleUpdateBudget() {

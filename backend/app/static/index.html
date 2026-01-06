@@ -150,42 +150,96 @@
 
         <section id="view-mas" class="view">
             <header class="dashboard-header">
-                <h1>Más ⚙️</h1>
+                <h1>Ajustes ⚙️</h1>
             </header>
 
             <div class="settings-container">
-                <!-- Card: Configuración de Presupuesto -->
+                <!-- 1. Presupuesto -->
+                <h3 class="setting-section-title">Finanzas</h3>
                 <div class="card setting-card">
                     <div class="card-header">
                         <h3>Presupuesto Mensual</h3>
                         <span class="card-icon">💰</span>
                     </div>
                     <div class="card-body">
-                        <p class="setting-desc">Define tu límite de gasto mensual global.</p>
                         <div class="input-row">
                             <span class="currency-symbol">$</span>
                             <input type="number" id="global-budget-input" placeholder="0">
                         </div>
                         <button id="btn-save-budget" class="btn-primary-outline" style="width:100%; margin-top:10px;">
-                            Guardar Nuevo Presupuesto
+                            Guardar Límite
                         </button>
                     </div>
                 </div>
 
-                <!-- More settings placeholders -->
-                <div class="card setting-card" style="opacity: 0.6;">
-                    <div class="card-header">
+                <!-- 2. General -->
+                <h3 class="setting-section-title">General</h3>
+                <div class="card setting-card row-card">
+                    <div class="row-info">
                         <h3>Modo Oscuro</h3>
-                        <span class="card-icon">🌙</span>
+                        <p>Descanso visual</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-dark-mode">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+
+                <div class="card setting-card row-card">
+                    <div class="row-info">
+                        <h3>Alertas Inteligentes</h3>
+                        <p>Avisar al 80% del presupuesto</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-smart-alerts" checked>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+
+                <!-- 3. IA & Automatización -->
+                <h3 class="setting-section-title">IA & Automatización</h3>
+
+                <div class="card setting-card row-card">
+                    <div class="row-info">
+                        <h3>Categorías Automáticas</h3>
+                        <p>IA predice según el nombre</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-auto-cat" checked>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+
+                <div class="card setting-card">
+                    <div class="card-header">
+                        <h3>Scanner de Boletas</h3>
+                        <span class="card-icon">📸</span>
                     </div>
                     <div class="card-body">
-                        <p class="setting-desc">Próximamente...</p>
+                        <p class="setting-desc">Usa <strong>Gemini Vision</strong> para leer recibos.</p>
+                        <button class="btn-secondary"
+                            onclick="alert('✅ Gemini Vision está activo por defecto en el botón +')">
+                            Configurar Gemini
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card setting-card">
+                    <div class="card-header">
+                        <h3>Lectura de Correos</h3>
+                        <span class="card-icon">📧</span>
+                    </div>
+                    <div class="card-body">
+                        <p class="setting-desc">Busca recibos en Gmail y los agrega.</p>
+                        <button class="btn-secondary" onclick="alert('🔗 Conector de Gmail en Próxima Actualización')">
+                            Conectar cuenta
+                        </button>
                     </div>
                 </div>
 
                 <div class="app-version"
                     style="text-align: center; margin-top: 30px; color: var(--text-muted); font-size: 0.8rem;">
-                    Cerebro App v3.0.11
+                    Cerebro App v3.0.13
                 </div>
             </div>
         </section>
