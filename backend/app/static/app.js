@@ -47,11 +47,15 @@ class FinanceApp {
         this.setupForms();
         this.setupAuth();
 
+        this.setupAuth();
+
+        // FIX: Always activate the default view, otherwise screen is white if logged in
+        this.switchView('inicio');
+
         if (this.token) {
             this.hideLogin();
             this.refreshData();
         } else {
-            this.switchView('inicio'); // Default view when login is active but background is hidden
             this.showLogin();
         }
     }
