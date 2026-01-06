@@ -19,6 +19,19 @@ def get_sheet():
         if creds_json.startswith("'") or creds_json.startswith('"'):
             creds_json = creds_json[1:-1]
         
+        # Try Base64 decoding (Robust way for Cloud Env)
+        import base64
+        import binascii
+        try:
+            # Check if it looks like base64 (no { at start)
+            if not creds_json.strip().startswith('{'):
+                decoded = base64.b64decode(creds_json).decode('utf-8')
+                if decoded.strip().startswith('{'):
+                    creds_json = decoded
+                    print("DEBUG [SHEETS] Base64 credentials detected and decoded.")
+        except Exception:
+            pass # Not base64, continue normal flow
+        
         creds_dict = json.loads(creds_json)
         
         # FIX: Handle escaped newlines in private_key (common in Railway/Heroku)
