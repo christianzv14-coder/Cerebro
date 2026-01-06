@@ -445,7 +445,7 @@
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
                     // Force new worker URL to trigger immediate update
-                    navigator.serviceWorker.register('/static/sw.js?v=3.0.14')
+                    navigator.serviceWorker.register('/static/sw.js?v=3.0.15')
                         .then(registration => {
                             console.log('SW registered: ', registration);
                         })

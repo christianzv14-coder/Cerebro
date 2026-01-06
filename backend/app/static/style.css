@@ -273,27 +273,35 @@ body {
 }
 
 /* FAB - Forced Visibility */
+/* FAB - Standard Visibility */
 .fab {
-    position: fixed !important;
-    bottom: 95px !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    background: #7ecb47 !important;
-    color: white !important;
+    position: fixed;
+    bottom: 95px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #7ecb47;
+    color: white;
     border: none;
     border-radius: 50px;
     padding: 12px 24px;
-    display: flex !important;
+    display: flex;
     align-items: center;
     gap: 8px;
     font-family: inherit;
     font-weight: 700;
     box-shadow: 0 8px 30px rgba(126, 203, 71, 0.5);
-    z-index: 10000 !important;
-    /* Above everything but modals */
+    z-index: 900;
+    /* Below Modals (1000) */
     cursor: pointer;
-    visibility: visible !important;
-    opacity: 1 !important;
+    transition: all 0.2s ease;
+}
+
+.login-logo {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 20px;
+    border-radius: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
 .fab .icon {
