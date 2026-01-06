@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0.17';
+const CACHE_NAME = 'cerebro-v3.0.18';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -410,14 +410,20 @@ class FinanceApp {
             if (response.ok) {
                 const data = await response.json();
                 this.dashboardData = data;
-                this.renderDashboard(data);
+                try {
+                    this.renderDashboard(data);
+                } catch (renderError) {
+                    console.error('Render Error:', renderError);
+                    document.getElementById('sync-time').textContent = "Err Render";
+                    // alert(`Debug: ${renderError.message}`); // Optional debug
+                }
             } else if (response.status === 401) {
                 this.showLogin();
             } else {
                 document.getElementById('sync-time').textContent = `Err ${response.status}`;
             }
         } catch (error) {
-            console.error('Error loading dashboard:', error);
+            console.error('Network Error loading dashboard:', error);
             document.getElementById('sync-time').textContent = "Err Conexión";
         }
     }
@@ -428,10 +434,14 @@ class FinanceApp {
         if (greeting) greeting.textContent = `Hola, ${user} 👋`;
 
         const balance = document.getElementById('available-balance');
-        if (balance) balance.textContent = `$${data.available_balance.toLocaleString()}`;
+        // Safety check for nulls
+        const availableBal = data.available_balance ?? 0;
+        const monthlyBud = data.monthly_budget ?? 0;
+
+        if (balance) balance.textContent = `$${availableBal.toLocaleString()}`;
 
         const budget = document.getElementById('total-budget');
-        if (budget) budget.textContent = `$${data.monthly_budget.toLocaleString()}`;
+        if (budget) budget.textContent = `$${monthlyBud.toLocaleString()}`;
 
         const syncTime = document.getElementById('sync-time');
         if (syncTime) syncTime.textContent = new Date().toLocaleTimeString();
@@ -440,12 +450,16 @@ class FinanceApp {
         if (!container) return;
         container.innerHTML = '';
 
-        this.sectionsData = data.categories;
+        this.sectionsData = data.categories || {};
         this.updateModalCategories();
 
-        Object.entries(data.categories).forEach(([name, sec]) => {
-            const percent = sec.budget > 0 ? (sec.spent / sec.budget) * 100 : 0;
-            const remaining = sec.budget - sec.spent;
+        Object.entries(this.sectionsData).forEach(([name, sec]) => {
+            // Robust data access
+            const budgetVal = sec.budget ?? 0;
+            const spentVal = sec.spent ?? 0;
+
+            const percent = budgetVal > 0 ? (spentVal / budgetVal) * 100 : 0;
+            const remaining = budgetVal - spentVal;
             const isOver = remaining < 0;
             const barColor = percent >= 90 ? 'red' : (percent >= 70 ? 'orange' : 'green');
             const icon = this.getIconForSection(name);
@@ -458,7 +472,7 @@ class FinanceApp {
                     <span class="cat-title">${name}</span>
                 </div>
                 <div class="cat-values">
-                    $${sec.spent.toLocaleString()} / $${sec.budget.toLocaleString()} ${!isOver ? `(${percent.toFixed(1)}%)` : ''}
+                    $${spentVal.toLocaleString()} / $${budgetVal.toLocaleString()} ${!isOver ? `(${percent.toFixed(1)}%)` : ''}
                     ${isOver ? '<span class="over-alert">⚠️ Te pasaste!</span>' : ''}
                 </div>
                 <div class="progress-container">
