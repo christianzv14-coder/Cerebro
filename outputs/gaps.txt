@@ -1,0 +1,13 @@
+Tecnico         Ciudad          Inicio Fin    Span   Activos  Brecha
+----------------------------------------------------------------------
+Wilmer          Santiago        11     24     14     12       2     
+Fabian D.       Santiago        8      24     17     14       3     
+Efrain          Santiago        1      8      8      6        2     
+Efrain          Viña del Mar    15     24     10     8        2     
+Jimmy           San Fernando    4      6      3      2        1     
+Jimmy           Los Angeles     9      24     16     3        13    
+Jimmy           Chillan         20     23     4      3        1     
+Carlos          Rancagua        1      18     18     2        16    
+Carlos          Talca           2      17     16     3        13    
+Carlos          Santiago        6      24     19     13       6     
+Orlando         Calama          20     22     3      2        1     

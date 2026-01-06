@@ -1,0 +1,466 @@
+{
+    "plan": [
+        {
+            "city": "Calama",
+            "tech": "Orlando",
+            "gps": 2,
+            "day": 1,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Antofagasta",
+            "tech": "Orlando",
+            "gps": 6,
+            "day": 2,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Antofagasta",
+            "tech": "Orlando",
+            "gps": 5,
+            "day": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Copiap\u00f3",
+            "tech": "Orlando",
+            "gps": 2,
+            "day": 4,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Ovalle",
+            "tech": "Orlando",
+            "gps": 1,
+            "day": 5,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Mejillones",
+            "tech": "Pedro (Norte)",
+            "gps": 9,
+            "day": 1,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Mejillones",
+            "tech": "Pedro (Norte)",
+            "gps": 9,
+            "day": 2,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Mejillones",
+            "tech": "Pedro (Norte)",
+            "gps": 9,
+            "day": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Mejillones",
+            "tech": "Pedro (Norte)",
+            "gps": 9,
+            "day": 4,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Mejillones",
+            "tech": "Pedro (Norte)",
+            "gps": 9,
+            "day": 5,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Mejillones",
+            "tech": "Pedro (Norte)",
+            "gps": 9,
+            "day": 6,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Iquique",
+            "tech": "Pedro (Norte)",
+            "gps": 9,
+            "day": 7,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Iquique",
+            "tech": "Pedro (Norte)",
+            "gps": 8,
+            "day": 8,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Iquique",
+            "tech": "Pedro (Norte)",
+            "gps": 8,
+            "day": 9,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Iquique",
+            "tech": "Pedro (Norte)",
+            "gps": 8,
+            "day": 10,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Caldera",
+            "tech": "Pedro (Norte)",
+            "gps": 6,
+            "day": 11,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Caldera",
+            "tech": "Pedro (Norte)",
+            "gps": 5,
+            "day": 12,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Coquimbo",
+            "tech": "Pedro (Norte)",
+            "gps": 11,
+            "day": 13,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Santiago",
+            "tech": "Luis",
+            "gps": 10,
+            "day": 1,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Santiago",
+            "tech": "Luis",
+            "gps": 10,
+            "day": 2,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Santiago",
+            "tech": "Luis",
+            "gps": 9,
+            "day": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Santiago",
+            "tech": "Luis",
+            "gps": 9,
+            "day": 4,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Santiago",
+            "tech": "Luis",
+            "gps": 9,
+            "day": 5,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Santiago",
+            "tech": "Luis",
+            "gps": 9,
+            "day": 6,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Santiago",
+            "tech": "Luis",
+            "gps": 9,
+            "day": 7,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Santiago",
+            "tech": "Luis",
+            "gps": 9,
+            "day": 8,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Santiago",
+            "tech": "Luis",
+            "gps": 9,
+            "day": 9,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Santiago",
+            "tech": "Luis",
+            "gps": 9,
+            "day": 10,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Santiago",
+            "tech": "Luis",
+            "gps": 9,
+            "day": 11,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "San Vicente",
+            "tech": "Luis",
+            "gps": 10,
+            "day": 12,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "San Vicente",
+            "tech": "Luis",
+            "gps": 10,
+            "day": 13,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "San Vicente",
+            "tech": "Luis",
+            "gps": 9,
+            "day": 14,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "San Vicente",
+            "tech": "Luis",
+            "gps": 9,
+            "day": 15,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "San Antonio",
+            "tech": "Wilmer",
+            "gps": 3,
+            "day": 1,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "San Fernando",
+            "tech": "Wilmer",
+            "gps": 9,
+            "day": 2,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "San Fernando",
+            "tech": "Wilmer",
+            "gps": 9,
+            "day": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Valparaiso",
+            "tech": "Carlos (Sur)",
+            "gps": 10,
+            "day": 1,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Valparaiso",
+            "tech": "Carlos (Sur)",
+            "gps": 10,
+            "day": 2,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Valparaiso",
+            "tech": "Carlos (Sur)",
+            "gps": 10,
+            "day": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Valparaiso",
+            "tech": "Carlos (Sur)",
+            "gps": 10,
+            "day": 4,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Valparaiso",
+            "tech": "Carlos (Sur)",
+            "gps": 10,
+            "day": 5,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Valparaiso",
+            "tech": "Carlos (Sur)",
+            "gps": 9,
+            "day": 6,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Valparaiso",
+            "tech": "Carlos (Sur)",
+            "gps": 9,
+            "day": 7,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Romeral",
+            "tech": "Carlos (Sur)",
+            "gps": 1,
+            "day": 8,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Chill\u00e1n",
+            "tech": "Jimmy",
+            "gps": 2,
+            "day": 1,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Concepci\u00f3n",
+            "tech": "Jimmy",
+            "gps": 7,
+            "day": 2,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Coronel",
+            "tech": "Jimmy",
+            "gps": 1,
+            "day": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Los \u00c1ngeles",
+            "tech": "Jimmy",
+            "gps": 3,
+            "day": 4,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Lautaro",
+            "tech": "Jimmy",
+            "gps": 10,
+            "day": 5,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Lautaro",
+            "tech": "Jimmy",
+            "gps": 9,
+            "day": 6,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Valdivia",
+            "tech": "Jimmy",
+            "gps": 1,
+            "day": 7,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Pichirropulli",
+            "tech": "Jimmy",
+            "gps": 1,
+            "day": 8,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Linares",
+            "tech": "Jimmy",
+            "gps": 5,
+            "day": 9,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Talca",
+            "tech": "Jimmy",
+            "gps": 1,
+            "day": 10,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Arica",
+            "tech": "EXTERNAL",
+            "gps": 6,
+            "day": 1,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Castro",
+            "tech": "EXTERNAL",
+            "gps": 2,
+            "day": 2,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Osorno",
+            "tech": "EXTERNAL",
+            "gps": 3,
+            "day": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Puerto Aysen",
+            "tech": "EXTERNAL",
+            "gps": 6,
+            "day": 4,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Puerto Montt",
+            "tech": "EXTERNAL",
+            "gps": 8,
+            "day": 5,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Puerto Montt",
+            "tech": "EXTERNAL",
+            "gps": 8,
+            "day": 6,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Puerto Montt",
+            "tech": "EXTERNAL",
+            "gps": 8,
+            "day": 7,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Puerto Montt",
+            "tech": "EXTERNAL",
+            "gps": 8,
+            "day": 8,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Puerto Natales",
+            "tech": "EXTERNAL",
+            "gps": 3,
+            "day": 9,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Puerto Williams",
+            "tech": "EXTERNAL",
+            "gps": 1,
+            "day": 10,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Punta Arenas",
+            "tech": "EXTERNAL",
+            "gps": 8,
+            "day": 11,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Punta Arenas",
+            "tech": "EXTERNAL",
+            "gps": 8,
+            "day": 12,
+            "type": "INTERNAL"
+        }
+    ]
+}

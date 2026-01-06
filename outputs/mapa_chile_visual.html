@@ -1,0 +1,131 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+    body { font-family: 'Segoe UI', sans-serif; background: #222; color: #fff; display: flex; justify-content: center; padding: 40px; }
+    .map-container { width: 400px; text-align: center; }
+    h1 { margin-bottom: 10px; font-weight: 300; letter-spacing: 2px; }
+    .subtitle { font-size: 14px; color: #aaa; margin-bottom: 30px; }
+    .region-block {
+        margin: 2px auto;
+        padding: 8px;
+        border-radius: 4px;
+        color: #000;
+        font-weight: bold;
+        font-size: 11px;
+        text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        transition: transform 0.2s;
+        cursor: pointer;
+        position: relative;
+    }
+    .region-block:hover { transform: scale(1.05); z-index: 10; }
+    .tooltip {
+        display: none; position: absolute; left: 110%; top: 50%; transform: translateY(-50%);
+        background: #fff; color: #000; padding: 5px 10px; border-radius: 4px;
+        white-space: nowrap; font-size: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    .region-block:hover .tooltip { display: block; }
+    
+    .legend { margin-top: 30px; display: flex; justify-content: space-between; font-size: 10px; color: #aaa; }
+    .gradient-bar { height: 10px; background: linear-gradient(to right, hsl(50,100%,70%), hsl(0,100%,50%)); border-radius: 5px; margin-top: 5px; }
+</style>
+</head>
+<body>
+
+<div class="map-container">
+    <h1>CHILE HEATMAP</h1>
+    <div class="subtitle">Distribución de Flota GPS por Geografía</div>
+
+    <div class="region-block" style="background: hsl(47.41124260355029, 100%, 68.96449704142012%); width: 62.071005917159766%; border: none;">
+        Arica y Parinacota
+        <div class="tooltip">📡 39 GPS</div>
+    </div>
+    
+    <div class="region-block" style="background: hsl(45.562130177514796, 100%, 68.22485207100591%); width: 63.55029585798817%; border: none;">
+        Tarapacá
+        <div class="tooltip">📡 64 GPS</div>
+    </div>
+    
+    <div class="region-block" style="background: hsl(30.399408284023668, 100%, 62.15976331360947%); width: 75.68047337278107%; border: none;">
+        Antofagasta
+        <div class="tooltip">📡 269 GPS</div>
+    </div>
+    
+    <div class="region-block" style="background: hsl(45.78402366863905, 100%, 68.31360946745562%); width: 63.37278106508876%; border: none;">
+        Atacama
+        <div class="tooltip">📡 61 GPS</div>
+    </div>
+    
+    <div class="region-block" style="background: hsl(45.93195266272189, 100%, 68.37278106508876%); width: 63.25443786982248%; border: none;">
+        Coquimbo
+        <div class="tooltip">📡 59 GPS</div>
+    </div>
+    
+    <div class="region-block" style="background: hsl(43.56508875739645, 100%, 67.42603550295858%); width: 65.14792899408283%; border: none;">
+        Valparaíso
+        <div class="tooltip">📡 91 GPS</div>
+    </div>
+    
+    <div class="region-block" style="background: hsl(0.0, 100%, 50.0%); width: 100.0%; border: 2px solid #fff;">
+        Metropolitana de Santiago
+        <div class="tooltip">📡 680 GPS</div>
+    </div>
+    
+    <div class="region-block" style="background: hsl(47.485207100591715, 100%, 68.99408284023669%); width: 62.01183431952663%; border: none;">
+        Libertador Gral. B. O'Higgins
+        <div class="tooltip">📡 38 GPS</div>
+    </div>
+    
+    <div class="region-block" style="background: hsl(45.48816568047337, 100%, 68.19526627218934%); width: 63.6094674556213%; border: none;">
+        Maule
+        <div class="tooltip">📡 65 GPS</div>
+    </div>
+    
+    <div class="region-block" style="background: hsl(48.8905325443787, 100%, 69.55621301775147%); width: 60.887573964497044%; border: none;">
+        Ñuble
+        <div class="tooltip">📡 19 GPS</div>
+    </div>
+    
+    <div class="region-block" style="background: hsl(46.30177514792899, 100%, 68.52071005917159%); width: 62.9585798816568%; border: none;">
+        Biobío
+        <div class="tooltip">📡 54 GPS</div>
+    </div>
+    
+    <div class="region-block" style="background: hsl(46.967455621301774, 100%, 68.78698224852072%); width: 62.42603550295858%; border: none;">
+        La Araucanía
+        <div class="tooltip">📡 45 GPS</div>
+    </div>
+    
+    <div class="region-block" style="background: hsl(49.03846153846154, 100%, 69.61538461538461%); width: 60.76923076923077%; border: none;">
+        Los Ríos
+        <div class="tooltip">📡 17 GPS</div>
+    </div>
+    
+    <div class="region-block" style="background: hsl(45.11834319526627, 100%, 68.04733727810651%); width: 63.905325443786985%; border: none;">
+        Los Lagos
+        <div class="tooltip">📡 70 GPS</div>
+    </div>
+    
+    <div class="region-block" style="background: hsl(49.77810650887574, 100%, 69.91124260355029%); width: 60.17751479289941%; border: none;">
+        Aysén
+        <div class="tooltip">📡 7 GPS</div>
+    </div>
+    
+    <div class="region-block" style="background: hsl(50.0, 100%, 70.0%); width: 60.0%; border: none;">
+        Magallanes
+        <div class="tooltip">📡 4 GPS</div>
+    </div>
+    
+    <div class="legend">
+        <span>Baja Densidad</span>
+        <span>Alta Densidad (RM)</span>
+    </div>
+    <div class="gradient-bar"></div>
+    <div style="margin-top: 20px; font-size: 12px; color: #888;">Ordenado Geográficamente (Norte a Sur)</div>
+</div>
+
+</body>
+</html>

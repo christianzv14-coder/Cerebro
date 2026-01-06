@@ -81,8 +81,6 @@
                 <h1>Estadísticas 📊</h1>
             </header>
             <main class="stats-menu-grid">
-                <div id="stats-main-chart-container"
-                    style="grid-column: 1 / -1; height: 220px; width: 100%; margin-bottom: 20px;"></div>
                 <!-- 1. Indicadores Generales -->
                 <div class="stat-card" onclick="app.showStatDetail('general')">
                     <div class="stat-icon">⚡</div>
@@ -154,8 +152,38 @@
             <header class="dashboard-header">
                 <h1>Más ⚙️</h1>
             </header>
-            <main style="padding: 20px; text-align: center; color: var(--text-muted);">
-                <p>Configuración próximamente...</p>
+            <main class="settings-container">
+                <div class="setting-card">
+                    <div class="setting-header">
+                        <span class="setting-icon">💰</span>
+                        <h3>Presupuesto Mensual</h3>
+                    </div>
+                    <p class="setting-desc">Define tu límite de gasto total para el mes.</p>
+                    <div class="setting-control">
+                        <div class="input-wrapper">
+                            <span class="currency-symbol">$</span>
+                            <input type="number" id="setting-budget-input" placeholder="Ej: 500000">
+                        </div>
+                        <button id="btn-save-budget" class="btn-save-setting">Guardar</button>
+                    </div>
+                </div>
+
+                <div class="setting-card">
+                    <div class="setting-header">
+                        <span class="setting-icon">🤖</span>
+                        <h3>Modo Automático IA</h3>
+                    </div>
+                    <p class="setting-desc">Detectar categorías automáticamente (Pronto).</p>
+                    <label class="switch">
+                        <input type="checkbox" disabled>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+
+                <div class="app-info">
+                    <p>Cerebro Finanzas <span id="app-version-display">v3.0.7</span></p>
+                    <p class="copyright">by Antigravity</p>
+                </div>
             </main>
         </section>
 
@@ -316,10 +344,10 @@
         </nav>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/static/app.js?v=3.0.6"></script>
+    <script src="/static/app.js?v=3.0.7"></script>
     </script>
     <script>
-        const CURRENT_VERSION = 'v3.0.6';
+        const CURRENT_VERSION = 'v3.0.7';
         const storedVersion = localStorage.getItem('app_version');
 
         if (storedVersion !== CURRENT_VERSION) {

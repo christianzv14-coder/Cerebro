@@ -1,0 +1,187 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; background-color: #f9f9f9; }
+    .chart-container { width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    h2 { text-align: center; color: #333; margin-bottom: 30px; }
+    .row { display: flex; align-items: center; margin-bottom: 12px; }
+    .label { width: 250px; text-align: right; padding-right: 15px; font-weight: 600; color: #555; }
+    .bar-container { flex-grow: 1; background-color: #eee; border-radius: 4px; overflow: hidden; }
+    .bar { height: 24px; border-radius: 4px; transition: width 0.5s; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; color: white; font-size: 12px; font-weight: bold; }
+    .value { width: 50px; padding-left: 10px; font-weight: bold; color: #333; }
+</style>
+</head>
+<body>
+
+<div class="chart-container">
+    <h2>Distribución Regional de GPS (Entel)</h2>
+
+    <div class="row">
+        <div class="label">Metropolitana de Santiago</div>
+        <div class="bar-container">
+            <div class="bar" style="width: 100.0%; background-color: rgba(220, 53, 69, 1.0);">
+                680
+            </div>
+        </div>
+        <div class="value">680</div>
+    </div>
+    
+    <div class="row">
+        <div class="label">Antofagasta</div>
+        <div class="bar-container">
+            <div class="bar" style="width: 39.55882352941176%; background-color: rgba(220, 53, 69, 0.5769117647058823);">
+                269
+            </div>
+        </div>
+        <div class="value">269</div>
+    </div>
+    
+    <div class="row">
+        <div class="label">Valparaíso</div>
+        <div class="bar-container">
+            <div class="bar" style="width: 13.382352941176471%; background-color: rgba(220, 53, 69, 0.3936764705882353);">
+                91
+            </div>
+        </div>
+        <div class="value">91</div>
+    </div>
+    
+    <div class="row">
+        <div class="label">Los Lagos</div>
+        <div class="bar-container">
+            <div class="bar" style="width: 10.294117647058822%; background-color: rgba(220, 53, 69, 0.3720588235294118);">
+                70
+            </div>
+        </div>
+        <div class="value">70</div>
+    </div>
+    
+    <div class="row">
+        <div class="label">Maule</div>
+        <div class="bar-container">
+            <div class="bar" style="width: 9.558823529411764%; background-color: rgba(220, 53, 69, 0.3669117647058823);">
+                
+            </div>
+        </div>
+        <div class="value">65</div>
+    </div>
+    
+    <div class="row">
+        <div class="label">Tarapacá</div>
+        <div class="bar-container">
+            <div class="bar" style="width: 9.411764705882353%; background-color: rgba(220, 53, 69, 0.36588235294117644);">
+                
+            </div>
+        </div>
+        <div class="value">64</div>
+    </div>
+    
+    <div class="row">
+        <div class="label">Atacama</div>
+        <div class="bar-container">
+            <div class="bar" style="width: 8.970588235294118%; background-color: rgba(220, 53, 69, 0.3627941176470588);">
+                
+            </div>
+        </div>
+        <div class="value">61</div>
+    </div>
+    
+    <div class="row">
+        <div class="label">Coquimbo</div>
+        <div class="bar-container">
+            <div class="bar" style="width: 8.676470588235293%; background-color: rgba(220, 53, 69, 0.36073529411764704);">
+                
+            </div>
+        </div>
+        <div class="value">59</div>
+    </div>
+    
+    <div class="row">
+        <div class="label">Biobío</div>
+        <div class="bar-container">
+            <div class="bar" style="width: 7.941176470588235%; background-color: rgba(220, 53, 69, 0.35558823529411765);">
+                
+            </div>
+        </div>
+        <div class="value">54</div>
+    </div>
+    
+    <div class="row">
+        <div class="label">La Araucanía</div>
+        <div class="bar-container">
+            <div class="bar" style="width: 6.61764705882353%; background-color: rgba(220, 53, 69, 0.3463235294117647);">
+                
+            </div>
+        </div>
+        <div class="value">45</div>
+    </div>
+    
+    <div class="row">
+        <div class="label">Arica y Parinacota</div>
+        <div class="bar-container">
+            <div class="bar" style="width: 5.735294117647059%; background-color: rgba(220, 53, 69, 0.3401470588235294);">
+                
+            </div>
+        </div>
+        <div class="value">39</div>
+    </div>
+    
+    <div class="row">
+        <div class="label">Libertador Gral. B. O'Higgins</div>
+        <div class="bar-container">
+            <div class="bar" style="width: 5.588235294117648%; background-color: rgba(220, 53, 69, 0.3391176470588235);">
+                
+            </div>
+        </div>
+        <div class="value">38</div>
+    </div>
+    
+    <div class="row">
+        <div class="label">Ñuble</div>
+        <div class="bar-container">
+            <div class="bar" style="width: 2.794117647058824%; background-color: rgba(220, 53, 69, 0.31955882352941173);">
+                
+            </div>
+        </div>
+        <div class="value">19</div>
+    </div>
+    
+    <div class="row">
+        <div class="label">Los Ríos</div>
+        <div class="bar-container">
+            <div class="bar" style="width: 2.5%; background-color: rgba(220, 53, 69, 0.3175);">
+                
+            </div>
+        </div>
+        <div class="value">17</div>
+    </div>
+    
+    <div class="row">
+        <div class="label">Aysén</div>
+        <div class="bar-container">
+            <div class="bar" style="width: 1.0294117647058822%; background-color: rgba(220, 53, 69, 0.30720588235294116);">
+                
+            </div>
+        </div>
+        <div class="value">7</div>
+    </div>
+    
+    <div class="row">
+        <div class="label">Magallanes</div>
+        <div class="bar-container">
+            <div class="bar" style="width: 0.5882352941176471%; background-color: rgba(220, 53, 69, 0.3041176470588235);">
+                
+            </div>
+        </div>
+        <div class="value">4</div>
+    </div>
+    
+    <div style="margin-top: 20px; text-align: center; font-size: 12px; color: #777;">
+        Total Dispositivos: 1,513 | Fuente: Detalle Entel
+    </div>
+</div>
+
+</body>
+</html>

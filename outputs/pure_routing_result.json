@@ -1,0 +1,1085 @@
+{
+    "cost_operational": 634.377000000002,
+    "cost_materials": 1381.6,
+    "cost_total": 2015.977000000002,
+    "plan": [
+        {
+            "tech": "Luis",
+            "day": 3,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Luis",
+            "day": 4,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Luis",
+            "day": 5,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Luis",
+            "day": 6,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Luis",
+            "day": 8,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Luis",
+            "day": 9,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Luis",
+            "day": 10,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Luis",
+            "day": 11,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Luis",
+            "day": 12,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Luis",
+            "day": 13,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Luis",
+            "day": 15,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Luis",
+            "day": 16,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Luis",
+            "day": 17,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Luis",
+            "day": 18,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Luis",
+            "day": 19,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Luis",
+            "day": 20,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Luis",
+            "day": 22,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Luis",
+            "day": 23,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Luis",
+            "day": 24,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 1,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 2,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 3,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 4,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 5,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 6,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 8,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 9,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 10,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 11,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 12,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 13,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 15,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 16,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 17,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 18,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 19,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 20,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 22,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 23,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Wilmer",
+            "day": 24,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 1,
+            "city": "San Felipe",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 2,
+            "city": "San Felipe",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 3,
+            "city": "San Felipe",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 4,
+            "city": "San Felipe",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 5,
+            "city": "San Felipe",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 6,
+            "city": "San Felipe",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 7,
+            "city": "San Felipe",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 8,
+            "city": "San Felipe",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 9,
+            "city": "San Felipe",
+            "gps": 2,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 10,
+            "city": "San Felipe",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 11,
+            "city": "San Felipe",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 12,
+            "city": "San Felipe",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 13,
+            "city": "San Felipe",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 14,
+            "city": "San Felipe",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 15,
+            "city": "Vi\u00f1a del Mar",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 16,
+            "city": "Vi\u00f1a del Mar",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 17,
+            "city": "Vi\u00f1a del Mar",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 18,
+            "city": "Vi\u00f1a del Mar",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 19,
+            "city": "Vi\u00f1a del Mar",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 20,
+            "city": "Vi\u00f1a del Mar",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 21,
+            "city": "Vi\u00f1a del Mar",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 22,
+            "city": "Vi\u00f1a del Mar",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 23,
+            "city": "Vi\u00f1a del Mar",
+            "gps": 2,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Fabian D.",
+            "day": 24,
+            "city": "Vi\u00f1a del Mar",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 1,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 2,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 3,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 4,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 5,
+            "city": "San Felipe",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 6,
+            "city": "La Serena",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 7,
+            "city": "La Serena",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 8,
+            "city": "La Serena",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 9,
+            "city": "La Serena",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 10,
+            "city": "La Serena",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 11,
+            "city": "La Serena",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 12,
+            "city": "La Serena",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 13,
+            "city": "La Serena",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 14,
+            "city": "La Serena",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 15,
+            "city": "La Serena",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 16,
+            "city": "La Serena",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 17,
+            "city": "La Serena",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 18,
+            "city": "La Serena",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 19,
+            "city": "La Serena",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 20,
+            "city": "La Serena",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 21,
+            "city": "La Serena",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 22,
+            "city": "La Serena",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 23,
+            "city": "La Serena",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Efrain",
+            "day": 24,
+            "city": "La Serena",
+            "gps": 1,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 1,
+            "city": "Chillan",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 2,
+            "city": "Chillan",
+            "gps": 1,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 3,
+            "city": "Chillan",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 6,
+            "city": "Concepcion",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 7,
+            "city": "Concepcion",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 8,
+            "city": "Concepcion",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 9,
+            "city": "Concepcion",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 10,
+            "city": "Concepcion",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 11,
+            "city": "Concepcion",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 12,
+            "city": "Concepcion",
+            "gps": 1,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 13,
+            "city": "Concepcion",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 14,
+            "city": "Los Angeles",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 15,
+            "city": "Los Angeles",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 16,
+            "city": "Los Angeles",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 17,
+            "city": "Los Angeles",
+            "gps": 2,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 18,
+            "city": "Los Angeles",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 19,
+            "city": "Temuco",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 20,
+            "city": "Temuco",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 21,
+            "city": "Temuco",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 22,
+            "city": "Temuco",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 23,
+            "city": "Temuco",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Jimmy",
+            "day": 24,
+            "city": "Temuco",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 1,
+            "city": "Santiago",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 2,
+            "city": "Rancagua",
+            "gps": 1,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 3,
+            "city": "Rancagua",
+            "gps": 2,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 4,
+            "city": "Rancagua",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 5,
+            "city": "Rancagua",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 6,
+            "city": "Rancagua",
+            "gps": 1,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 7,
+            "city": "San Antonio",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 8,
+            "city": "San Antonio",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 9,
+            "city": "San Antonio",
+            "gps": 2,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 10,
+            "city": "San Fernando",
+            "gps": 1,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 11,
+            "city": "San Fernando",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 12,
+            "city": "San Fernando",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 13,
+            "city": "San Fernando",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 14,
+            "city": "San Fernando",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 15,
+            "city": "San Fernando",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 16,
+            "city": "San Fernando",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 17,
+            "city": "San Fernando",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 18,
+            "city": "Talca",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 19,
+            "city": "Talca",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 20,
+            "city": "Talca",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 21,
+            "city": "Talca",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 22,
+            "city": "Talca",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 23,
+            "city": "Talca",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Carlos",
+            "day": 24,
+            "city": "Talca",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Orlando",
+            "day": 4,
+            "city": "Antofagasta",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Orlando",
+            "day": 5,
+            "city": "Antofagasta",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Orlando",
+            "day": 6,
+            "city": "Antofagasta",
+            "gps": 1,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Orlando",
+            "day": 7,
+            "city": "Antofagasta",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Orlando",
+            "day": 8,
+            "city": "Antofagasta",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Orlando",
+            "day": 9,
+            "city": "Calama",
+            "gps": 2,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Orlando",
+            "day": 17,
+            "city": "Calama",
+            "gps": 2,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Orlando",
+            "day": 18,
+            "city": "Iquique",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Orlando",
+            "day": 19,
+            "city": "Iquique",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Orlando",
+            "day": 20,
+            "city": "Iquique",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Orlando",
+            "day": 21,
+            "city": "Iquique",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Orlando",
+            "day": 22,
+            "city": "Iquique",
+            "gps": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Orlando",
+            "day": 23,
+            "city": "Iquique",
+            "gps": 1,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "Orlando",
+            "day": 24,
+            "city": "Iquique",
+            "gps": 0,
+            "type": "INTERNAL"
+        },
+        {
+            "tech": "External",
+            "day": 0,
+            "city": "Copiapo",
+            "gps": 8,
+            "type": "EXTERNAL"
+        },
+        {
+            "tech": "External",
+            "day": 0,
+            "city": "Arica",
+            "gps": 4,
+            "type": "EXTERNAL"
+        },
+        {
+            "tech": "External",
+            "day": 0,
+            "city": "Puerto Montt",
+            "gps": 7,
+            "type": "EXTERNAL"
+        },
+        {
+            "tech": "External",
+            "day": 0,
+            "city": "Osorno",
+            "gps": 8,
+            "type": "EXTERNAL"
+        },
+        {
+            "tech": "External",
+            "day": 0,
+            "city": "Punta Arenas",
+            "gps": 3,
+            "type": "EXTERNAL"
+        },
+        {
+            "tech": "External",
+            "day": 0,
+            "city": "Coyhaique",
+            "gps": 1,
+            "type": "EXTERNAL"
+        }
+    ]
+}

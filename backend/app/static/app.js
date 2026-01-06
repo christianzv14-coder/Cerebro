@@ -97,6 +97,48 @@ class FinanceApp {
             if (viewId === 'stats') {
                 this.loadStatistics();
             }
+            if (viewId === 'mas') {
+                this.loadSettings();
+            }
+        }
+    }
+
+    loadSettings() {
+        if (this.dashboardData) {
+            const input = document.getElementById('setting-budget-input');
+            if (input) input.value = this.dashboardData.monthly_budget;
+        }
+        document.getElementById('app-version-display').textContent = CURRENT_VERSION;
+    }
+
+    async handleUpdateBudget() {
+        const input = document.getElementById('setting-budget-input');
+        const val = parseInt(input.value);
+        if (!val || val <= 0) return alert('Ingresa un monto válido');
+
+        const btn = document.getElementById('btn-save-budget');
+        btn.textContent = 'Guardando...';
+        btn.disabled = true;
+
+        try {
+            const response = await fetch(`${CONFIG.API_BASE}/expenses/budget`, {
+                method: 'POST',
+                headers: { ...this.getHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ new_budget: val })
+            });
+
+            if (response.ok) {
+                alert('¡Presupuesto actualizado!');
+                await this.refreshData(); // Reload dashboard to reflect changes
+            } else {
+                alert('Error al actualizar');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Error de conexión');
+        } finally {
+            btn.textContent = 'Guardar';
+            btn.disabled = false;
         }
     }
 
@@ -191,6 +233,7 @@ class FinanceApp {
         const form = document.getElementById('expense-form');
         const sectionSelect = document.getElementById('section-select');
         const commForm = document.getElementById('commitment-form');
+        const budgetBtn = document.getElementById('btn-save-budget');
 
         if (sectionSelect) {
             sectionSelect.addEventListener('change', () => this.updateSubcategories());
@@ -208,6 +251,10 @@ class FinanceApp {
                 e.preventDefault();
                 await this.handleCommitmentSubmit();
             });
+        }
+
+        if (budgetBtn) {
+            budgetBtn.addEventListener('click', async () => await this.handleUpdateBudget());
         }
     }
 
@@ -299,7 +346,7 @@ class FinanceApp {
     }
 
     renderDashboard(data) {
-        const user = data.user_name || "Christian";
+        const user = "Christian";
         const greeting = document.getElementById('greeting-text');
         if (greeting) greeting.textContent = `Hola, ${user} 👋`;
 
@@ -570,9 +617,56 @@ class FinanceApp {
                 content.innerHTML = '<p class="placeholder-text">Sin datos disponibles.</p>';
             } else {
                 const totalBudget = this.dashboardData.monthly_budget;
-                const totalSpent = totalBudget - this.dashboardData.available_balance;
-                const dailyAvg = new Date().getDate() > 0 ? totalSpent / new Date().getDate() : 0;
-                content.innerHTML = `<p class="placeholder-text">Proyección: $${Math.round(dailyAvg * 30).toLocaleString()}</p>`;
+                const available = this.dashboardData.available_balance;
+                const totalSpent = totalBudget - available;
+
+                const now = new Date();
+                const currentDay = now.getDate();
+                const totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+                const daysRemaining = totalDays - currentDay;
+
+                // 1. Daily Average so far
+                const dailyAvg = currentDay > 0 ? totalSpent / currentDay : 0;
+
+                // 2. Projected Finish
+                const projectedSpent = (dailyAvg * totalDays);
+                const projectedBalance = totalBudget - projectedSpent;
+                const isProjectedOver = projectedBalance < 0;
+
+                // 3. Recommended Daily (to match budget)
+                const recommendedDaily = daysRemaining > 0 && available > 0 ? available / daysRemaining : 0;
+
+                content.innerHTML = `
+                    <div class="stat-detail-card">
+                        <div class="projection-header" style="text-align: center; margin-bottom: 25px;">
+                            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 5px;">Proyección Cierre de Mes</p>
+                            <h2 style="font-size: 2.2rem; color: ${isProjectedOver ? '#ef4444' : '#10b981'}; font-weight: 700;">
+                                $${projectedSpent.toLocaleString()}
+                            </h2>
+                            <p style="font-size: 0.85rem; color: ${isProjectedOver ? '#ef4444' : '#10b981'}; background: ${isProjectedOver ? '#fee2e2' : '#d1fae5'}; display: inline-block; padding: 4px 12px; border-radius: 20px; margin-top: 5px;">
+                                ${isProjectedOver ? `Excedido por $${Math.abs(projectedBalance).toLocaleString()}` : `Ahorro posible: $${projectedBalance.toLocaleString()}`}
+                            </p>
+                        </div>
+
+                        <div class="projection-stats" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div class="p-stat-box" style="background: #f8fafc; padding: 15px; border-radius: 12px; text-align: center;">
+                                <div style="font-size: 1.5rem; margin-bottom: 5px;">📅</div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted);">Gasto Diario Actual</div>
+                                <div style="font-weight: 600; font-size: 1.1rem; color: var(--text-main);">$${Math.round(dailyAvg).toLocaleString()}</div>
+                            </div>
+                            <div class="p-stat-box" style="background: #f0fdf4; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #bbf7d0;">
+                                <div style="font-size: 1.5rem; margin-bottom: 5px;">🎯</div>
+                                <div style="font-size: 0.8rem; color: #15803d;">Meta Diaria Restante</div>
+                                <div style="font-weight: 600; font-size: 1.1rem; color: #15803d;">$${Math.round(recommendedDaily).toLocaleString()}</div>
+                            </div>
+                        </div>
+
+                        <div class="projection-note" style="margin-top: 25px; font-size: 0.85rem; color: var(--text-muted); text-align: center; line-height: 1.5;">
+                            ${daysRemaining} días restantes. <br>
+                            ${dailyAvg > recommendedDaily ? '⚠️ Estás gastando más de lo recomendado.' : '✅ Estás bajo la meta diaria. ¡Bien hecho!'}
+                        </div>
+                    </div>
+                `;
             }
         }
         modal.classList.add('active');

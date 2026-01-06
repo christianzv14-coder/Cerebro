@@ -1,0 +1,21 @@
+
+--- GLOBAL SUMMARY ---
+Total Records: 20345
+Total Spend: $26,941,928
+Total Extras: $6,791,966 (25.2%)
+Avg Cost per Record: $1,324
+
+--- EVOLUTION ---
+Mes_Unified  Lineas  Total A PAGAR  Cobros  Adicionales
+ Septiembre    6953      8277664.2              1446907
+    Octubre    6746      9387490.0              2627886
+  Noviembre    6646      9276773.4              2717173
+
+--- ALERTS ---
+High Extras Records: 4693
+
+--- BREAKDOWN BY PLAN ---
+                                Total Cost  Lineas  % of Total
+Plan                                                          
+M2M  Empresas  trafico  30  MB  26590270.8   20194    98.69476
+1534  M2M  Trafico  Pro  Emp.     351656.8     151     1.30524

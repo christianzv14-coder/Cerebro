@@ -1,0 +1,15 @@
+Ciudad          Flete (UF)
+------------------------------
+Chillan         0.400     
+Talca           0.400     
+Copiapo         0.400     
+Antofagasta     1.300     
+La Serena       0.400     
+Calama          1.500     
+Iquique         1.500     
+Arica           1.700     
+Temuco          0.400     
+Puerto Montt    0.400     
+Osorno          0.400     
+Punta Arenas    1.700     
+Coyhaique       1.700     

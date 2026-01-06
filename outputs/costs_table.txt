@@ -1,0 +1,9 @@
+Origen       Destino         Q   Km(1-way)  Fuel(RT)   Toll(RT)   Total(RT) 
+--------------------------------------------------------------------------------
+Santiago     Rancagua        4   85.0       0.5814     0.1076     0.6890    
+Santiago     Viña del Mar    1   120.0      0.8208     0.1518     0.9726    
+Chillan      Concepcion      1   100.0      0.6840     0.1266     0.8106    
+Santiago     San Fernando    1   140.0      0.9576     0.1772     1.1348    
+Santiago     San Antonio     1   110.0      0.7524     0.1392     0.8916    
+Santiago     San Felipe      1   95.0       0.6498     0.1202     0.7700    
+Santiago     Los Angeles     1   510.0      3.4884     0.6456     4.1340    

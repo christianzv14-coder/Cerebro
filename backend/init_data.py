@@ -25,6 +25,22 @@ def init_data():
         else:
             print(" -> Admin ya existe.")
 
+        print("1b. Creando usuario Christian (Finanzas)...")
+        chr_email = "christian.zv@cerebro.com"
+        christian = db.query(User).filter(User.email == chr_email).first()
+        if not christian:
+            christian = User(
+                email=chr_email,
+                full_name="Christian ZV",
+                hashed_password=get_password_hash("123456"),
+                role=Role.ADMIN
+            )
+            db.add(christian)
+            db.commit()
+            print(f" -> Christian creado: {chr_email} / 123456")
+        else:
+            print(" -> Christian ya existe.")
+
         print("\n2. Generando y Cargando Datos de Prueba...")
         # Generar datos dummy
         data = {

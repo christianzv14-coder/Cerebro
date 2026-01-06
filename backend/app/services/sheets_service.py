@@ -659,3 +659,37 @@ def delete_commitment_from_sheet(commitment_id: int):
 
     except Exception as e:
         print(f"ERROR [SHEETS] Delete commitment failed: {e}")
+
+def update_monthly_budget(new_budget: int):
+    """
+    Updates the 'Presupuesto Mensual' (or similar key) in the 'Config' sheet.
+    """
+    print(f"DEBUG [SHEETS] Updating Monthly Budget to {new_budget}")
+    try:
+        sheet = get_sheet()
+        if not sheet: return False
+
+        try:
+            ws = sheet.worksheet("Config")
+        except gspread.WorksheetNotFound:
+            print("ERROR [SHEETS] 'Config' sheet not found.")
+            return False
+
+        # Find the row with Key like 'Presupuesto'
+        cell = ws.find("Presupuesto")
+        if not cell:
+            cell = ws.find("Budget")
+        
+        if cell:
+            # Assuming Value is in Column B (col 2), and Key is Column A (col 1)
+            # If find returned a cell in Col A, we update Col B in the same row.
+            ws.update_cell(cell.row, cell.col + 1, new_budget)
+            print(f"DEBUG [SHEETS] Budget updated in row {cell.row}")
+            return True
+        else:
+            print("ERROR [SHEETS] Key 'Presupuesto' not found in Config.")
+            return False
+
+    except Exception as e:
+        print(f"ERROR [SHEETS] Update budget failed: {e}")
+        return False

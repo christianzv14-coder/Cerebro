@@ -159,4 +159,21 @@ def update_category_endpoint(payload: CategoryUpdate):
     success = update_category_in_sheet(payload.section, payload.category, payload.new_budget)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to update category")
+    success = update_category_in_sheet(payload.section, payload.category, payload.new_budget)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to update category")
     return {"message": "Category updated successfully"}
+
+class UpdateBudgetSchema(BaseModel):
+    new_budget: int
+
+@router.post("/budget")
+def update_global_budget_endpoint(payload: UpdateBudgetSchema, db: Session = Depends(get_db)):
+    """
+    Update the global monthly budget in Config sheet.
+    """
+    from app.services.sheets_service import update_monthly_budget
+    success = update_monthly_budget(payload.new_budget)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to update budget in Sheets")
+    return {"message": "Budget updated successfully", "new_budget": payload.new_budget}

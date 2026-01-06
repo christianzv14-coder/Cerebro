@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import os
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta, date
@@ -54,7 +55,24 @@ st.markdown("---")
 # ============================
 @st.cache_data
 def load_data():
-    df0 = pd.read_excel("Reporte_exceso_reg.xlsx")
+    # Try loading Noviembre.xlsx from parent or current dir
+    path_parent = "../Noviembre.xlsx"
+    path_current = "Noviembre.xlsx"
+    
+    target_path = "Reporte_exceso_reg.xlsx" # Fallback
+    
+    if os.path.exists(path_parent):
+        target_path = path_parent
+    elif os.path.exists(path_current):
+        target_path = path_current
+    
+    # Simple, direct read "like before"
+    # Using openpyxl engine to be safe
+    df0 = pd.read_excel(target_path, engine="openpyxl")
+    
+    # Normalize columns strip spaces
+    df0.columns = [str(c).strip() for c in df0.columns]
+    
     if "Fecha" in df0.columns:
         df0["Fecha"] = pd.to_datetime(df0["Fecha"], errors="coerce")
     return df0
@@ -96,7 +114,10 @@ if "Cuenta" in df.columns:
 # ============================
 # 3) FILTROS EXTRA SOLO CATEGÓRICOS (SIN RANGOS)
 # ============================
-EXCLUDE_COLS = {"Fecha", "Cuenta", "Patente"}
+EXCLUDE_COLS = {
+    "Fecha", "Cuenta", "Patente",  # Core columns
+    "L2", "l2", "Distribuidor", "SIM", "Sim", "sim", "MB", "mb", # "Dist GPS" removed to show it again
+}
 
 NO_RANGOS = {
     "L2", "l2",
@@ -271,17 +292,7 @@ else:
 # ============================
 # 1.1) DETALLE DE PATENTES (BAJO RESUMEN POR CUENTA)
 # ============================
-st.markdown("### 📌 Detalle de Patentes (según filtros)")
-
-if not resumen_patentes.empty:
-    detalle_patentes = resumen_patentes.copy()
-    detalle_patentes = detalle_patentes.sort_values(["Cuenta", "consumo_total"], ascending=[True, False])
-    st.dataframe(
-        detalle_patentes[["Cuenta", "Patente", "consumo_total", "proy_final", "ya_pasada", "pasara", "dia_exceso"]],
-        use_container_width=True
-    )
-else:
-    st.info("No hay patentes para detallar con los filtros actuales.")
+# Table removed by user request
 
 st.markdown("---")
 
@@ -525,12 +536,8 @@ plan_candidates = [c for c in plan_candidates_priority if c in df_filtrado.colum
 
 plan_col = None
 if plan_candidates:
-    plan_col = st.sidebar.selectbox(
-        "Columna para PLAN/COMPAÑÍA (para costos)",
-        plan_candidates,
-        index=0,
-        key="plan_col_picker"
-    )
+    # Auto-select the first candidate without asking the user (removed selectbox)
+    plan_col = plan_candidates[0]
 
 if plan_col is None or not {"Patente", "MB", "Fecha"}.issubset(df_filtrado.columns):
     st.warning("Para costos necesito: 'Patente', 'MB', 'Fecha' y una columna tipo 'Dist GPS' o 'L2' (o similar).")
@@ -560,49 +567,56 @@ else:
     df_cost_m["Plan_ultimo_mes"] = df_cost_m["Plan_ultimo_mes"].fillna("").astype(str)
     df_cost_m["Plan_UP"] = df_cost_m["Plan_ultimo_mes"].str.upper()
 
-    df_cost_m["es_ilimitado"] = df_cost_m["Plan_UP"].str.contains("ILIMIT", na=False)
-    df_cost_m["es_entel"] = (
-        df_cost_m["Plan_UP"].isin(ENTEL_SET)
-        | df_cost_m["Plan_UP"].str.startswith("ENTEL ")
-        | df_cost_m["Plan_UP"].str.contains("ENTEL", na=False)
-    )
-
+    entel_keywords = ["ENTEL", "ENTEL GLOBAL", "ENTEL MANAGER"]
+    
+    # Logic change: Look for explicit 'GLOBAL' or 'MANAGER' to identify UNLIMITED plans based on file inspection
+    # Values found in file: 'Entel', 'Entel Global', 'Entel Manager', 'ClaroM2M', 'Movistar'
+    
+    # 1. Identify Entel Plans
+    df_cost_m["es_entel"] = df_cost_m["Plan_UP"].str.contains("ENTEL", na=False)
+    
+    # Calculate cost for ALL Entel plans using the Standard (Limited) formula
+    # User Request: "no existe entel ilimitado... solo deja los verdaderos valores del filtro Dist GPS"
+    # This means we calculate cost based on consumption for everything identified as Entel.
+    
     df_cost_m["MB_sobre_30"] = (df_cost_m["MB_mes"] - UMBRAL_MB).clip(lower=0)
-
     df_cost_m["costo_mes"] = 0
-    df_cost_m.loc[df_cost_m["es_ilimitado"], "costo_mes"] = COSTO_ILIMITADO
-
-    mask_entel_limitado = (df_cost_m["es_entel"]) & (~df_cost_m["es_ilimitado"])
-    df_cost_m.loc[mask_entel_limitado, "costo_mes"] = (
-        COSTO_BASE_ENTEL + df_cost_m.loc[mask_entel_limitado, "MB_sobre_30"] * COSTO_MB_ADICIONAL_ENTEL
+    
+    mask_entel = df_cost_m["es_entel"]
+    df_cost_m.loc[mask_entel, "costo_mes"] = (
+        COSTO_BASE_ENTEL + df_cost_m.loc[mask_entel, "MB_sobre_30"] * COSTO_MB_ADICIONAL_ENTEL
+    )
+    
+    # Group by the actual Plan name (e.g. 'Entel', 'Entel Global', 'Movistar', etc.)
+    # We filter only those that have some cost or are Entel to keep it relevant
+    df_totales = (
+        df_cost_m[df_cost_m["costo_mes"] > 0]
+        .groupby("Plan_ultimo_mes", as_index=False)["costo_mes"]
+        .sum()
+        .rename(columns={"Plan_ultimo_mes": "Tipo", "costo_mes": "Costo_total_CLP"})
     )
 
-    total_entel_ilimitado = df_cost_m.loc[df_cost_m["es_entel"] & df_cost_m["es_ilimitado"], "costo_mes"].sum()
-    total_entel_limitado = df_cost_m.loc[df_cost_m["es_entel"] & (~df_cost_m["es_ilimitado"]), "costo_mes"].sum()
-
-    df_totales = pd.DataFrame({
-        "Tipo": ["ENTEL LIMITADO", "ENTEL ILIMITADO"],
-        "Costo_total_CLP": [float(total_entel_limitado), float(total_entel_ilimitado)]
-    })
-
-    if df_totales["Costo_total_CLP"].sum() == 0:
+    if df_totales.empty:
         st.warning(
-            f"No se está detectando Entel/Entel Ilimitado en la columna **{plan_col}**. "
-            "Cambia la columna de PLAN/COMPAÑÍA en el sidebar (ideal: Dist GPS o L2)."
+            f"No se detectaron costos para Entel en la columna **{plan_col}**. "
         )
     else:
+        # Calculate Total Cost for subtitle
+        grand_total = df_totales["Costo_total_CLP"].sum()
+        
         fig_costos_entel = px.bar(
             df_totales,
             x="Tipo",
             y="Costo_total_CLP",
-            title=f"Costo total (según filtros): Entel Limitado vs Entel Ilimitado  |  PlanCol={plan_col}"
+            title=f"Costo Estimado: ${grand_total:,.0f} CLP (Total) | Por Plan ({plan_col})"
         )
         fig_costos_entel.update_layout(xaxis_title="Tipo de plan", yaxis_title="Costo total (CLP)")
         st.plotly_chart(fig_costos_entel, use_container_width=True)
 
-    st.subheader(f"🚀 Patentes NO ilimitadas con consumo mensual > {UMBRAL_RECOMENDAR_ILIMITADO} MB (orden por costo)")
+    st.subheader(f"🚀 Patentes con consumo mensual > {UMBRAL_RECOMENDAR_ILIMITADO} MB (orden por costo)")
 
-    df_over = df_cost_m[(~df_cost_m["es_ilimitado"]) & (df_cost_m["MB_mes"] > UMBRAL_RECOMENDAR_ILIMITADO)].copy()
+    # Since there are NO unlimited plans, we check everything > Threshold
+    df_over = df_cost_m[df_cost_m["MB_mes"] > UMBRAL_RECOMENDAR_ILIMITADO].copy()
     df_over["Recomendación"] = "RECOMENDADO SUBIR A PLAN ILIMITADO"
 
     if df_over.empty:

@@ -1,0 +1,51 @@
+=== PARÁMETROS GENERALES (parametros.xlsx) ===
+                parametro      valor
+0        semanas_proyecto    4.00000
+1             dias_semana    6.00000
+2           horas_jornada    8.00000
+3       incentivo_por_gps    0.87000
+4    alojamiento_uf_noche    1.10000
+5         almuerzo_uf_dia    0.50000
+6    precio_bencina_uf_km    0.00342
+7  tiempo_instalacion_gps    2.50000
+8                  hh_mes  180.00000
+
+=== COSTOS MATERIALES (materiales.xlsx) ===
+  tipo_kit  costo
+0    1_GPS    4.4
+1    2_GPS    8.8
+
+=== TÉCNICOS INTERNOS (tecnicos_internos.xlsx) ===
+     tecnico ciudad_base  sueldo_uf  hh_semana_proyecto
+0       Luis    Santiago       14.7                   1
+1     Wilmer    Santiago       14.7                   1
+2  Fabian D.    Santiago       14.7                   1
+3     Efrain    Santiago       14.7                   1
+4      Jimmy     Chillan       14.7                   1
+5     Carlos    Santiago       14.7                   1
+6    Orlando      Calama       14.7                   1
+
+=== COSTOS EXTERNOS (costos_externos.xlsx) - 5 Examples ===
+         ciudad  pxq_externo
+0      Santiago       2.8198
+1      Rancagua       1.6971
+2   San Antonio       1.6971
+3  San Fernando       1.6971
+4  Viña del Mar       1.6971
+
+=== FLETES (flete_ciudad.xlsx) - 5 Examples ===
+         ciudad  costo_flete
+0      Rancagua          0.3
+1      Santiago          0.0
+2   San Antonio          0.3
+3  San Fernando          0.3
+4  Viña del Mar          0.3
+
+=== MODEL CONSTANTS ===
+H_DIA: 8.0
+TIEMPO_INST: 2.5
+DIAS_PROYECTO: 24
+INCENTIVO: 0.87
+VIATICO_ALOJ: 1.1
+VIATICO_ALM: 0.5
+BENCINA_KM: 0.00342

@@ -1,0 +1,165 @@
+{
+    "plan": [
+        {
+            "city": "Rancagua",
+            "tech": "Luis",
+            "gps": 5,
+            "day": 1,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Curic\u00f3",
+            "tech": "Luis",
+            "gps": 5,
+            "day": 2,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Curic\u00f3",
+            "tech": "Luis",
+            "gps": 5,
+            "day": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Talca",
+            "tech": "Luis",
+            "gps": 5,
+            "day": 4,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Talca",
+            "tech": "Luis",
+            "gps": 4,
+            "day": 5,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Valpara\u00edso",
+            "tech": "Luis",
+            "gps": 5,
+            "day": 6,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Chillan",
+            "tech": "Jimmy",
+            "gps": 6,
+            "day": 1,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Chillan",
+            "tech": "Jimmy",
+            "gps": 6,
+            "day": 2,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Concepci\u00f3n",
+            "tech": "Jimmy",
+            "gps": 6,
+            "day": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Curanilahue",
+            "tech": "Jimmy",
+            "gps": 4,
+            "day": 4,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Los \u00c1ngeles",
+            "tech": "Jimmy",
+            "gps": 4,
+            "day": 5,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Temuco",
+            "tech": "Jimmy",
+            "gps": 5,
+            "day": 6,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Temuco",
+            "tech": "Jimmy",
+            "gps": 5,
+            "day": 7,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Temuco",
+            "tech": "Jimmy",
+            "gps": 4,
+            "day": 8,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Puerto Montt",
+            "tech": "Jimmy",
+            "gps": 6,
+            "day": 9,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Chilo\u00e9",
+            "tech": "Jimmy",
+            "gps": 5,
+            "day": 10,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Antofagasta",
+            "tech": "Orlando",
+            "gps": 7,
+            "day": 1,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Antofagasta",
+            "tech": "Orlando",
+            "gps": 6,
+            "day": 2,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Antofagasta",
+            "tech": "Orlando",
+            "gps": 7,
+            "day": 3,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Antofagasta",
+            "tech": "Orlando",
+            "gps": 6,
+            "day": 4,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "La Serena",
+            "tech": "Orlando",
+            "gps": 6,
+            "day": 5,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Coquimbo",
+            "tech": "Orlando",
+            "gps": 4,
+            "day": 6,
+            "type": "INTERNAL"
+        },
+        {
+            "city": "Coquimbo",
+            "tech": "Orlando",
+            "gps": 4,
+            "day": 7,
+            "type": "INTERNAL"
+        }
+    ]
+}
