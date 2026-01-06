@@ -46,7 +46,7 @@
                 <img src="icon-512.png" alt="Cerebro Logo" class="login-logo"
                     style="width: 60px; height: 60px; margin: 0 auto 20px auto; display: block; border-radius: 12px;">
                 <h2>Finanzas Cerebro</h2>
-                <p>Ingresa para gestionar tus activos <small style="display:block; opacity: 0.5;">v3.0.18</small></p>
+                <p>Ingresa para gestionar tus activos <small style="display:block; opacity: 0.5;">v3.0.19</small></p>
             </div>
             <form id="login-form">
                 <div class="input-group">
@@ -305,10 +305,33 @@
 
                     <div class="input-group">
                         <label>Categoría</label>
-                        <input type="file" id="image-upload" accept="image/*" capture="environment"
-                            style="display: none;">
+                        <select id="category" required>
+                            <!-- Populated by JS -->
+                        </select>
                     </div>
-                    <button type="submit" class="btn-submit" id="btn-submit-expense">Guardar</button>
+
+                    <div class="input-group">
+                        <label>Medio de Pago</label>
+                        <select id="payment-method" required>
+                            <option value="DEBITO">Débito</option>
+                            <option value="CREDITO">Crédito</option>
+                            <option value="EFECTIVO">Efectivo</option>
+                            <option value="TRANSFERENCIA">Transferencia</option>
+                        </select>
+                    </div>
+
+                    <!-- Hidden file input for camera -->
+                    <input type="file" id="image-upload" accept="image/*" capture="environment" style="display: none;">
+
+                    <div style="display: flex; gap: 10px; margin-top: 15px;">
+                        <button type="button" class="btn-secondary" id="btn-camera"
+                            onclick="document.getElementById('image-upload').click()"
+                            style="flex: 1; padding: 12px; border: 1px solid var(--accent); color: var(--accent); background: none; border-radius: 12px; font-weight: 500;">
+                            📸 Adjuntar Boleta
+                        </button>
+                        <button type="submit" class="btn-submit" id="btn-submit-expense"
+                            style="flex: 2; margin-top: 0;">Guardar</button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -473,7 +496,7 @@
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
                     // NUCLEAR UPDATE: New filename to break cache
-                    navigator.serviceWorker.register('/static/service-worker.js?v=3.0.18')
+                    navigator.serviceWorker.register('/static/service-worker.js?v=3.0.19')
                         .then(registration => {
                             console.log('SW registered: ', registration);
                         })
