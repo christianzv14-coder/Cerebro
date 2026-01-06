@@ -116,9 +116,9 @@ class FinanceApp {
     }
 
     async handleUpdateBudget() {
-        const input = document.getElementById('setting-budget-input');
+        const input = document.getElementById('global-budget-input');
         const val = parseInt(input.value);
-        if (!val || val <= 0) return alert('Ingresa un monto válido');
+        if (!val || val <= 0) return alert('⚠️ Ingresa un monto válido');
 
         const btn = document.getElementById('btn-save-budget');
         btn.textContent = 'Guardando...';
@@ -132,16 +132,17 @@ class FinanceApp {
             });
 
             if (response.ok) {
-                alert('¡Presupuesto actualizado!');
-                await this.refreshData(); // Reload dashboard to reflect changes
+                alert('✅ ¡Presupuesto actualizado!');
+                await this.refreshData();
             } else {
-                alert('Error al actualizar');
+                const err = await response.json();
+                alert(`❌ Error: ${err.detail || 'No se pudo actualizar'}`);
             }
         } catch (e) {
             console.error(e);
-            alert('Error de conexión');
+            alert(`⚠️ Error de conexión: ${e.message}`);
         } finally {
-            btn.textContent = 'Guardar';
+            btn.textContent = 'Guardar Nuevo Presupuesto';
             btn.disabled = false;
         }
     }
