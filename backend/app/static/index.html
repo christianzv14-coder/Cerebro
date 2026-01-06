@@ -43,7 +43,7 @@
                 <img src="icon-512.png" alt="Cerebro Logo" class="login-logo"
                     style="width: 60px; height: 60px; margin: 0 auto 20px auto; display: block; border-radius: 12px;">
                 <h2>Finanzas Cerebro</h2>
-                <p>Ingresa para gestionar tus activos <small style="display:block; opacity: 0.5;">v3.0.20</small></p>
+                <p>Ingresa para gestionar tus activos <small style="display:block; opacity: 0.5;">v3.0.21</small></p>
             </div>
             <form id="login-form">
                 <div class="input-group">
@@ -210,15 +210,12 @@
                     </label>
                 </div>
 
-                <div class="card setting-card row-card">
+                <div class="card setting-card row-card" style="opacity: 0.7;">
                     <div class="row-info">
                         <h3>Alertas Inteligentes</h3>
-                        <p>Avisar al 80% del presupuesto</p>
+                        <p>Notificaciones push al 80%</p>
                     </div>
-                    <label class="switch">
-                        <input type="checkbox" id="toggle-smart-alerts" checked>
-                        <span class="slider round"></span>
-                    </label>
+                    <span class="badge-coming-soon">Pronto</span>
                 </div>
 
                 <!-- 3. IA & Automatización -->
@@ -493,7 +490,7 @@
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
                     // NUCLEAR UPDATE: New filename to break cache
-                    navigator.serviceWorker.register('/static/service-worker.js?v=3.0.20')
+                    navigator.serviceWorker.register('/static/service-worker.js?v=3.0.21')
                         .then(registration => {
                             console.log('SW registered: ', registration);
                         })
