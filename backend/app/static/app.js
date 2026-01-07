@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0.33';
+const CACHE_NAME = 'cerebro-v3.0.34';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -830,7 +830,7 @@ class FinanceApp {
                     <p>${new Date(exp.date).toLocaleDateString()} • ${exp.category}${payMethod}</p>
                 </div>
                 <div class="exp-amount">$${exp.amount.toLocaleString()}</div>
-                <button class="btn-delete-expense" onclick="app.deleteExpense(${exp.id}, event)" title="Eliminar gasto">🗑️</button>
+                <button class="btn-delete-expense" onclick="financeApp.deleteExpense(${exp.id}, event)" title="Eliminar gasto">🗑️</button>
             `;
             list.appendChild(item);
         });
@@ -1232,5 +1232,5 @@ class FinanceApp {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    window.app = new FinanceApp();
+    window.financeApp = new FinanceApp();
 });

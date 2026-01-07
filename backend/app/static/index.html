@@ -43,7 +43,7 @@
                 <img src="icon-512.png" alt="Cerebro Logo" class="login-logo"
                     style="width: 60px; height: 60px; margin: 0 auto 20px auto; display: block; border-radius: 12px;">
                 <h2>Finanzas Cerebro</h2>
-                <p>Ingresa para gestionar tus activos <small style="display:block; opacity: 0.5;">v3.0.33</small></p>
+                <p>Ingresa para gestionar tus activos <small style="display:block; opacity: 0.5;">v3.0.34</small></p>
             </div>
             <form id="login-form">
                 <div class="input-group">
@@ -107,7 +107,7 @@
             </header>
             <main class="stats-menu-grid">
                 <!-- 1. Indicadores Generales -->
-                <div class="stat-card" onclick="app.showStatDetail('general')">
+                <div class="stat-card" onclick="financeApp.showStatDetail('general')">
                     <div class="stat-icon">⚡</div>
                     <div class="stat-info">
                         <h3>Indicadores Generales</h3>
@@ -116,7 +116,7 @@
                 </div>
 
                 <!-- 2. Predicción de Gastos -->
-                <div class="stat-card" onclick="app.showStatDetail('prediction')">
+                <div class="stat-card" onclick="financeApp.showStatDetail('prediction')">
                     <div class="stat-icon">🔮</div>
                     <div class="stat-info">
                         <h3>Predicción de Gastos</h3>
@@ -125,7 +125,7 @@
                 </div>
 
                 <!-- 3. Comparación Mes Anterior -->
-                <div class="stat-card" onclick="app.showStatDetail('comparison')">
+                <div class="stat-card" onclick="financeApp.showStatDetail('comparison')">
                     <div class="stat-icon">⚖️</div>
                     <div class="stat-info">
                         <h3>Comparación Mes Anterior</h3>
@@ -134,7 +134,7 @@
                 </div>
 
                 <!-- 4. Proyección Ahorro -->
-                <div class="stat-card" onclick="app.showStatDetail('savings')">
+                <div class="stat-card" onclick="financeApp.showStatDetail('savings')">
                     <div class="stat-icon">🐖</div>
                     <div class="stat-info">
                         <h3>Proyección Ahorro</h3>
@@ -258,7 +258,7 @@
 
                 <div class="app-version"
                     style="text-align: center; margin-top: 30px; color: var(--text-muted); font-size: 0.8rem;">
-                    Cerebro App v3.0.33
+                    Cerebro App v3.0.34
                 </div>
             </div>
         </section>
@@ -456,10 +456,10 @@
         </nav>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/static/app.js?v=3.0.33"></script>
+    <script src="/static/app.js?v=3.0.34"></script>
     </script>
     <script>
-        const CURRENT_VERSION = 'v3.0.33';
+        const CURRENT_VERSION = 'v3.0.34';
         const storedVersion = localStorage.getItem('app_version');
 
         if (storedVersion !== CURRENT_VERSION) {
@@ -494,7 +494,7 @@
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
                     // NUCLEAR UPDATE: New filename to break cache
-                    navigator.serviceWorker.register('/static/service-worker.js?v=3.0.33')
+                    navigator.serviceWorker.register('/static/service-worker.js?v=3.0.34')
                         .then(registration => {
                             console.log('SW registered: ', registration);
                         })
