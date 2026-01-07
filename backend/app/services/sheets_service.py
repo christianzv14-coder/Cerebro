@@ -799,6 +799,64 @@ def update_monthly_budget(new_budget: int):
     except Exception as e:
         print(f"ERROR [SHEETS] Update budget failed: {e}")
         return False
+
+def get_all_expenses_from_sheet():
+    """
+    Fetches all expenses from the 'Gastos' sheet to populate the local DB.
+    Returns a list of dicts.
+    """
+    print("DEBUG [SHEETS] Fetching ALL expenses from Sheets...")
+    try:
+        sheet = get_sheet()
+        if not sheet: return []
+        
+        try:
+            ws = sheet.worksheet("Gastos")
+        except:
+            print("ERROR [SHEETS] 'Gastos' sheet not found.")
+            return []
+            
+        all_values = ws.get_all_values()
+        if not all_values: return []
+        
+        # Headers: Fecha, Concepto, Sección, Categoría, Monto, Método Pago, Usuario, Imagen URL
+        # Indices: 0, 1, 2, 3, 4, 5, 6, 7
+        
+        expenses = []
+        for i, row in enumerate(all_values[1:], start=2):
+            if len(row) < 5: continue
+            
+            try:
+                # Clean amount
+                amt_str = row[4].replace("$", "").replace(".", "").replace(",", "").strip()
+                try:
+                    amount = int(amt_str)
+                except ValueError:
+                    amount = 0
+                
+                # Normalize date
+                d_str = normalize_sheet_date(row[0])
+                from datetime import datetime
+                d_obj = datetime.strptime(d_str, "%Y-%m-%d").date()
+                
+                expenses.append({
+                    "date": d_obj,
+                    "concept": row[1],
+                    "category": row[3], # Prioritize category field in model
+                    "amount": amount,
+                    "payment_method": row[5] if len(row) > 5 else "EFECTIVO",
+                    "image_url": row[7] if len(row) > 7 else None,
+                })
+            except Exception as e:
+                print(f"DEBUG [SHEETS] Row {i} parse error: {e}")
+                continue
+                
+        print(f"DEBUG [SHEETS] Recovered {len(expenses)} expenses.")
+        return expenses
+    except Exception as e:
+        print(f"ERROR [SHEETS] Get all expenses failed: {e}")
+        return []
+        return False
 def rename_category_in_expenses_sheet(sheet, section, old_cat, new_cat):
     """
     Finds all expenses in 'Gastos' sheet matching old_cat and section, and updates them to new_cat.
