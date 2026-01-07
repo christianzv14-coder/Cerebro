@@ -592,15 +592,22 @@ def update_category_in_sheet(section: str, category: str, new_budget: int, new_c
                 r_sec = row[sec_col].strip().lower()
                 r_cat = row[cat_col].strip().lower()
                 if r_sec == target_sec and r_cat == target_cat:
+                    print(f"DEBUG [SHEETS] Match found in row {i}: {r_sec}/{r_cat}")
                     # Update Budget
                     ws.update_cell(i, bud_col + 1, new_budget)
                     
                     # Update Name if changed
-                    if new_cat and new_cat != category:
-                         ws.update_cell(i, cat_col + 1, new_cat)
-                         print(f"DEBUG [SHEETS] Renamed category from '{category}' to '{new_cat}' in Presupuesto.")
+                    # Use strip() to avoid issues with hidden whitespace
+                    clean_new = str(new_cat).strip() if new_cat else None
+                    clean_old = str(category).strip()
+                    
+                    if clean_new and clean_new != clean_old:
+                         print(f"DEBUG [SHEETS] Triggering Rename: '{clean_old}' -> '{clean_new}'")
+                         ws.update_cell(i, cat_col + 1, clean_new)
                          # Propagate to historical Expenses sheet
-                         rename_category_in_expenses_sheet(sheet, section, category, new_cat)
+                         rename_category_in_expenses_sheet(sheet, section, category, clean_new)
+                    else:
+                         print(f"DEBUG [SHEETS] No name change detected or new_cat is empty. (new='{clean_new}', old='{clean_old}')")
                     
                     print(f"DEBUG [SHEETS] Updated row {i} budget to {new_budget}")
                     return True

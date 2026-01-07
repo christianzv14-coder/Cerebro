@@ -1029,10 +1029,11 @@ class FinanceApp {
     openEditModal(section, category, currentBudget) {
         this.editTarget = { section, category };
         const modal = document.getElementById('modal-edit-budget');
+        const nameEl = document.getElementById('edit-cat-name');
         const nameInput = document.getElementById('edit-cat-name-input');
         const input = document.getElementById('edit-cat-amount');
 
-        nameEl.textContent = `${category} (${section})`;
+        if (nameEl) nameEl.textContent = `${category} (${section})`;
         if (nameInput) nameInput.value = category;
         input.value = currentBudget;
 
@@ -1059,6 +1060,8 @@ class FinanceApp {
 
         try {
             const { section, category } = this.editTarget;
+            console.log(`[DEBUG] Submitting Edit: ${category} -> ${newCategoryName} (Budget: ${newBudget})`);
+
             const response = await fetch(`${CONFIG.API_BASE}/expenses/categories/`, {
                 method: 'PATCH',
                 headers: { ...this.getHeaders(), 'Content-Type': 'application/json' },
