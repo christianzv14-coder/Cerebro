@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0.22';
+const CACHE_NAME = 'cerebro-v3.0.23';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -1046,7 +1046,8 @@ class FinanceApp {
         if (!this.editTarget) return;
 
         const nameInput = document.getElementById('edit-cat-name-input');
-        const newBudget = parseInt(input.value);
+        const amountInput = document.getElementById('edit-cat-amount');
+        const newBudget = parseInt(amountInput.value);
         const newCategoryName = nameInput ? nameInput.value.trim() : this.editTarget.category;
 
         if (isNaN(newBudget) || newBudget < 0 || !newCategoryName) {
