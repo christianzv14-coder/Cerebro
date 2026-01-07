@@ -1103,3 +1103,24 @@ input[type="radio"]:checked+.toggle-btn.loan {
         font-size: 0.8rem;
         color: var(--text-muted);
     }
+.btn-delete-expense {
+    background: none;
+    border: none;
+    color: var(--danger);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 8px;
+    margin-left: 10px;
+    opacity: 0.3;
+    transition: opacity 0.2s;
+}
+
+.expense-item:hover .btn-delete-expense {
+    opacity: 1;
+}
+
+@media (max-width: 600px) {
+    .btn-delete-expense {
+        opacity: 0.8;
+    }
+}

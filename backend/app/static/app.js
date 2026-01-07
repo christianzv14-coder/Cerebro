@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0.31';
+const CACHE_NAME = 'cerebro-v3.0.32';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -830,9 +830,37 @@ class FinanceApp {
                     <p>${new Date(exp.date).toLocaleDateString()} • ${exp.category}${payMethod}</p>
                 </div>
                 <div class="exp-amount">$${exp.amount.toLocaleString()}</div>
+                <button class="btn-delete-expense" onclick="app.deleteExpense(${exp.id}, event)" title="Eliminar gasto">🗑️</button>
             `;
             list.appendChild(item);
         });
+    }
+
+    async deleteExpense(id, event) {
+        if (event) event.stopPropagation();
+
+        if (!confirm('¿Estás seguro de que deseas eliminar este gasto? También se borrará de la planilla.')) {
+            return;
+        }
+
+        try {
+            console.log(`[DEBUG] Deleting expense ${id}...`);
+            const response = await fetch(`${CONFIG.API_BASE}/expenses/${id}`, {
+                method: 'DELETE',
+                headers: this.getHeaders()
+            });
+
+            if (response.ok) {
+                console.log('[DEBUG] Expense deleted successfully');
+                this.refreshData();
+            } else {
+                const err = await response.json();
+                alert('Fallo al eliminar: ' + (err.detail || 'Error desconocido'));
+            }
+        } catch (error) {
+            console.error('Error deleting expense:', error);
+            alert('Error de conexión al intentar eliminar.');
+        }
     }
 
     async handleExpenseSubmit() {

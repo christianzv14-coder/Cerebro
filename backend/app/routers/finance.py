@@ -96,6 +96,40 @@ def create_expense(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.delete("/{expense_id}")
+def delete_expense(
+    expense_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete an expense.
+    """
+    from app.services.sheets_service import delete_expense_from_sheet
+    
+    expense = db.query(Expense).filter(Expense.id == expense_id, Expense.user_id == current_user.id).first()
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found or not owned by you")
+
+    # Prepare data for sheets deletion
+    expense_data = {
+        "date": str(expense.date),
+        "concept": expense.concept,
+        "amount": expense.amount
+    }
+    
+    try:
+        # We do this before deleting from DB so we have the data
+        delete_expense_from_sheet(expense_data, current_user.tecnico_nombre)
+        
+        db.delete(expense)
+        db.commit()
+        return {"message": "Expense deleted successfully"}
+    except Exception as e:
+        db.rollback()
+        print(f"Error deleting expense: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/", response_model=List[ExpenseOut])
 def get_my_expenses(
     db: Session = Depends(get_db)

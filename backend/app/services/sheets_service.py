@@ -721,6 +721,51 @@ def delete_commitment_from_sheet(commitment_id: int):
     except Exception as e:
         print(f"ERROR [SHEETS] Delete commitment failed: {e}")
 
+def delete_expense_from_sheet(expense_data: dict, tech_name: str):
+    """
+    Attempts to find and delete a matching expense row in the 'Gastos' sheet.
+    Since we don't have unique IDs in Sheets for expenses yet, we match by multiple fields.
+    """
+    print(f"DEBUG [SHEETS] Syncing DELETION for expense: {expense_data.get('concept')} (${expense_data.get('amount')})")
+    try:
+        sheet = get_sheet()
+        if not sheet: return
+        try:
+            ws = sheet.worksheet("Gastos")
+        except:
+            return
+
+        all_values = ws.get_all_values()
+        if not all_values: return
+
+        # Headers: Fecha, Concepto, Sección, Categoría, Monto, Método Pago, Usuario, Imagen URL
+        # We look for a match. To be safe, we look from the bottom (newest ones).
+        target_date = str(expense_data.get("date"))
+        target_concept = str(expense_data.get("concept"))
+        target_amount = str(expense_data.get("amount"))
+        target_user = str(tech_name)
+
+        found_row = -1
+        for i in range(len(all_values) - 1, 0, -1): # Start from last row, skip header
+            row = all_values[i]
+            # Match strictly by Date, Concept, Amount, User
+            if (len(row) >= 7 and 
+                row[0] == target_date and 
+                row[1] == target_concept and 
+                row[4] == target_amount and 
+                row[6] == target_user):
+                found_row = i + 1 # gspread is 1-indexed
+                break
+        
+        if found_row != -1:
+            ws.delete_rows(found_row)
+            print(f"DEBUG [SHEETS] Deleted expense row {found_row} from Sheets.")
+        else:
+            print("DEBUG [SHEETS] No matching expense found in Sheets for deletion.")
+
+    except Exception as e:
+        print(f"ERROR [SHEETS] Delete expense from sheet failed: {e}")
+
 def update_monthly_budget(new_budget: int):
     """
     Updates the 'Presupuesto Mensual' (or similar key) in the 'Config' sheet.
