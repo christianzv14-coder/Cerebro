@@ -118,16 +118,22 @@ def delete_expense(
         "amount": expense.amount
     }
     
+    # BEST EFFORT: Delete from Sheets
+    # We try to delete from Sheets, but if it fails (e.g. no match found, row locked),
+    # we MUST still delete from the local DB so the user sees it gone.
     try:
-        # We do this before deleting from DB so we have the data
         delete_expense_from_sheet(expense_data, current_user.tecnico_nombre)
-        
+    except Exception as e:
+        print(f"WARNING [DELETE] Failed to delete from Sheets (ignoring): {e}")
+
+    # TRANSACTION: Delete from Local DB
+    try:
         db.delete(expense)
         db.commit()
         return {"message": "Expense deleted successfully"}
     except Exception as e:
         db.rollback()
-        print(f"Error deleting expense: {e}")
+        print(f"Error deleting expense from DB: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/", response_model=List[ExpenseOut])
