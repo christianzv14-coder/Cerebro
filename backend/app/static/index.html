@@ -43,7 +43,7 @@
                 <img src="icon-512.png" alt="Cerebro Logo" class="login-logo"
                     style="width: 60px; height: 60px; margin: 0 auto 20px auto; display: block; border-radius: 12px;">
                 <h2>Finanzas Cerebro</h2>
-                <p>Ingresa para gestionar tus activos <small style="display:block; opacity: 0.5;">v3.0.36</small></p>
+                <p>Ingresa para gestionar tus activos <small style="display:block; opacity: 0.5;">v3.0.37</small></p>
             </div>
             <form id="login-form">
                 <div class="input-group">
@@ -258,7 +258,7 @@
 
                 <div class="app-version"
                     style="text-align: center; margin-top: 30px; color: var(--text-muted); font-size: 0.8rem;">
-                    Cerebro App v3.0.36
+                    Cerebro App v3.0.37
                 </div>
             </div>
         </section>
@@ -459,7 +459,7 @@
     <script src="/static/app.js?v=3.0.35"></script>
     </script>
     <script>
-        const CURRENT_VERSION = 'v3.0.36';
+        const CURRENT_VERSION = 'v3.0.37';
         const storedVersion = localStorage.getItem('app_version');
 
         if (storedVersion !== CURRENT_VERSION) {
@@ -494,7 +494,7 @@
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', () => {
                     // NUCLEAR UPDATE: New filename to break cache
-                    navigator.serviceWorker.register('/static/service-worker.js?v=3.0.35')
+                    navigator.serviceWorker.register('/static/service-worker.js?v=3.0.37')
                         .then(registration => {
                             console.log('SW registered: ', registration);
                         })

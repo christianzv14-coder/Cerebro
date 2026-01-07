@@ -76,7 +76,7 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 def debug_deploy():
     import os
     return {
-        "version": "v3.0.36",
+        "version": "v3.0.37",
         "cwd": os.getcwd(),
         "files_in_static": os.listdir("app/static") if os.path.exists("app/static") else "not found",
         "env_check": "PROD" if "railway" in os.environ.get("RAILWAY_STATIC_URL", "").lower() else "UNK"

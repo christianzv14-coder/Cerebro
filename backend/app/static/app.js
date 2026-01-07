@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0.36';
+const CACHE_NAME = 'cerebro-v3.0.37';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -44,7 +44,23 @@ class FinanceApp {
         this.setupNavigation();
         this.setupModal();
         this.setupCamera();
-        this.setupForms();
+        this.setupEventListeners();
+
+        // Setup Event Delegation for Expense List
+        const list = document.getElementById('expense-list');
+        if (list) {
+            list.addEventListener('click', (e) => {
+                const btn = e.target.closest('.btn-delete-expense');
+                if (btn) {
+                    e.stopPropagation();
+                    const id = btn.dataset.id;
+                    if (id) {
+                        this.deleteExpense(id);
+                    }
+                }
+            });
+        }
+
         this.setupSettings();
         this.setupAuth();
 
@@ -836,7 +852,7 @@ class FinanceApp {
                     <p>${new Date(exp.date).toLocaleDateString()} • ${exp.category}${payMethod}</p>
                 </div>
                 <div class="exp-amount">$${exp.amount.toLocaleString()}</div>
-                <button class="btn-delete-expense" onclick="event.stopPropagation(); financeApp.deleteExpense(${exp.id})" title="Eliminar gasto">🗑️</button>
+                <button class="btn-delete-expense" data-id="${exp.id}" title="Eliminar gasto">🗑️</button>
             `;
             list.appendChild(item);
         });
