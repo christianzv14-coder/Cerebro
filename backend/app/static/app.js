@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0.35';
+const CACHE_NAME = 'cerebro-v3.0.36';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -813,14 +813,20 @@ class FinanceApp {
         const list = document.getElementById('expense-list');
         if (!list) return;
         list.innerHTML = '';
-        const icons = { 'COMIDAS': '🍕', 'TRANSPORTE': '🚗', 'VICIOS': '🎉', 'OTROS': '📦' };
+        const icons = {
+            // Sections
+            'COMIDAS': '🍕', 'TRANSPORTE': '🚗', 'VICIOS': '🎉', 'OTROS': '📦',
+            'GASTOS FIJOS': '🏠', 'SALUD': '💊', 'EDUCACION': '📚', 'PERSONALES': '👤',
+            // Categories Fallback
+            'Supermercado': '🛒', 'Restaurante': '🍽️', 'Bencina': '⛽', 'Uber': '🚖',
+            'Cerveza': '🍺', 'Farmacia': '🩹', 'Arriendo': '🔑'
+        };
         expenses.slice(0, 50).forEach(exp => {
             const item = document.createElement('div');
             item.className = 'expense-item';
 
-            // Try to find section from dashboard data if missing
-            let section = exp.section || "OTROS";
-            const icon = icons[section] || '💰';
+            // Try to find icon by Category first, then Section
+            let icon = icons[exp.category] || icons[exp.section] || '💰';
             const payMethod = exp.payment_method ? ` • ${exp.payment_method}` : '';
 
             item.innerHTML = `
@@ -830,7 +836,7 @@ class FinanceApp {
                     <p>${new Date(exp.date).toLocaleDateString()} • ${exp.category}${payMethod}</p>
                 </div>
                 <div class="exp-amount">$${exp.amount.toLocaleString()}</div>
-                <button class="btn-delete-expense" onclick="financeApp.deleteExpense(${exp.id}, event)" title="Eliminar gasto">🗑️</button>
+                <button class="btn-delete-expense" onclick="event.stopPropagation(); financeApp.deleteExpense(${exp.id})" title="Eliminar gasto">🗑️</button>
             `;
             list.appendChild(item);
         });
