@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0.32';
+const CACHE_NAME = 'cerebro-v3.0.33';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -814,7 +814,7 @@ class FinanceApp {
         if (!list) return;
         list.innerHTML = '';
         const icons = { 'COMIDAS': '🍕', 'TRANSPORTE': '🚗', 'VICIOS': '🎉', 'OTROS': '📦' };
-        expenses.slice(0, 5).forEach(exp => {
+        expenses.slice(0, 50).forEach(exp => {
             const item = document.createElement('div');
             item.className = 'expense-item';
 
