@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0.29';
+const CACHE_NAME = 'cerebro-v3.0.30';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -836,7 +836,7 @@ class FinanceApp {
     }
 
     async handleExpenseSubmit() {
-        console.log('[DEBUG] Starting handleExpenseSubmit v3.0.29');
+        console.log('[DEBUG] Starting handleExpenseSubmit v3.0.30');
         const btn = document.getElementById('btn-submit-expense');
         btn.disabled = true;
         btn.textContent = 'Guardando...';
@@ -850,13 +850,18 @@ class FinanceApp {
         const photo = document.getElementById('image-upload').files[0];
         if (photo) formData.append('image', photo);
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout
+
         try {
-            console.log('[DEBUG] Fetching API POST /expenses/');
+            console.log('[DEBUG] Fetching API POST /expenses/ (with 45s timeout)');
             const response = await fetch(`${CONFIG.API_BASE}/expenses/`, {
                 method: 'POST',
                 headers: this.getHeaders(),
-                body: formData
+                body: formData,
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
             console.log('[DEBUG] API Response status:', response.status);
 
             if (response.ok) {
@@ -866,17 +871,22 @@ class FinanceApp {
                 document.getElementById('expense-form').reset();
                 document.getElementById('btn-camera').textContent = '📸 Adjuntar Boleta';
 
-                // NO AWAIT here: Refresh data in the background and close modal immediately
                 console.log('[DEBUG] Triggering background refreshData');
                 this.refreshData().catch(e => console.error('Background refresh error:', e));
             } else {
                 const errJson = await response.json().catch(() => ({}));
                 console.error('[DEBUG] API Failed:', errJson);
-                alert('Fallo al guardar: ' + (errJson.detail || 'Error desconocido'));
+                alert('Fallo al guardar: ' + (errJson.detail || 'Error en el servidor'));
             }
         } catch (error) {
-            console.error('[DEBUG] Fetch Error:', error);
-            alert('Error de conexión: ' + error.message);
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                console.error('[DEBUG] Fetch Timed Out');
+                alert('La conexión tardó demasiado (Timeout). Revisa tu internet o si el gasto se guardó en el panel.');
+            } else {
+                console.error('[DEBUG] Fetch Error:', error);
+                alert('Error de conexión: ' + error.message);
+            }
         } finally {
             console.log('[DEBUG] Resetting button state');
             btn.disabled = false;
