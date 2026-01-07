@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict
@@ -34,6 +34,7 @@ def create_expense(
     payment_method: str = Form(...),
     section: str = Form(None),
     image: UploadFile = File(None),
+    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -75,11 +76,15 @@ def create_expense(
         db.commit()
         db.refresh(new_expense)
         
-        # Trigger Sync to Sheets
-        try:
-           sync_expense_to_sheet(new_expense, user.tecnico_nombre, section=section)
-        except Exception as e:
-            print(f"WARNING: Failed to sync expense to sheet: {e}")
+        # Trigger Sync to Sheets in Background
+        if background_tasks:
+            background_tasks.add_task(sync_expense_to_sheet, new_expense, user.tecnico_nombre, section=section)
+        else:
+            # Fallback if for some reason background_tasks is not injected
+            try:
+               sync_expense_to_sheet(new_expense, user.tecnico_nombre, section=section)
+            except Exception as e:
+                print(f"WARNING: Failed to sync expense to sheet: {e}")
         
         return new_expense
         

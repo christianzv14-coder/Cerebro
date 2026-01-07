@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-cache-v3.0.27';
+const CACHE_NAME = 'cerebro-cache-v3.0.28';
 const ASSETS = [
     '/',
     '/index.html',
