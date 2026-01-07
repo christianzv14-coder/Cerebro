@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0.30';
+const CACHE_NAME = 'cerebro-v3.0.31';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -836,24 +836,34 @@ class FinanceApp {
     }
 
     async handleExpenseSubmit() {
-        console.log('[DEBUG] Starting handleExpenseSubmit v3.0.30');
+        console.log('[DEBUG] Starting handleExpenseSubmit v3.0.31');
         const btn = document.getElementById('btn-submit-expense');
         btn.disabled = true;
         btn.textContent = 'Guardando...';
-
-        const formData = new FormData();
-        formData.append('amount', document.getElementById('amount').value);
-        formData.append('concept', document.getElementById('concept').value || '');
-        formData.append('section', document.getElementById('section-select').value || '');
-        formData.append('category', document.getElementById('category').value || '');
-        formData.append('payment_method', document.getElementById('payment-method').value);
-        const photo = document.getElementById('image-upload').files[0];
-        if (photo) formData.append('image', photo);
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout
 
         try {
+            console.log('[DEBUG] Preparing FormData...');
+            const formData = new FormData();
+
+            // CRITICAL FIX: Ensure correct IDs are used (expense-amount, expense-desc)
+            const amtEl = document.getElementById('expense-amount') || document.getElementById('amount');
+            const descEl = document.getElementById('expense-desc') || document.getElementById('concept');
+
+            if (!amtEl) throw new Error("Elemento 'monto' no encontrado en el DOM");
+
+            formData.append('amount', amtEl.value);
+            formData.append('concept', descEl ? descEl.value : '');
+            formData.append('section', document.getElementById('section-select').value || '');
+            formData.append('category', document.getElementById('category').value || '');
+            formData.append('payment_method', document.getElementById('payment-method').value);
+
+            const photoEl = document.getElementById('image-upload');
+            const photo = photoEl ? photoEl.files[0] : null;
+            if (photo) formData.append('image', photo);
+
             console.log('[DEBUG] Fetching API POST /expenses/ (with 45s timeout)');
             const response = await fetch(`${CONFIG.API_BASE}/expenses/`, {
                 method: 'POST',
@@ -869,7 +879,8 @@ class FinanceApp {
                 document.getElementById('modal-add').classList.remove('active');
                 this.toggleBodyModal(false);
                 document.getElementById('expense-form').reset();
-                document.getElementById('btn-camera').textContent = '📸 Adjuntar Boleta';
+                const camBtn = document.getElementById('btn-camera');
+                if (camBtn) camBtn.textContent = '📸 Adjuntar Boleta';
 
                 console.log('[DEBUG] Triggering background refreshData');
                 this.refreshData().catch(e => console.error('Background refresh error:', e));
@@ -884,8 +895,8 @@ class FinanceApp {
                 console.error('[DEBUG] Fetch Timed Out');
                 alert('La conexión tardó demasiado (Timeout). Revisa tu internet o si el gasto se guardó en el panel.');
             } else {
-                console.error('[DEBUG] Fetch Error:', error);
-                alert('Error de conexión: ' + error.message);
+                console.error('[DEBUG] Fatal error in handleExpenseSubmit:', error);
+                alert('Error al procesar el gasto: ' + error.message);
             }
         } finally {
             console.log('[DEBUG] Resetting button state');
