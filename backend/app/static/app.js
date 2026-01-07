@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0.39';
+const CACHE_NAME = 'cerebro-v3.0.40';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -315,7 +315,7 @@ class FinanceApp {
         }
     }
 
-    setupForms() {
+    setupEventListeners() {
         const form = document.getElementById('expense-form');
         const sectionSelect = document.getElementById('section-select');
         const commForm = document.getElementById('commitment-form');
