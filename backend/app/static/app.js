@@ -1074,6 +1074,8 @@ class FinanceApp {
             });
 
             if (response.ok) {
+                const res = await response.json();
+                console.log('[DEBUG] Server response:', res);
                 document.getElementById('modal-edit-budget').classList.remove('active');
                 this.toggleBodyModal(false);
                 await this.refreshData(); // This refreshes the detail modal too if logic supports it, or we need to close detail?

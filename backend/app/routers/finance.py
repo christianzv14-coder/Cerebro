@@ -163,8 +163,9 @@ def update_category_endpoint(payload: CategoryUpdate, db: Session = Depends(get_
     # If name changed, update local DB history first
     if new_cat != old_cat:
         print(f"DEBUG [BACKEND] Renaming category from '{old_cat}' to '{new_cat}' in local DB...")
-        db.query(Expense).filter(Expense.category == old_cat, Expense.section == payload.section).update({Expense.category: new_cat})
+        updated_count = db.query(Expense).filter(Expense.category == old_cat, Expense.section == payload.section).update({Expense.category: new_cat})
         db.commit()
+        print(f"DEBUG [BACKEND] Internal history updated: {updated_count} rows.")
 
     success = update_category_in_sheet(payload.section, old_cat, payload.new_budget, new_cat=payload.new_category)
     if not success:

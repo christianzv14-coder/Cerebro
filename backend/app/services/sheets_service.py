@@ -560,16 +560,23 @@ def update_category_in_sheet(section: str, category: str, new_budget: int, new_c
     """
     Updates a category's budget in the 'Presupuesto' sheet and optionally renames it.
     """
-    print(f"DEBUG [SHEETS] Updating category '{category}' budget to {new_budget} (New Name: {new_cat})")
+    print(f"\n[SHEETS] >>> START update_category_in_sheet")
+    print(f"[SHEETS] Target: {section} / {category} -> Budget: {new_budget}, New Name: {new_cat}")
     try:
         sheet = get_sheet()
-        if not sheet: return False
+        if not sheet: 
+            print("[SHEETS] ERROR: Could not get sheet access.")
+            return False
         
         ws = sheet.worksheet("Presupuesto")
         all_rows = ws.get_all_values()
-        if not all_rows: return False
+        if not all_rows: 
+            print("[SHEETS] ERROR: 'Presupuesto' sheet is empty.")
+            return False
         
         headers = [h.strip().lower() for h in all_rows[0]]
+        print(f"[SHEETS] Headers found: {headers}")
+        
         sec_col = -1
         cat_col = -1
         bud_col = -1
@@ -582,37 +589,51 @@ def update_category_in_sheet(section: str, category: str, new_budget: int, new_c
             if c in headers: bud_col = headers.index(c); break
             
         if sec_col == -1 or cat_col == -1 or bud_col == -1:
+            print(f"[SHEETS] ERROR: Missing columns (Sec:{sec_col}, Cat:{cat_col}, Bud:{bud_col})")
             return False
             
         target_sec = section.strip().lower()
         target_cat = category.strip().lower()
+        found = False
 
         for i, row in enumerate(all_rows[1:], start=2):
             if len(row) > max(sec_col, cat_col):
                 r_sec = row[sec_col].strip().lower()
                 r_cat = row[cat_col].strip().lower()
+                
                 if r_sec == target_sec and r_cat == target_cat:
-                    print(f"DEBUG [SHEETS] Match found in row {i}: {r_sec}/{r_cat}")
-                    # Update Budget
+                    print(f"[SHEETS] MATCH FOUND at row {i}")
+                    found = True
+                    
+                    # 1. Update Budget (Column is 1-based, so bud_col + 1)
                     ws.update_cell(i, bud_col + 1, new_budget)
+                    print(f"[SHEETS] Budget updated to {new_budget}")
                     
-                    # Update Name if changed
-                    # Use strip() to avoid issues with hidden whitespace
+                    # 2. Update Name if requested and different
                     clean_new = str(new_cat).strip() if new_cat else None
-                    clean_old = str(category).strip()
-                    
-                    if clean_new and clean_new != clean_old:
-                         print(f"DEBUG [SHEETS] Triggering Rename: '{clean_old}' -> '{clean_new}'")
+                    if clean_new and clean_new.lower() != target_cat:
+                         print(f"[SHEETS] RENAMING: '{category}' -> '{clean_new}'")
                          ws.update_cell(i, cat_col + 1, clean_new)
-                         # Propagate to historical Expenses sheet
-                         rename_category_in_expenses_sheet(sheet, section, category, clean_new)
-                    else:
-                         print(f"DEBUG [SHEETS] No name change detected or new_cat is empty. (new='{clean_new}', old='{clean_old}')")
-                    
-                    print(f"DEBUG [SHEETS] Updated row {i} budget to {new_budget}")
-                    return True
+                         print(f"[SHEETS] Name updated in PresupuestoSheet")
+                         
+                         # 3. Propagate to Expenses (Historical)
+                         try:
+                             rename_category_in_expenses_sheet(sheet, section, category, clean_new)
+                         except Exception as e:
+                             print(f"[SHEETS] WARNING: Historical rename failed: {e}")
+                             # We still return True because the primary budget/name was updated
+                    break
         
-        print(f"DEBUG [SHEETS] No match for update: '{target_sec}' / '{target_cat}'")
+        if not found:
+            print(f"[SHEETS] WARNING: No match found for {target_sec}/{target_cat}")
+            return False
+            
+        print("[SHEETS] update_category_in_sheet COMPLETED SUCCESSFULLY")
+        return True
+    except Exception as e:
+        print(f"[SHEETS] CRITICAL ERROR in update_category_in_sheet: {e}")
+        import traceback
+        traceback.print_exc()
         return False
     except Exception as e:
         print(f"ERROR [SHEETS] Update category failed: {e}")
@@ -733,7 +754,7 @@ def rename_category_in_expenses_sheet(sheet, section, old_cat, new_cat):
     """
     Finds all expenses in 'Gastos' sheet matching old_cat and section, and updates them to new_cat.
     """
-    print(f"DEBUG [SHEETS] Propagating rename to Gastos sheet: {old_cat} -> {new_cat}")
+    print(f"[SHEETS] >>> START rename_category_in_expenses_sheet")
     try:
         ws = sheet.worksheet("Gastos")
         all_rows = ws.get_all_values()
@@ -747,25 +768,33 @@ def rename_category_in_expenses_sheet(sheet, section, old_cat, new_cat):
         for c in ["categoría", "categoria", "category"]:
             if c in headers: cat_col = headers.index(c); break
             
-        if cat_col == -1: return
+        if cat_col == -1: 
+            print("[SHEETS] ERROR: 'Categoría' column not found in Gastos.")
+            return
 
         target_sec = section.strip().lower()
         target_cat = old_cat.strip().lower()
         
         cells_to_update = []
+        # Import Cell here just in case, but using fully qualified if possible
+        import gspread.cell
+        
         for i, row in enumerate(all_rows[1:], start=2):
-            if len(row) > max(sec_col, cat_col):
+            if len(row) > cat_col:
                 r_sec = row[sec_col].strip().lower() if sec_col != -1 else ""
                 r_cat = row[cat_col].strip().lower()
                 
-                # If section matches (or we don't have section column) and category matches
                 if (sec_col == -1 or r_sec == target_sec) and r_cat == target_cat:
-                    from gspread import Cell
-                    cells_to_update.append(Cell(row=i, col=cat_col + 1, value=new_cat))
+                    cells_to_update.append(gspread.cell.Cell(row=i, col=cat_col + 1, value=new_cat))
         
         if cells_to_update:
+            print(f"[SHEETS] Updating {len(cells_to_update)} records in 'Gastos'...")
             ws.update_cells(cells_to_update)
-            print(f"DEBUG [SHEETS] Updated {len(cells_to_update)} records in Gastos sheet.")
+            print("[SHEETS] Historical propagation DONE.")
+        else:
+            print("[SHEETS] No historical records found to update.")
             
     except Exception as e:
-        print(f"ERROR [SHEETS] Failed to propagate rename to Gastos: {e}")
+        print(f"[SHEETS] ERROR in rename_category_in_expenses_sheet: {e}")
+        import traceback
+        traceback.print_exc()
