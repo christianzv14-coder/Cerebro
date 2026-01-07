@@ -148,18 +148,29 @@ class CategoryUpdate(BaseModel):
     section: str
     category: str
     new_budget: int
+    new_category: Optional[str] = None
 
 @router.patch("/categories/")
-def update_category_endpoint(payload: CategoryUpdate):
+def update_category_endpoint(payload: CategoryUpdate, db: Session = Depends(get_db)):
     """
-    Update a subcategory's budget in Sheets.
+    Update a subcategory's budget in Sheets, and optionally rename it (updating history).
     """
-    # Assuming add_category_to_sheet also updates if it exists or we need a new service
     from app.services.sheets_service import update_category_in_sheet
-    success = update_category_in_sheet(payload.section, payload.category, payload.new_budget)
+    
+    old_cat = payload.category
+    new_cat = payload.new_category or old_cat
+    
+    # If name changed, update local DB history first
+    if new_cat != old_cat:
+        print(f"DEBUG [BACKEND] Renaming category from '{old_cat}' to '{new_cat}' in local DB...")
+        db.query(Expense).filter(Expense.category == old_cat, Expense.section == payload.section).update({Expense.category: new_cat})
+        db.commit()
+
+    success = update_category_in_sheet(payload.section, old_cat, payload.new_budget, new_cat=payload.new_category)
     if not success:
-        raise HTTPException(status_code=500, detail="Failed to update category")
-    return {"message": "Category updated successfully"}
+        raise HTTPException(status_code=500, detail="Failed to update category in Sheets")
+    
+    return {"message": "Category updated successfully", "new_category": new_cat}
 
 class UpdateBudgetSchema(BaseModel):
     new_budget: int

@@ -1029,10 +1029,11 @@ class FinanceApp {
     openEditModal(section, category, currentBudget) {
         this.editTarget = { section, category };
         const modal = document.getElementById('modal-edit-budget');
-        const nameEl = document.getElementById('edit-cat-name');
+        const nameInput = document.getElementById('edit-cat-name-input');
         const input = document.getElementById('edit-cat-amount');
 
         nameEl.textContent = `${category} (${section})`;
+        if (nameInput) nameInput.value = category;
         input.value = currentBudget;
 
         modal.classList.add('active');
@@ -1043,11 +1044,12 @@ class FinanceApp {
     async submitEditCategory() {
         if (!this.editTarget) return;
 
-        const input = document.getElementById('edit-cat-amount');
+        const nameInput = document.getElementById('edit-cat-name-input');
         const newBudget = parseInt(input.value);
+        const newCategoryName = nameInput ? nameInput.value.trim() : this.editTarget.category;
 
-        if (isNaN(newBudget) || newBudget < 0) {
-            alert('⚠️ Ingresa un monto válido');
+        if (isNaN(newBudget) || newBudget < 0 || !newCategoryName) {
+            alert('⚠️ Ingresa un nombre y monto válidos');
             return;
         }
 
@@ -1060,7 +1062,12 @@ class FinanceApp {
             const response = await fetch(`${CONFIG.API_BASE}/expenses/categories/`, {
                 method: 'PATCH',
                 headers: { ...this.getHeaders(), 'Content-Type': 'application/json' },
-                body: JSON.stringify({ section, category, new_budget: newBudget })
+                body: JSON.stringify({
+                    section,
+                    category,
+                    new_budget: newBudget,
+                    new_category: newCategoryName
+                })
             });
 
             if (response.ok) {

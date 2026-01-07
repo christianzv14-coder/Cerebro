@@ -1,0 +1,79 @@
+﻿
+Running Gradle task 'assembleRelease'...                        
+flutter : 
+En línea: 1 
+Carácter: 1
++ flutter build apk 
+--release > 
+build_error_v3.txt 
+2>&1
++ ~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
+    + CategoryInfo  
+            : NotS  
+  pecified: (:Str   
+ ing) [], Remote    
+Exception
+    + FullyQualifie 
+   dErrorId : Nati  
+  veCommandError
+ 
+FAILURE: Build 
+failed with an 
+exception.
+
+* What went wrong:
+Could not open 
+cp_settings generic 
+class cache for 
+settings file 'C:\Us
+ers\chzam\OneDrive\D
+esktop\cerebro-patio
+\Cerebro\app_finanza
+s_android\android\se
+ttings.gradle' (C:\U
+sers\chzam\.gradle\c
+aches\7.5\scripts\bw
+0sxfuavyc02rq2h05i38
+gwq).
+> BUG! exception in 
+phase 'semantic 
+analysis' in source 
+unit 
+'_BuildScript_' 
+Unsupported class 
+file major version 
+65
+
+* Try:
+> Run with 
+--stacktrace option 
+to get the stack 
+trace.
+> Run with --info 
+or --debug option 
+to get more log 
+output.
+> Run with --scan 
+to get full 
+insights.
+
+* Get more help at h
+ttps://help.gradle.o
+rg
+
+BUILD FAILED in 
+935ms
+Running Gradle task 'assembleRelease'...                         1.827ms
+
+ÔöîÔöÇ Flutter Fix ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+Ôöé [!] Your project's Gradle version is incompatible with the Java version that Flutter is using    Ôöé
+Ôöé for Gradle.                                                                                      Ôöé
+Ôöé                                                                                                  Ôöé
+Ôöé To fix this issue, consult the migration guide at docs.flutter.dev/go/android-java-gradle-error. Ôöé
+ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+Gradle task 
+assembleRelease 
+failed with exit 
+code 1

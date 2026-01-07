@@ -556,11 +556,11 @@ def delete_category_from_sheet(section: str, category: str):
         print(f"ERROR [SHEETS] Delete category failed: {e}")
         return False
 
-def update_category_in_sheet(section: str, category: str, new_budget: int):
+def update_category_in_sheet(section: str, category: str, new_budget: int, new_cat: str = None):
     """
-    Updates a category's budget in the 'Presupuesto' sheet.
+    Updates a category's budget in the 'Presupuesto' sheet and optionally renames it.
     """
-    print(f"DEBUG [SHEETS] Updating category '{category}' budget to {new_budget}")
+    print(f"DEBUG [SHEETS] Updating category '{category}' budget to {new_budget} (New Name: {new_cat})")
     try:
         sheet = get_sheet()
         if not sheet: return False
@@ -592,7 +592,16 @@ def update_category_in_sheet(section: str, category: str, new_budget: int):
                 r_sec = row[sec_col].strip().lower()
                 r_cat = row[cat_col].strip().lower()
                 if r_sec == target_sec and r_cat == target_cat:
+                    # Update Budget
                     ws.update_cell(i, bud_col + 1, new_budget)
+                    
+                    # Update Name if changed
+                    if new_cat and new_cat != category:
+                         ws.update_cell(i, cat_col + 1, new_cat)
+                         print(f"DEBUG [SHEETS] Renamed category from '{category}' to '{new_cat}' in Presupuesto.")
+                         # Propagate to historical Expenses sheet
+                         rename_category_in_expenses_sheet(sheet, section, category, new_cat)
+                    
                     print(f"DEBUG [SHEETS] Updated row {i} budget to {new_budget}")
                     return True
         
@@ -713,3 +722,43 @@ def update_monthly_budget(new_budget: int):
     except Exception as e:
         print(f"ERROR [SHEETS] Update budget failed: {e}")
         return False
+def rename_category_in_expenses_sheet(sheet, section, old_cat, new_cat):
+    """
+    Finds all expenses in 'Gastos' sheet matching old_cat and section, and updates them to new_cat.
+    """
+    print(f"DEBUG [SHEETS] Propagating rename to Gastos sheet: {old_cat} -> {new_cat}")
+    try:
+        ws = sheet.worksheet("Gastos")
+        all_rows = ws.get_all_values()
+        if not all_rows: return
+        
+        headers = [h.strip().lower() for h in all_rows[0]]
+        sec_col = -1
+        cat_col = -1
+        for c in ["sección", "seccion", "section"]:
+            if c in headers: sec_col = headers.index(c); break
+        for c in ["categoría", "categoria", "category"]:
+            if c in headers: cat_col = headers.index(c); break
+            
+        if cat_col == -1: return
+
+        target_sec = section.strip().lower()
+        target_cat = old_cat.strip().lower()
+        
+        cells_to_update = []
+        for i, row in enumerate(all_rows[1:], start=2):
+            if len(row) > max(sec_col, cat_col):
+                r_sec = row[sec_col].strip().lower() if sec_col != -1 else ""
+                r_cat = row[cat_col].strip().lower()
+                
+                # If section matches (or we don't have section column) and category matches
+                if (sec_col == -1 or r_sec == target_sec) and r_cat == target_cat:
+                    from gspread import Cell
+                    cells_to_update.append(Cell(row=i, col=cat_col + 1, value=new_cat))
+        
+        if cells_to_update:
+            ws.update_cells(cells_to_update)
+            print(f"DEBUG [SHEETS] Updated {len(cells_to_update)} records in Gastos sheet.")
+            
+    except Exception as e:
+        print(f"ERROR [SHEETS] Failed to propagate rename to Gastos: {e}")
