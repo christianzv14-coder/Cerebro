@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0.37';
+const CACHE_NAME = 'cerebro-v3.0.38';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -62,8 +62,6 @@ class FinanceApp {
         }
 
         this.setupSettings();
-        this.setupAuth();
-
         this.setupAuth();
 
         // FIX: Always activate the default view, otherwise screen is white if logged in
