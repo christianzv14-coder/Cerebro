@@ -28,13 +28,13 @@ class ExpenseOut(BaseModel):
 
 @router.post("/", response_model=ExpenseOut)
 def create_expense(
+    background_tasks: BackgroundTasks,
     amount: int = Form(...),
     concept: str = Form(None),
     category: str = Form(...),
     payment_method: str = Form(...),
     section: str = Form(None),
     image: UploadFile = File(None),
-    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -76,20 +76,24 @@ def create_expense(
         db.commit()
         db.refresh(new_expense)
         
+        # Prepare data for background sync (avoid passing SQLAlchemy objects)
+        expense_data = {
+            "date": str(new_expense.date),
+            "concept": new_expense.concept,
+            "category": new_expense.category,
+            "amount": new_expense.amount,
+            "payment_method": new_expense.payment_method,
+            "image_url": new_expense.image_url
+        }
+        
         # Trigger Sync to Sheets in Background
-        if background_tasks:
-            background_tasks.add_task(sync_expense_to_sheet, new_expense, user.tecnico_nombre, section=section)
-        else:
-            # Fallback if for some reason background_tasks is not injected
-            try:
-               sync_expense_to_sheet(new_expense, user.tecnico_nombre, section=section)
-            except Exception as e:
-                print(f"WARNING: Failed to sync expense to sheet: {e}")
+        background_tasks.add_task(sync_expense_to_sheet, expense_data, user.tecnico_nombre, section=section)
         
         return new_expense
         
     except Exception as e:
         print(f"Error creating expense: {e}")
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/", response_model=List[ExpenseOut])

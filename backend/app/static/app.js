@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0.28';
+const CACHE_NAME = 'cerebro-v3.0.29';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -860,7 +860,9 @@ class FinanceApp {
                 this.toggleBodyModal(false);
                 document.getElementById('expense-form').reset();
                 document.getElementById('btn-camera').textContent = '📸 Adjuntar Boleta';
-                await this.refreshData();
+
+                // NO AWAIT here: Refresh data in the background and close modal immediately
+                this.refreshData();
             } else {
                 alert('Fallo al guardar');
             }

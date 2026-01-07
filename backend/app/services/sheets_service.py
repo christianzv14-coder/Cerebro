@@ -274,7 +274,11 @@ def sync_signature_to_sheet(signature, user_email=None):
 
 def sync_expense_to_sheet(expense, tech_name, section=None):
     """Appends an expense row to the 'Gastos' sheet."""
-    print(f"\n>>> [SHEETS START] Syncing expense {expense.concept}...")
+    # Support both SQLAlchemy objects and dictionaries (for background tasks)
+    is_dict = isinstance(expense, dict)
+    concept = expense["concept"] if is_dict else expense.concept
+    
+    print(f"\n>>> [SHEETS START] Syncing expense {concept}...")
     try:
         sheet = get_sheet()
         if not sheet: return
@@ -286,14 +290,14 @@ def sync_expense_to_sheet(expense, tech_name, section=None):
             ws.append_row(["Fecha", "Concepto", "Sección", "Categoría", "Monto", "Método Pago", "Usuario", "Imagen URL"])
 
         new_row = [
-            str(expense.date),
-            expense.concept,
+            str(expense["date"]) if is_dict else str(expense.date),
+            concept,
             section or "OTROS",
-            expense.category,
-            expense.amount,
-            expense.payment_method or "N/A",
+            expense["category"] if is_dict else expense.category,
+            expense["amount"] if is_dict else expense.amount,
+            (expense["payment_method"] or "N/A") if is_dict else (expense.payment_method or "N/A"),
             tech_name,
-            expense.image_url or ""
+            (expense["image_url"] or "") if is_dict else (expense.image_url or "")
         ]
         ws.append_row(new_row)
         print(f"DEBUG [SHEETS] Expense appended to 'Gastos'.")
