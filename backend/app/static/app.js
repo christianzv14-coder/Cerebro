@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0.38';
+const CACHE_NAME = 'cerebro-v3.0.39';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -350,13 +350,8 @@ class FinanceApp {
     }
 
     setupAuth() {
-        const loginForm = document.getElementById('login-form');
-        if (loginForm) {
-            loginForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                await this.handleLogin();
-            });
-        }
+        // Redundant with inline onclick="financeApp.handleLogin()" in index.html v3.0.39
+        // Kept empty structure for compatibility if needed later.
     }
 
     showLogin() {
