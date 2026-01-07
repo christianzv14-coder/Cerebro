@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-cache-v3.0.28';
+const CACHE_NAME = 'cerebro-cache-v3.0.29';
 const ASSETS = [
     '/',
     '/index.html',
@@ -9,7 +9,6 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-    // Force new SW to take control immediately
     self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
@@ -19,7 +18,6 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-    // Claim control of all clients immediately
     event.waitUntil(
         Promise.all([
             self.clients.claim(),
@@ -37,10 +35,26 @@ self.addEventListener('activate', (event) => {
     );
 });
 
+// NETWORK FIRST strategy for better updates
 self.addEventListener('fetch', (event) => {
+    // Skip non-GET requests
+    if (event.request.method !== 'GET') return;
+
     event.respondWith(
-        caches.match(event.request).then((response) => {
-            return response || fetch(event.request);
-        })
+        fetch(event.request)
+            .then((networkResponse) => {
+                // If it's a valid response, clone it and save to cache
+                if (networkResponse && networkResponse.status === 200) {
+                    const responseClone = networkResponse.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(event.request, responseClone);
+                    });
+                }
+                return networkResponse;
+            })
+            .catch(() => {
+                // If network fails, try the cache
+                return caches.match(event.request);
+            })
     );
 });

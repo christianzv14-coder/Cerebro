@@ -836,6 +836,7 @@ class FinanceApp {
     }
 
     async handleExpenseSubmit() {
+        console.log('[DEBUG] Starting handleExpenseSubmit v3.0.29');
         const btn = document.getElementById('btn-submit-expense');
         btn.disabled = true;
         btn.textContent = 'Guardando...';
@@ -850,26 +851,34 @@ class FinanceApp {
         if (photo) formData.append('image', photo);
 
         try {
+            console.log('[DEBUG] Fetching API POST /expenses/');
             const response = await fetch(`${CONFIG.API_BASE}/expenses/`, {
                 method: 'POST',
                 headers: this.getHeaders(),
                 body: formData
             });
+            console.log('[DEBUG] API Response status:', response.status);
+
             if (response.ok) {
+                console.log('[DEBUG] Success! Closing modal');
                 document.getElementById('modal-add').classList.remove('active');
                 this.toggleBodyModal(false);
                 document.getElementById('expense-form').reset();
                 document.getElementById('btn-camera').textContent = '📸 Adjuntar Boleta';
 
                 // NO AWAIT here: Refresh data in the background and close modal immediately
-                this.refreshData();
+                console.log('[DEBUG] Triggering background refreshData');
+                this.refreshData().catch(e => console.error('Background refresh error:', e));
             } else {
-                alert('Fallo al guardar');
+                const errJson = await response.json().catch(() => ({}));
+                console.error('[DEBUG] API Failed:', errJson);
+                alert('Fallo al guardar: ' + (errJson.detail || 'Error desconocido'));
             }
         } catch (error) {
-            console.error(error);
-            alert('Error de conexión');
+            console.error('[DEBUG] Fetch Error:', error);
+            alert('Error de conexión: ' + error.message);
         } finally {
+            console.log('[DEBUG] Resetting button state');
             btn.disabled = false;
             btn.textContent = 'Guardar';
         }
