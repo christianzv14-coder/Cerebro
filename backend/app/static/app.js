@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cerebro-v3.0.26';
+const CACHE_NAME = 'cerebro-v3.0.27';
 const CONFIG = {
     // Dynamically use the current hostname. 
     // If running on localhost (dev), assume port 8001. 
@@ -508,7 +508,7 @@ class FinanceApp {
         if (n.includes('MASCOTA') || n.includes('PERRO') || n.includes('GATO') || n.includes('VET')) return '🐶';
         if (n.includes('ROP') || n.includes('ZAPAT') || n.includes('VESTIMENTA')) return '👕';
         if (n.includes('DEUDA') || n.includes('CREDITO') || n.includes('PRESTAMO')) return '💸';
-        if (n.includes('EDUCACION') || n.includes('CURSO') || n.includes('U')) return '🎓';
+        if (n.includes('EDUCACION') || n.includes('CURSO')) return '🎓';
         if (n.includes('VIAJE') || n.includes('VACACION')) return '✈️';
         if (n.includes('SUPER') || n.includes('MERCADO')) return '🛒';
         if (n.includes('FIJO')) return '📅';
