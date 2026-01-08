@@ -97,7 +97,14 @@ def debug_deploy():
 
 @app.get("/")
 def read_root():
-    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+    return FileResponse(
+        os.path.join(STATIC_DIR, "index.html"), 
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0" 
+        }
+    )
 
 @app.get("/manifest.json")
 def get_manifest():
