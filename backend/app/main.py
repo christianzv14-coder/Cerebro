@@ -70,7 +70,14 @@ from fastapi.responses import FileResponse
 
 # Serve Static Files (Frontend) using absolute path to be safe in Docker
 # "app/static" relative to where uvicorn is run (usually /app)
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+if not os.path.exists(STATIC_DIR):
+    print(f"WARNING: Static dir not found at {STATIC_DIR}")
+    # Fallback for dev if running from root without backend module structure?
+    # but strict is better.
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.get("/debug-deploy")
 def debug_deploy():
@@ -84,19 +91,19 @@ def debug_deploy():
 
 @app.get("/")
 def read_root():
-    return FileResponse("app/static/index.html")
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 @app.get("/manifest.json")
 def get_manifest():
-    return FileResponse("app/static/manifest.json")
+    return FileResponse(os.path.join(STATIC_DIR, "manifest.json"))
 
 @app.get("/sw.js")
 def get_sw():
-    return FileResponse("app/static/sw.js")
+    return FileResponse(os.path.join(STATIC_DIR, "sw.js"))
 
 @app.get("/icon-512.png")
 def get_icon():
-    return FileResponse("app/static/icon-512.png")
+    return FileResponse(os.path.join(STATIC_DIR, "icon-512.png"))
 
 
 
