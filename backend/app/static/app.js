@@ -596,6 +596,48 @@ class FinanceApp {
                 this.handleUpdateCategory(sectionName, catName, catData.budget);
             });
 
+            // --- INJECT EXPENSES LIST FOR THIS SUBCATEGORY ---
+            // Filter expenses for this specific category and section
+            const catExpenses = (this.allExpenses || []).filter(e => e.category === catName && e.section === sectionName);
+
+            if (catExpenses.length > 0) {
+                const expContainer = document.createElement('div');
+                expContainer.style.marginTop = '10px';
+                expContainer.style.borderTop = '1px solid #e2e8f0';
+                expContainer.style.paddingTop = '8px';
+
+                catExpenses.forEach(exp => {
+                    const expRow = document.createElement('div');
+                    expRow.style.display = 'flex';
+                    expRow.style.justifyContent = 'space-between';
+                    expRow.style.alignItems = 'center';
+                    expRow.style.fontSize = '0.85rem';
+                    expRow.style.marginBottom = '6px';
+
+                    expRow.innerHTML = `
+                        <div style="display:flex; flex-direction:column;">
+                            <span style="font-weight:500; color:var(--text-main);">${exp.concept}</span>
+                            <span style="font-size:0.75rem; color:var(--text-muted);">${new Date(exp.date).toLocaleDateString()}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-weight:600;">$${exp.amount.toLocaleString()}</span>
+                            <button class="btn-delete-exp-inline" data-id="${exp.id}" style="border:none; background:none; cursor:pointer;" title="Borrar gasto">❌</button>
+                        </div>
+                    `;
+
+                    // Wire delete button unique to this view
+                    expRow.querySelector('.btn-delete-exp-inline').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        // Reuse existing deleteExpense method nicely
+                        this.deleteExpense(exp.id, e);
+                    });
+
+                    expContainer.appendChild(expRow);
+                });
+
+                item.appendChild(expContainer);
+            }
+
             subList.appendChild(item);
         });
 
@@ -811,6 +853,7 @@ class FinanceApp {
             });
             if (response.ok) {
                 const expenses = await response.json();
+                this.allExpenses = expenses; // NEW: Store for local filtering
                 this.renderExpenses(expenses);
             }
         } catch (error) {
