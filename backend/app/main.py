@@ -73,19 +73,25 @@ from fastapi.responses import FileResponse
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 if not os.path.exists(STATIC_DIR):
-    print(f"WARNING: Static dir not found at {STATIC_DIR}")
-    # Fallback for dev if running from root without backend module structure?
-    # but strict is better.
-
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    print(f"CRITICAL WARNING: Static dir not found at {STATIC_DIR}")
+    # Don't crash! Just skip mounting or mount something safe?
+    # Better to skip and let 404s happen than 502 the whole app.
+else:
+    try:
+        app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    except Exception as e:
+        print(f"FAILED TO MOUNT STATIC: {e}")
 
 @app.get("/debug-deploy")
 def debug_deploy():
     import os
     return {
-        "version": "v3.0.41",
+        "version": "v3.0.42-SafeMode",
         "cwd": os.getcwd(),
-        "files_in_static": os.listdir("app/static") if os.path.exists("app/static") else "not found",
+        "base_dir": BASE_DIR,
+        "static_dir": STATIC_DIR,
+        "exists": os.path.exists(STATIC_DIR),
+        "files": os.listdir(STATIC_DIR) if os.path.exists(STATIC_DIR) else "DIR_NOT_FOUND",
         "env_check": "PROD" if "railway" in os.environ.get("RAILWAY_STATIC_URL", "").lower() else "UNK"
     }
 
