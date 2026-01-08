@@ -259,7 +259,7 @@
 
                 <div class="app-version"
                     style="text-align: center; margin-top: 30px; color: var(--text-muted); font-size: 0.8rem;">
-                    Cerebro App v3.0.41
+                    Cerebro App v3.0.42
                 </div>
             </div>
         </section>
@@ -287,11 +287,6 @@
                     </div>
 
                     <div class="input-group">
-                        <label>Concepto</label>
-                        <input type="text" id="expense-desc" placeholder="¿Qué compraste?" required>
-                    </div>
-
-                    <div class="input-group">
                         <label>Sección</label>
                         <select id="section-select" required>
                             <!-- Populated by JS -->
@@ -313,6 +308,11 @@
                             <option value="EFECTIVO">Efectivo</option>
                             <option value="TRANSFERENCIA">Transferencia</option>
                         </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Concepto (Opcional)</label>
+                        <input type="text" id="expense-desc" placeholder="¿Qué compraste?">
                     </div>
 
                     <!-- Hidden file input for camera -->
@@ -457,10 +457,10 @@
         </nav>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/static/app.js?v=3.0.35"></script>
+    <script src="/static/app.js?v=3.0.42"></script>
     </script>
     <script>
-        const CURRENT_VERSION = 'v3.0.41';
+        const CURRENT_VERSION = 'v3.0.42';
         const storedVersion = localStorage.getItem('app_version');
 
         if (storedVersion !== CURRENT_VERSION) {
