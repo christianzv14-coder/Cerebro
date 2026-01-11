@@ -1,0 +1,23 @@
+🔍 DIAGNÓSTICO DE 'ADAS' 🔍
+
+1. TOTAL ACTIVIDADES (Input):
+tipo_actividad
+INSTALACION    177
+RETIRO         177
+REVISION       177
+Name: cantidad_actividad, dtype: int64
+
+2. RECETA BOM PARA 'ADAS':
+   tipo_actividad  ... cantidad
+3     INSTALACION  ...       25
+11       REVISION  ...        3
+
+[2 rows x 3 columns]
+
+3. CÁLCULO DE CONSUMO HISTÓRICO:
+   - Actividad 'INSTALACION': 177 eventos * 25 u/evento = 4425 ADAS
+   - Actividad 'REVISION': 177 eventos * 3 u/evento = 531 ADAS
+
+   ------------------------------------------------
+   TOTAL ADAS HISTÓRICO CALCULADO: 4956
+   Promedio Simple Semanal (34.9 semanas): 142.18

@@ -5,6 +5,10 @@ import os
 
 db_url = settings.FINANCE_DATABASE_URL
 
+# Railway fix: Change postgres:// to postgresql:// (SQLAlchemy requirement)
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
 # Ensure SQLite uses absolute path in Docker environment
 if db_url.startswith("sqlite"):
     if "./" in db_url:

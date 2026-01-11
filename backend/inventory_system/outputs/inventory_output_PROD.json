@@ -1,0 +1,886 @@
+[
+    {
+        "sku": "ADAS",
+        "generated_at": "2026-01-09T17:54:25.294123",
+        "classification_abc": "C",
+        "model_used": "HoltWinters_Full",
+        "forecast_next_12_weeks": [
+            2.82795656699634,
+            5.001970564847184,
+            3.614789878329694,
+            3.9820376992506716,
+            2.8278127826389756,
+            5.001855537361292,
+            3.6146978563409804,
+            3.981964081659701,
+            2.827753888566199,
+            5.001808422103071,
+            3.6146601641344036,
+            3.9819339278944392
+        ],
+        "metrics": {
+            "mae": 2.215208435685815,
+            "rmse": 3.5530336284985284,
+            "sigma": 3.5517876540203184
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 8.262812415770082,
+            "demand_lead_time": 7.713206895020492,
+            "reorder_point": 15.976019310790573,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "Antena",
+        "generated_at": "2026-01-09T17:54:25.300276",
+        "classification_abc": "C",
+        "model_used": "Naive_LastValue_Fallback",
+        "forecast_next_12_weeks": [
+            2.0,
+            2.0,
+            2.0,
+            2.0,
+            2.0,
+            2.0,
+            2.0,
+            2.0,
+            2.0,
+            2.0,
+            2.0,
+            2.0
+        ],
+        "metrics": {
+            "mae": 0.0,
+            "rmse": 0.0,
+            "sigma": 0.0
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 0.0,
+            "demand_lead_time": 4.0,
+            "reorder_point": 4.0,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "Baja Comercial",
+        "generated_at": "2026-01-09T17:54:25.310816",
+        "classification_abc": "C",
+        "model_used": "Naive_LastValue_Fallback",
+        "forecast_next_12_weeks": [
+            5.0,
+            5.0,
+            5.0,
+            5.0,
+            5.0,
+            5.0,
+            5.0,
+            5.0,
+            5.0,
+            5.0,
+            5.0,
+            5.0
+        ],
+        "metrics": {
+            "mae": 0.0,
+            "rmse": 0.0,
+            "sigma": 0.0
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 0.0,
+            "demand_lead_time": 10.0,
+            "reorder_point": 10.0,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "Bateria Panel",
+        "generated_at": "2026-01-09T17:54:25.323739",
+        "classification_abc": "C",
+        "model_used": "HoltWinters_Trend",
+        "forecast_next_12_weeks": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+        ],
+        "metrics": {
+            "mae": 0.0,
+            "rmse": 0.0,
+            "sigma": 0.0
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 0.0,
+            "demand_lead_time": 2.0,
+            "reorder_point": 2.0,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "Buzzer/Sirena",
+        "generated_at": "2026-01-09T17:54:25.421827",
+        "classification_abc": "C",
+        "model_used": "HoltWinters_Full",
+        "forecast_next_12_weeks": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ],
+        "metrics": {
+            "mae": 2.4461605673182536,
+            "rmse": 2.833073152201593,
+            "sigma": 2.8330731486010903
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 6.590808423062336,
+            "demand_lead_time": 0.0,
+            "reorder_point": 6.590808423062336,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "CANBUS CAIQUEN",
+        "generated_at": "2026-01-09T17:54:25.479383",
+        "classification_abc": "C",
+        "model_used": "HoltWinters_Full",
+        "forecast_next_12_weeks": [
+            3.0777454677105753,
+            3.2114497313907377,
+            1.335854077117675,
+            0.0,
+            1.6370509667403184,
+            1.8709641561547443,
+            0.08860729703652481,
+            0.0,
+            0.5572769206985391,
+            0.8662948579389023,
+            0.0,
+            0.0
+        ],
+        "metrics": {
+            "mae": 2.1429992673606715,
+            "rmse": 3.46429835588853,
+            "sigma": 3.4642747562820757
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 8.059224046078816,
+            "demand_lead_time": 2.1075405791313364,
+            "reorder_point": 10.166764625210153,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "Cable Riso",
+        "generated_at": "2026-01-09T17:54:25.580381",
+        "classification_abc": "C",
+        "model_used": "HoltWinters_Full",
+        "forecast_next_12_weeks": [
+            2.000691629339951,
+            2.0394604310017623,
+            4.34031583858072,
+            2.3961522676444322,
+            2.3514257132362357,
+            2.3884408444785654,
+            4.687551349990139,
+            2.7416516014968044,
+            2.695197550419346,
+            2.73049382247576,
+            5.027894063097348,
+            3.080292601038477
+        ],
+        "metrics": {
+            "mae": 0.5103150830523534,
+            "rmse": 0.957727742370822,
+            "sigma": 0.9577130164296442
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 2.228005661865002,
+            "demand_lead_time": 6.079927952133257,
+            "reorder_point": 8.307933613998259,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "Cte motor",
+        "generated_at": "2026-01-09T17:54:25.723055",
+        "classification_abc": "A",
+        "model_used": "HoltWinters_Full",
+        "forecast_next_12_weeks": [
+            6.409231794945808,
+            3.3428441855268596,
+            0.0,
+            6.000064568523184,
+            6.409283336264194,
+            3.342885418581568,
+            0.0,
+            6.000090957678197,
+            6.409304447588204,
+            3.342902307640776,
+            0.0,
+            6.000101766676091
+        ],
+        "metrics": {
+            "mae": 11.312654447961258,
+            "rmse": 16.973710044713897,
+            "sigma": 16.97063249958459
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 39.48016226767273,
+            "demand_lead_time": 7.876118130570814,
+            "reorder_point": 47.35628039824355,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "DMS",
+        "generated_at": "2026-01-09T17:54:25.816980",
+        "classification_abc": "B",
+        "model_used": "HoltWinters_Full",
+        "forecast_next_12_weeks": [
+            6.296700529817396,
+            4.605700835673961,
+            3.292368543938622,
+            4.656495992529553,
+            6.296705501767517,
+            4.605704813234057,
+            3.2923717259866994,
+            4.656498538168015,
+            6.296707538278286,
+            4.605706442442673,
+            3.292373029353592,
+            4.65649958086153
+        ],
+        "metrics": {
+            "mae": 2.4284920813924926,
+            "rmse": 3.9254307018490655,
+            "sigma": 3.924276924295384
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 9.129364492352178,
+            "demand_lead_time": 9.425638845341982,
+            "reorder_point": 18.55500333769416,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "Disco duro",
+        "generated_at": "2026-01-09T17:54:25.824663",
+        "classification_abc": "C",
+        "model_used": "Naive_LastValue_Fallback",
+        "forecast_next_12_weeks": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+        ],
+        "metrics": {
+            "mae": 0.0,
+            "rmse": 0.0,
+            "sigma": 0.0
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 0.0,
+            "demand_lead_time": 2.0,
+            "reorder_point": 2.0,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "Equipo GPS",
+        "generated_at": "2026-01-09T17:54:25.964177",
+        "classification_abc": "A",
+        "model_used": "HoltWinters_Full",
+        "forecast_next_12_weeks": [
+            41.85234833354096,
+            41.067414178457035,
+            44.98167632435664,
+            50.944689533853385,
+            41.8524704986994,
+            41.06751191058378,
+            44.98175451005804,
+            50.9447520824145,
+            41.85252053754829,
+            41.0675519416629,
+            44.981786534921326,
+            50.94477770230514
+        ],
+        "metrics": {
+            "mae": 15.143789870195913,
+            "rmse": 20.5744140933145,
+            "sigma": 20.574378424373112
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 47.86384943346328,
+            "demand_lead_time": 89.42320901473357,
+            "reorder_point": 137.28705844819686,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "Ibutton",
+        "generated_at": "2026-01-09T17:54:26.087445",
+        "classification_abc": "C",
+        "model_used": "HoltWinters_Full",
+        "forecast_next_12_weeks": [
+            1.7931574133687458,
+            0.9513315524640096,
+            1.352595318485245,
+            1.5537868437278197,
+            1.7136837320881773,
+            0.8722552395898437,
+            1.2739143871754504,
+            1.4754993170745738,
+            1.6357876430681977,
+            0.7947486310149641,
+            1.196795311643445,
+            1.3987658369202285
+        ],
+        "metrics": {
+            "mae": 0.6364195861625227,
+            "rmse": 0.812744489462896,
+            "sigma": 0.8127444894604333
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 1.8907535901705594,
+            "demand_lead_time": 2.668720204436784,
+            "reorder_point": 4.559473794607343,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "Jamming",
+        "generated_at": "2026-01-09T17:54:26.199726",
+        "classification_abc": "C",
+        "model_used": "HoltWinters_Full",
+        "forecast_next_12_weeks": [
+            3.3262555636808386,
+            2.1610069232871174,
+            2.432148457668462,
+            4.212367969784066,
+            3.478655419105849,
+            2.282926807627126,
+            2.5296843651404686,
+            4.290396695761672,
+            3.541078399887933,
+            2.332865192252793,
+            2.5696350728410025,
+            4.3223572619220985
+        ],
+        "metrics": {
+            "mae": 1.2864685625176082,
+            "rmse": 1.8488518728122298,
+            "sigma": 1.848851872811197
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 4.3011344420582684,
+            "demand_lead_time": 6.2465630214932375,
+            "reorder_point": 10.547697463551506,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "MDRV 4 CH",
+        "generated_at": "2026-01-09T17:54:26.371557",
+        "classification_abc": "A",
+        "model_used": "HoltWinters_Full",
+        "forecast_next_12_weeks": [
+            6.190640083711051,
+            5.614550751625159,
+            7.491675265727723,
+            6.426636245854013,
+            6.190565979315518,
+            5.614491468108732,
+            7.491627838914582,
+            6.4265983044035,
+            6.190535626155107,
+            5.614467185580404,
+            7.491608412891919,
+            6.426582763585369
+        ],
+        "metrics": {
+            "mae": 4.21858606264083,
+            "rmse": 5.230120805665807,
+            "sigma": 5.23012080566159
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 12.167255291875845,
+            "demand_lead_time": 12.861663320978847,
+            "reorder_point": 25.028918612854692,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "MDVR 8 CH",
+        "generated_at": "2026-01-09T17:54:26.497607",
+        "classification_abc": "B",
+        "model_used": "HoltWinters_Full",
+        "forecast_next_12_weeks": [
+            1.050295948428213,
+            0.0,
+            0.0,
+            0.0,
+            0.15369250270943813,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+        ],
+        "metrics": {
+            "mae": 2.7730236322984942,
+            "rmse": 3.6846626715365973,
+            "sigma": 3.684662671508767
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 8.571930373034919,
+            "demand_lead_time": 0.20066474185627517,
+            "reorder_point": 8.772595114891194,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "Se\u00f1uelo",
+        "generated_at": "2026-01-09T17:54:26.579255",
+        "classification_abc": "C",
+        "model_used": "HoltWinters_Full",
+        "forecast_next_12_weeks": [
+            1.53985837062725,
+            0.631886716467246,
+            1.705509369297385,
+            1.1892304671416551,
+            1.3513843519555178,
+            0.48110750152986026,
+            1.5848859973474765,
+            1.0927317695817282,
+            1.2741853939075762,
+            0.41934833509150704,
+            1.535478664196794,
+            1.0532059030611822
+        ],
+        "metrics": {
+            "mae": 1.2263611483672598,
+            "rmse": 1.8414953186208338,
+            "sigma": 1.8304873687036565
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 4.258411602933163,
+            "demand_lead_time": 2.309802140034196,
+            "reorder_point": 6.568213742967359,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "Somnolencia",
+        "generated_at": "2026-01-09T17:54:26.603741",
+        "classification_abc": "C",
+        "model_used": "ExponentialSmoothing_Simple",
+        "forecast_next_12_weeks": [
+            3.3333333688121316,
+            3.3333333688121316,
+            3.3333333688121316,
+            3.3333333688121316,
+            3.3333333688121316,
+            3.3333333688121316,
+            3.3333333688121316,
+            3.3333333688121316,
+            3.3333333688121316,
+            3.3333333688121316,
+            3.3333333688121316,
+            3.3333333688121316
+        ],
+        "metrics": {
+            "mae": 2.4444444744832414,
+            "rmse": 2.624669310892581,
+            "sigma": 2.6246693108925805
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 6.105981630063366,
+            "demand_lead_time": 6.666666737624264,
+            "reorder_point": 12.77264836768763,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "Temperatura",
+        "generated_at": "2026-01-09T17:54:26.701555",
+        "classification_abc": "A",
+        "model_used": "HoltWinters_Full",
+        "forecast_next_12_weeks": [
+            4.373463940025858,
+            4.793839453575205,
+            0.0,
+            2.000108694657209,
+            4.373550774909503,
+            4.793908921482121,
+            0.0,
+            2.000153154117635,
+            4.373586342477844,
+            4.793937375536794,
+            0.0,
+            2.0001713647126262
+        ],
+        "metrics": {
+            "mae": 9.922997850292562,
+            "rmse": 17.45834602256574,
+            "sigma": 17.457436910883246
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 40.61265495179398,
+            "demand_lead_time": 5.5837866702491326,
+            "reorder_point": 46.19644162204311,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "V. Tecnica",
+        "generated_at": "2026-01-09T17:54:26.778803",
+        "classification_abc": "C",
+        "model_used": "HoltWinters_Full",
+        "forecast_next_12_weeks": [
+            4.0462942436021345,
+            3.6636988844218425,
+            2.7498716238215724,
+            2.6760721989583303,
+            4.117854763486862,
+            3.7282646859125945,
+            2.808126409125793,
+            2.7286328414731904,
+            4.165277840014358,
+            3.7710523703800543,
+            2.846731790221753,
+            2.763464720508331
+        ],
+        "metrics": {
+            "mae": 1.5540618036514495,
+            "rmse": 2.0218043917662527,
+            "sigma": 2.021804391750394
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 4.70348794965378,
+            "demand_lead_time": 6.677557061987803,
+            "reorder_point": 11.381045011641582,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "V.Fallida",
+        "generated_at": "2026-01-09T17:54:26.795227",
+        "classification_abc": "C",
+        "model_used": "ExponentialSmoothing_Simple",
+        "forecast_next_12_weeks": [
+            1.499999990402659,
+            1.499999990402659,
+            1.499999990402659,
+            1.499999990402659,
+            1.499999990402659,
+            1.499999990402659,
+            1.499999990402659,
+            1.499999990402659,
+            1.499999990402659,
+            1.499999990402659,
+            1.499999990402659,
+            1.499999990402659
+        ],
+        "metrics": {
+            "mae": 0.5000000037252904,
+            "rmse": 0.5000000037252904,
+            "sigma": 0.5000000037252904
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 1.1631906637183167,
+            "demand_lead_time": 2.999999980805318,
+            "reorder_point": 4.163190644523635,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "V3",
+        "generated_at": "2026-01-09T17:54:26.912260",
+        "classification_abc": "B",
+        "model_used": "HoltWinters_Full",
+        "forecast_next_12_weeks": [
+            3.9424287478316016,
+            6.414640216699812,
+            5.152205164124612,
+            4.610171761369552,
+            3.8844007196117794,
+            6.360541026026057,
+            5.101768805672656,
+            4.563150239934327,
+            3.8405628307168183,
+            6.319671219092774,
+            5.063666124159725,
+            4.52762733323585
+        ],
+        "metrics": {
+            "mae": 3.454201956241437,
+            "rmse": 4.477840726865126,
+            "sigma": 4.477840726862268
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 10.417164976593732,
+            "demand_lead_time": 9.963472364745927,
+            "reorder_point": 20.380637341339657,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "V4",
+        "generated_at": "2026-01-09T17:54:26.974146",
+        "classification_abc": "B",
+        "model_used": "HoltWinters_Full",
+        "forecast_next_12_weeks": [
+            3.2547570637843184,
+            2.106044135298373,
+            4.0818104612687875,
+            4.874335291062061,
+            3.051742130083538,
+            1.9093353838031588,
+            3.891212005236795,
+            4.689657328512624,
+            2.8728007547888392,
+            1.7359524021505053,
+            3.7232147587796485,
+            4.526878522033659
+        ],
+        "metrics": {
+            "mae": 3.01273216190867,
+            "rmse": 3.8914827313922196,
+            "sigma": 3.891482726169449
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 9.053072682752163,
+            "demand_lead_time": 6.78629003946705,
+            "reorder_point": 15.839362722219214,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "V42 frontal",
+        "generated_at": "2026-01-09T17:54:27.006372",
+        "classification_abc": "C",
+        "model_used": "HoltWinters_Full",
+        "forecast_next_12_weeks": [
+            3.9551346322464442,
+            0.9641077200297705,
+            4.971286148533181,
+            1.9209472510249888,
+            3.936757776309587,
+            0.9494062352802846,
+            4.959524960733592,
+            1.9115383007853177,
+            3.92923061611785,
+            0.9433845071268949,
+            4.954707578210881,
+            1.9076843947671485
+        ],
+        "metrics": {
+            "mae": 1.004604686779724,
+            "rmse": 1.3480526851686168,
+            "sigma": 1.3448598534366631
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 3.12865682774391,
+            "demand_lead_time": 5.883951686860989,
+            "reorder_point": 9.0126085146049,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "V5",
+        "generated_at": "2026-01-09T17:54:27.059819",
+        "classification_abc": "B",
+        "model_used": "HoltWinters_Full",
+        "forecast_next_12_weeks": [
+            1.952427422237881,
+            1.3037560798998586,
+            0.8598087521991729,
+            2.978885738278744,
+            1.3922221651883475,
+            0.7467097218876021,
+            0.3059034807474239,
+            2.4281038413521596,
+            0.8445460306266408,
+            0.20212183684236462,
+            0.0,
+            1.889640311245293
+        ],
+        "metrics": {
+            "mae": 2.4937920574449977,
+            "rmse": 3.100487680499417,
+            "sigma": 3.100487680499416
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 7.212916592120742,
+            "demand_lead_time": 2.484020896750914,
+            "reorder_point": 9.696937488871656,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "boton",
+        "generated_at": "2026-01-09T17:54:27.136332",
+        "classification_abc": "A",
+        "model_used": "HoltWinters_Full",
+        "forecast_next_12_weeks": [
+            7.3154505669022,
+            2.759464251539437,
+            0.0,
+            6.000053752752071,
+            7.315493480323843,
+            2.7594985822767515,
+            0.0,
+            6.000075724423952,
+            7.3155110576613485,
+            2.759512644146755,
+            0.0,
+            6.000084724020755
+        ],
+        "metrics": {
+            "mae": 9.240172364342799,
+            "rmse": 15.164018962649076,
+            "sigma": 15.161840317535448
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 35.27222194149184,
+            "demand_lead_time": 8.037524130674518,
+            "reorder_point": 43.30974607216636,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    },
+    {
+        "sku": "magneticos",
+        "generated_at": "2026-01-09T17:54:27.272066",
+        "classification_abc": "A",
+        "model_used": "HoltWinters_Full",
+        "forecast_next_12_weeks": [
+            9.620638039863515,
+            6.2349756944987265,
+            0.0,
+            4.000141229279256,
+            9.620750843968274,
+            6.235065937782534,
+            0.0,
+            4.0001989849808925,
+            9.620797048529582,
+            6.235102901431581,
+            0.0,
+            4.000222641716283
+        ],
+        "metrics": {
+            "mae": 14.091602857267965,
+            "rmse": 27.47779242273506,
+            "sigma": 27.476774494237045
+        },
+        "inventory_policy": {
+            "service_level": 0.95,
+            "z_score": 1.645,
+            "safety_stock": 63.92145464532825,
+            "demand_lead_time": 9.927982220341773,
+            "reorder_point": 73.84943686567001,
+            "lead_time_weeks": 2
+        },
+        "status": "OK"
+    }
+]

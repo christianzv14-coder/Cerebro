@@ -9,8 +9,8 @@ import '../models/models.dart';
 class ApiService {
   // Update this URL for your local or production backend
   static String get baseUrl {
-    // Production URL (Railway)
-    return 'https://cozy-smile-production.up.railway.app/api/v1';
+    // Production URL (Google Cloud Run v2)
+    return 'https://cerebro-backend-v2-847221042190.southamerica-east1.run.app/api/v1';
 
     // Localhost Debugging (Keep for reference)
     // if (Platform.isAndroid) return 'http://10.0.2.2:8000/api/v1';

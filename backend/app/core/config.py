@@ -9,7 +9,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
     
     # Database - Using unique name to avoid conflict with Railway's default DATABASE_URL
-    FINANCE_DATABASE_URL: str = "sqlite:///./sql_app.db"
+    # Will use PostgreSQL in production (Railway) or SQLite locally
+    FINANCE_DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./sql_app.db")
 
     # Google Sheets
     GOOGLE_SHEETS_CREDENTIALS_JSON: str = ""
