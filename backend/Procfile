@@ -1,2 +1,2 @@
-# Deploy Trigger V3.0.29-SAVING-HANG-FIX
+# Deploy Trigger V4.0.30-FIX-502-ERROR
 web: uvicorn app.main:app --host 0.0.0.0 --port $PORT
