@@ -150,7 +150,13 @@ def send_local_email(ruta_excel, stats):
         print("✅ Email detallado enviado exitosamente.")
         
     except Exception as e:
-        print(f"⚠️ Error enviando email: {e}")
+        if "535" in str(e):
+            print(f"⚠️ Error de Autenticación SMTP (535):")
+            print("   Tus credenciales de Gmail en .env no son aceptadas.")
+            print("   SUGERENCIA: Usa una 'Contraseña de Aplicación' de Google.")
+            print("   Instrucciones: https://support.google.com/accounts/answer/185833")
+        else:
+            print(f"⚠️ Error enviando email: {e}")
 
 def subir_archivo(ruta_excel):
     if not os.path.exists(ruta_excel):
@@ -192,6 +198,27 @@ def subir_archivo(ruta_excel):
             # 3. TRIGGER LOCAL EMAIL
             send_local_email(ruta_excel, stats) 
             print("ℹ️  Email enviado localmente y solicitado al Servidor.")
+
+            # 4. TRIGGER LOCAL SHEETS SYNC (HYBRID MODE)
+            try:
+                # Re-read excel to dataframe for sync
+                df_sync = pd.read_excel(ruta_excel)
+                
+                # Dynamic Import Fix
+                try:
+                    import local_hybrid_sync
+                    local_hybrid_sync.batch_sync_excel(df_sync)
+                except ImportError:
+                    try:
+                        from backend import local_hybrid_sync
+                        local_hybrid_sync.batch_sync_excel(df_sync)
+                    except ImportError:
+                        sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+                        import local_hybrid_sync
+                        local_hybrid_sync.batch_sync_excel(df_sync)
+                    
+            except Exception as e:
+                print(f"⚠️ Error en Sincronización Local Híbrida: {e}")
             
         else:
             print(f"❌ Error Servidor: {res.status_code} - {res.text}")
