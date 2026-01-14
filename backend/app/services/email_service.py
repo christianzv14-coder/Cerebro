@@ -39,21 +39,24 @@ def _send_via_resend(to_email: str, subject: str, html_content: str):
         "Content-Type": "application/json"
     }
     
+    # Parse multiple recipients (comma-separated)
+    to_emails = [email.strip() for email in to_email.split(',') if email.strip()]
+    
     payload = {
         "from": "Cerebro <" + sender + ">",
-        "to": [to_email],
+        "to": to_emails,
         "subject": subject,
         "html": html_content
     }
 
-    _log_debug(f"Sending via Resend to {to_email}...")
+    _log_debug(f"Sending via Resend to {', '.join(to_emails)}...")
     
     try:
         resp = requests.post(RESEND_API_URL, json=payload, headers=headers)
         
         if resp.status_code in [200, 201, 202]:
             _log_debug(f"Resend Success: {resp.json()}")
-            print(f"Email sent via Resend to {to_email}")
+            print(f"Email sent via Resend to {', '.join(to_emails)}")
             return True
         else:
             error_detail = resp.text

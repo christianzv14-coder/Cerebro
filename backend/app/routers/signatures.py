@@ -150,8 +150,8 @@ async def _process_signature_upload(db, current_user, background_tasks: Backgrou
         ).all()
         
         # Hardcoded Target for Reliability
-        notification_target = "christianzv14@gmail.com"
-        
+        # Get recipients from environment (supports multiple emails comma-separated)
+        notification_target = os.getenv("SMTP_TO", "christianzv14@gmail.com")
         print(f"DEBUG: SENDING INDIVIDUAL EMAIL to {notification_target}...")
         print(">>> RUNNING INDIVIDUAL MODE v2 <<")
         

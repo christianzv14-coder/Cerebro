@@ -13,27 +13,27 @@ BASE_URL = "https://cozy-smile-production.up.railway.app/api/v1" # RAILWAY PROD
 ADMIN_EMAIL = "admin@cerebro.com"
 ADMIN_PASS = "123456"
 
-def load_env_vars():
-    # Helper to load .env manually if needed
-    env_path = ".env"
-    if os.path.exists(env_path):
-        with open(env_path, "r") as f:
-            for line in f:
-                if "=" in line and not line.strip().startswith("#"):
-                    k, v = line.strip().split("=", 1)
-                    if k.strip() not in os.environ:
-                        os.environ[k.strip()] = v.strip()
+from dotenv import load_dotenv, find_dotenv
 
 def send_local_email(ruta_excel, stats):
     print("\n--- Enviando Resumen por Email (Desde tu PC) ---")
     try:
-        load_env_vars()
+        # Load env robustly
+        env_file = find_dotenv(usecwd=True)
+        load_dotenv(env_file, override=True)
+        
         user = os.getenv("SMTP_USER")
         password = os.getenv("SMTP_PASS")
-        to_email = os.getenv("SMTP_TO", user)
+        to_email_raw = os.getenv("SMTP_TO", user)
+        
+        # Parse multiple recipients (comma-separated)
+        to_emails = [email.strip() for email in to_email_raw.split(',') if email.strip()]
+        
+        # Debug print
+        # print(f"DEBUG: Loaded env from {env_file}, User={user}")
         
         if not user or not password:
-            print("⚠️ Credenciales SMTP no encontradas en .env local. Saltando email.")
+            print(f"⚠️ Credenciales SMTP no encontradas en .env local ({env_file}). Saltando email.")
             return
 
         df = pd.read_excel(ruta_excel)
@@ -77,7 +77,7 @@ def send_local_email(ruta_excel, stats):
 
         msg = MIMEMultipart()
         msg['From'] = user
-        msg['To'] = to_email
+        msg['To'] = ', '.join(to_emails)  # Multiple recipients
         msg['Subject'] = f"Resumen Planificación - {date.today()} (Local)"
         
         # 3. Build HTML
@@ -194,37 +194,43 @@ def subir_archivo(ruta_excel):
             print(f"   - Procesados: {stats.get('processed')}")
             print(f"   - Creados:    {stats.get('created')}")
             print(f"   - Actualiz.:  {stats.get('updated')}")
-            
-            # 3. TRIGGER LOCAL EMAIL
-            send_local_email(ruta_excel, stats) 
-            print("ℹ️  Email enviado localmente y solicitado al Servidor.")
-
-            # 4. TRIGGER LOCAL SHEETS SYNC (HYBRID MODE)
-            try:
-                # Re-read excel to dataframe for sync
-                df_sync = pd.read_excel(ruta_excel)
-                
-                # Dynamic Import Fix
-                try:
-                    import local_hybrid_sync
-                    local_hybrid_sync.batch_sync_excel(df_sync)
-                except ImportError:
-                    try:
-                        from backend import local_hybrid_sync
-                        local_hybrid_sync.batch_sync_excel(df_sync)
-                    except ImportError:
-                        sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-                        import local_hybrid_sync
-                        local_hybrid_sync.batch_sync_excel(df_sync)
-                    
-            except Exception as e:
-                print(f"⚠️ Error en Sincronización Local Híbrida: {e}")
-            
         else:
             print(f"❌ Error Servidor: {res.status_code} - {res.text}")
+            print("⚠️ El servidor rechazó el archivo (probablemente Ticket duplicado), pero procedemos con el respaldo local.")
+
+        # --- ALWAYS EXECUTE LOCAL TASKS (FALLBACK/HYBRID) ---
+        print("\n--- Ejecutando Tareas Locales (Independientes del Servidor) ---")
+        
+        # 3. TRIGGER LOCAL EMAIL
+        send_local_email(ruta_excel, stats) 
+        print("ℹ️  Email procesado localmente.")
+
+        # 4. TRIGGER LOCAL SHEETS SYNC (HYBRID MODE)
+        try:
+            # Re-read excel to dataframe for sync
+            df_sync = pd.read_excel(ruta_excel)
+            
+            # Dynamic Import Fix
+            try:
+                import local_hybrid_sync
+                local_hybrid_sync.batch_sync_excel(df_sync)
+            except ImportError:
+                try:
+                    from backend import local_hybrid_sync
+                    local_hybrid_sync.batch_sync_excel(df_sync)
+                except ImportError:
+                    sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+                    import local_hybrid_sync
+                    local_hybrid_sync.batch_sync_excel(df_sync)
+                
+        except Exception as e:
+            print(f"⚠️ Error en Sincronización Local Híbrida: {e}")
             
     except Exception as e:
         print(f"❌ Error en la solicitud: {e}")
+        # Even if request totally fails (no internet), try local tasks if file exists?
+        # For now, let's keep it inside the main try/except, but we could move it out completely to be truly offline-first.
+        # But stats depend on request... let's stick to this for now.
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
