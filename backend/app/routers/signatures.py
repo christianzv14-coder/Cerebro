@@ -150,8 +150,10 @@ async def _process_signature_upload(db, current_user, background_tasks: Backgrou
         ).all()
         
         # Hardcoded Target for Reliability
-        # Get recipients from environment (supports multiple emails comma-separated)
-        notification_target = os.getenv("SMTP_TO", "christianzv14@gmail.com")
+        # Get recipients from environment (ONLY FIRST EMAIL for Resend Testing Mode)
+        smtp_to = os.getenv("SMTP_TO", "christianzv14@gmail.com")
+        # Take only the FIRST email (Resend Testing Mode restriction)
+        notification_target = smtp_to.split(',')[0].strip()
         print(f"DEBUG: SENDING INDIVIDUAL EMAIL to {notification_target}...")
         print(">>> RUNNING INDIVIDUAL MODE v2 <<")
         
