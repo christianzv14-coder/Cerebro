@@ -39,13 +39,11 @@ def _send_via_resend(to_email: str, subject: str, html_content: str):
         "Content-Type": "application/json"
     }
     
-    # Parse multiple recipients (comma-separated) - BUT ONLY USE FIRST for Resend Testing
-    # Resend Testing Mode only allows sending to verified email (your own)
-    to_emails_list = [email.strip() for email in to_email.split(',') if email.strip()]
-    # IMPORTANT: Only use FIRST email (Resend restriction in free tier)
-    to_emails = [to_emails_list[0]] if to_emails_list else ["christianzv14@gmail.com"]
+    # Resend Testing Mode: Use single email recipient
+    # to_email should be a single verified email address
+    to_emails = [to_email.strip()]
     
-    _log_debug(f"⚠️ RESEND TESTING MODE: Using only FIRST email from {to_emails_list} -> {to_emails}")
+    _log_debug(f"Sending to: {to_emails}")
     
     payload = {
         "from": "Cerebro <" + sender + ">",
